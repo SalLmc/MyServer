@@ -23,7 +23,7 @@ class Epoller
     uint32_t getEvents(size_t i) const;
 
   private:
-    int epollfd_;
+    int epollfd_=-1;
     std::vector<epoll_event> events_;
 };
 

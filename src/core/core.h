@@ -8,12 +8,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+#include <vector>
 
 #include "../buffer/buffer.h"
 #include "../log/nanolog.hpp"
-
-int setnonblocking(int fd);
-unsigned long long getTickMs();
 
 class Connection;
 
@@ -24,12 +22,32 @@ struct Event
     int type;
 };
 
+class Fd
+{
+  public:
+    Fd();
+    Fd(int fd);
+    ~Fd();
+    int getFd();
+    bool operator==(int fd);
+    bool operator==(Fd fd);
+    bool operator!=(int fd);
+    bool operator!=(Fd fd);
+    void operator=(int fd);
+
+  private:
+    int fd_ = -1;
+};
+
 class Connection
 {
   public:
+    ~Connection()
+    {
+    }
     Event read_;
     Event write_;
-    int fd_;
+    Fd fd_;
     sockaddr_in addr_;
     Buffer readBuffer_;
     Buffer writeBuffer_;
@@ -44,43 +62,17 @@ class ConnectionPool
 
   public:
     const static int POOLSIZE = 32;
-    ConnectionPool()
-    {
-        flags = 0;
-        cPool_ = new Connection *[POOLSIZE];
-        for (int i = 0; i < POOLSIZE; i++)
-        {
-            cPool_[i] = new Connection;
-            cPool_[i]->idx_ = -1;
-        }
-    }
-    ~ConnectionPool()
-    {
-        for (int i = 0; i < POOLSIZE; i++)
-        {
-            delete cPool_[i];
-        }
-        delete cPool_;
-    }
-    Connection *getNewConnection()
-    {
-        for (int i = 0; i < POOLSIZE; i++)
-        {
-            if (!(flags >> i))
-            {
-                flags |= (1 << i);
-                cPool_[i]->idx_ = i;
-                return cPool_[i];
-            }
-        }
-        return NULL;
-    }
-    void recoverConnection(Connection *c)
-    {
-        uint8_t recover = ~(1 << c->idx_);
-        flags &= recover;
-        c->idx_ = -1;
-    }
+    ConnectionPool();
+    ~ConnectionPool();
+    Connection *getNewConnection();
+    void recoverConnection(Connection *c);
+};
+
+class Cycle
+{
+  public:
+    ConnectionPool *pool_;
+    std::vector<Connection *> listening_;
 };
 
 #endif

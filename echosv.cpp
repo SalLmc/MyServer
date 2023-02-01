@@ -18,31 +18,30 @@
 #include <unistd.h>
 #include <vector>
 
-#include "../core/core.h"
-#include "../event/epoller.h"
-
-#define READ_EVENT 1
-#define WRITE_EVENT 2
+#include "src/core/core.h"
+#include "src/event/epoller.h"
+#include "src/util/utils_declaration.h"
+#include "src/http/http.h"
+#include "src/global.h"
 
 bool isStop;
 int sigPipe[2];
 
-ConnectionPool connectionPool;
-Epoller epoller;
+std::unordered_map<std::string, std::string> mp;
 
 int recvPrint(Event *ev)
 {
-    int len = ev->c->readBuffer_.readFd(ev->c->fd_, &errno);
+    int len = ev->c->readBuffer_.readFd(ev->c->fd_.getFd(), &errno);
     if (len == 0)
     {
         printf("client close connection\n");
-        connectionPool.recoverConnection(ev->c);
+        pool.recoverConnection(ev->c);
         return 1;
     }
     else if (len < 0)
     {
         printf("errno:%d\n", errno);
-        connectionPool.recoverConnection(ev->c);
+        pool.recoverConnection(ev->c);
         return 1;
     }
     printf("recv len:%d from client:%s\n", len, ev->c->readBuffer_.allToStr().c_str());
@@ -52,59 +51,33 @@ int recvPrint(Event *ev)
 
 int echoPrint(Event *ev)
 {
-    ev->c->writeBuffer_.writeFd(ev->c->fd_, &errno);
+    ev->c->writeBuffer_.writeFd(ev->c->fd_.getFd(), &errno);
     ev->c->writeBuffer_.retrieveAll();
     return 0;
 }
 
 int newConnection(Event *ev)
 {
-    Connection *newc = connectionPool.getNewConnection();
+    Connection *newc = pool.getNewConnection();
     assert(newc != NULL);
 
     sockaddr_in *addr = &newc->addr_;
     socklen_t len = sizeof(*addr);
 
-    newc->fd_ = accept(ev->c->fd_, (sockaddr *)addr, &len);
-    assert(newc->fd_ > 0);
+    newc->fd_ = accept(ev->c->fd_.getFd(), (sockaddr *)addr, &len);
+    assert(newc->fd_.getFd() > 0);
 
-    setnonblocking(newc->fd_);
+    setnonblocking(newc->fd_.getFd());
 
     newc->read_.c = newc->write_.c = newc;
 
     newc->read_.handler = recvPrint;
     newc->write_.handler = echoPrint;
 
-    epoller.addFd(newc->fd_, EPOLLIN | EPOLLOUT, newc);
+    epoller.addFd(newc->fd_.getFd(), EPOLLIN | EPOLLOUT, newc);
 
-    printf("new connection\n");
+    printf("NEW CONNECTION\n");
     return 0;
-}
-
-Connection *addListen(int port)
-{
-    Connection *listenC = connectionPool.getNewConnection();
-
-    assert(listenC != NULL);
-
-    listenC->addr_.sin_addr.s_addr = INADDR_ANY;
-    listenC->addr_.sin_family = AF_INET;
-    listenC->addr_.sin_port = htons(port);
-    listenC->read_.c = listenC->write_.c = listenC;
-    listenC->read_.handler = newConnection;
-
-    listenC->fd_ = socket(AF_INET, SOCK_STREAM, 0);
-    assert(listenC->fd_ > 0);
-
-    int reuse = 1;
-    setsockopt(listenC->fd_, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
-    setnonblocking(listenC->fd_);
-
-    assert(bind(listenC->fd_, (sockaddr *)&listenC->addr_, sizeof(listenC->addr_)) == 0);
-
-    assert(listen(listenC->fd_, 5) == 0);
-
-    return listenC;
 }
 
 void sigHandler(int sig)
@@ -128,7 +101,7 @@ void addSig(int sig)
 int sigDiffer(Event *ev)
 {
     int sig;
-    recv(ev->c->fd_, &sig, 1, 0);
+    recv(ev->c->fd_.getFd(), &sig, 1, 0);
     if ((sig & 0xf) == SIGINT)
     {
         isStop = 1;
@@ -144,29 +117,26 @@ void handleSignal()
 
     addSig(SIGINT);
 
-    Connection *signalC = connectionPool.getNewConnection();
+    Connection *signalC = pool.getNewConnection();
     signalC->fd_ = sigPipe[0];
     signalC->read_.handler = sigDiffer;
     signalC->read_.c = signalC;
 
-    epoller.addFd(signalC->fd_, EPOLLIN, signalC);
+    epoller.addFd(signalC->fd_.getFd(), EPOLLIN, signalC);
 }
 
 int main(int argc, char *argv[])
 {
-    nanolog::initialize(nanolog::NonGuaranteedLogger(10), "./log/", "slog", 1);
+    assert(getOption(argc, argv, &mp) == 0);
+    nanolog::initialize(nanolog::NonGuaranteedLogger(10), "./log/", "log", 1);
 
-    if (argc < 2)
-    {
-        printf("usage: %s port_number\n", basename(argv[0]));
-        return 1;
-    }
-    int port = atoi(argv[1]);
+    Cycle cycle;
+    cycle.pool_ = &pool;
 
-    // setnonblocking(epoller.getFd());
+    Connection *listenC = addListen(&cycle, std::stoi(mp["port"]));
+    listenC->read_.handler=newConnection;
 
-    Connection *listenC = addListen(port);
-    assert(epoller.addFd(listenC->fd_, EPOLLIN, listenC));
+    assert(epoller.addFd(listenC->fd_.getFd(), EPOLLIN, listenC));
 
     handleSignal();
 

@@ -1,27 +1,35 @@
-PROGS = ./build/libmy.so echosv test
+PROGS = libmy.so signal_test test echosv
 
-OBJS = ./src/buffer/buffer.o ./src/core/core.o ./src/event/epoller.o ./src/log/nanolog.o
+SRCDIRS = src/buffer src/core src/event src/http src/log src/util src
+
+CPP_SOURCES = $(foreach dir, $(SRCDIRS), $(wildcard $(dir)/*.cpp))
+CPP_OBJECTS = $(patsubst %.cpp, %.o, $(CPP_SOURCES))
 
 ARSTATICLIB = ar rcs $@ $^
 CPPSHARELIB = g++ -fPIC -shared $^ -o $@
 
 LINK = -pthread
 FLAGS = -Wall -g
-BUILDEXE = g++ $(FLAGS) $^ ./build/libmy.so -o $@ $(LINK)
+
+BUILDEXEWITHLIB = g++ $(FLAGS) $^ ./libmy.so -o $@ $(LINK)
+BUILDEXE = g++ $(FLAGS) $^ -o $@ $(LINK)
 
 all: $(PROGS)
 
-./build/libmy.so: $(OBJS)
+libmy.so: $(CPP_OBJECTS)
 	$(CPPSHARELIB)
 
-echosv: ./src/http/echosv.o
-	$(BUILDEXE)
+signal_test: signal_test.o
+	$(BUILDEXEWITHLIB)
 
 test: test.o
-	$(BUILDEXE)
+	$(BUILDEXEWITHLIB)
+
+echosv: echosv.o
+	$(BUILDEXEWITHLIB)
 
 clean:
-	rm -f $(PROGS) $(OBJS) ./src/http/echosv.o test.o
+	rm -f $(PROGS) $(CPP_OBJECTS) *.o
 
-.cpp.o:
+%.o: %.cpp
 	g++ $(FLAGS) -fPIC -c $< -o $@
