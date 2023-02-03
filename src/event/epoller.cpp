@@ -17,6 +17,7 @@ int Epoller::getFd()
     return epollfd_;
 }
 
+// ctx is Connection*
 bool Epoller::addFd(int fd, uint32_t events, void *ctx)
 {
     if (fd < 0)
@@ -61,16 +62,4 @@ int Epoller::processEvents(int flags, int timeout_ms)
             c->write_.handler(&c->write_);
         }
     }
-}
-
-int Epoller::getEventFd(size_t i) const
-{
-    assert(i < events_.size() && i >= 0);
-    return events_[i].data.fd;
-}
-
-uint32_t Epoller::getEvents(size_t i) const
-{
-    assert(i < events_.size() && i >= 0);
-    return events_[i].events;
 }

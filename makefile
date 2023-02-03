@@ -1,4 +1,4 @@
-PROGS = libmy.so signal_test test echosv
+PROGS = libmy.so signal_test test echosv main
 
 SRCDIRS = src/buffer src/core src/event src/http src/log src/util src
 
@@ -26,6 +26,9 @@ test: test.o
 	$(BUILDEXEWITHLIB)
 
 echosv: echosv.o
+	$(BUILDEXEWITHLIB)
+
+main: main.o
 	$(BUILDEXEWITHLIB)
 
 clean:

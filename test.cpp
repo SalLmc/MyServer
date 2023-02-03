@@ -1,17 +1,20 @@
+#include "src/core/core.h"
+#include "src/global.h"
+#include "src/log/nanolog.hpp"
+#include "src/util/utils_declaration.h"
+#include <bits/stdc++.h>
+#include <stdio.h>
+#include <string>
 #include <sys/fcntl.h>
 #include <unistd.h>
-#include <stdio.h>
 #include <vector>
-#include <string>
-#include <bits/stdc++.h>
-#include "src/util/utils_declaration.h"
-
 #define POOLSIZE 32
 
-std::unordered_map<std::string,std::string> mp;
-
-int main(int argc,char *argv[])
+int main(int argc, char *argv[])
 {
-    getOption(argc,argv,&mp);
-    std::cout<<mp["port"]<<std::endl;
+    nanolog::initialize(nanolog::GuaranteedLogger(), "log/", "log", 1);
+    int fd;
+    assert(fd=open("pid_file",O_RDWR)>=0);
+    close(fd);
+    close(fd);
 }

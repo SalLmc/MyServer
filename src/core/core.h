@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <fcntl.h>
 #include <functional>
+#include <memory>
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <string.h>
@@ -68,11 +69,23 @@ class ConnectionPool
     void recoverConnection(Connection *c);
 };
 
-class Cycle
+class Cycle : public std::enable_shared_from_this<Cycle>
 {
   public:
     ConnectionPool *pool_;
     std::vector<Connection *> listening_;
+    // std::shared_ptr<Cycle> getSharedPtr();
+};
+
+#define NOT_USED 0
+#define ACTIVE 1
+
+class Process
+{
+  public:
+    Connection channel[2];
+    pid_t pid;
+    int status = NOT_USED;
 };
 
 #endif

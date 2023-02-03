@@ -12,6 +12,7 @@ Fd::~Fd()
 {
     if (fd_ != -1)
     {
+        // LOG_INFO<<fd_<<" closed";
         close(fd_);
     }
 }
@@ -87,3 +88,8 @@ void ConnectionPool::recoverConnection(Connection *c)
         c->fd_ = -1;
     }
 }
+
+// std::shared_ptr<Cycle> Cycle::getSharedPtr()
+// {
+//     return shared_from_this();
+// }

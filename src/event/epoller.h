@@ -19,8 +19,6 @@ class Epoller
     bool modFd(int fd, uint32_t events, void *ctx);
     bool delFd(int fd);
     int processEvents(int flags=0,int timeout_ms = -1);
-    int getEventFd(size_t i) const; // const means only allow to read func members
-    uint32_t getEvents(size_t i) const;
 
   private:
     int epollfd_=-1;
