@@ -1,4 +1,4 @@
-PROGS = libmy.so signal_test test echosv main
+PROGS = libmy.so signal_test log_test echosv main
 
 SRCDIRS = src/buffer src/core src/event src/http src/log src/util src
 
@@ -22,7 +22,7 @@ libmy.so: $(CPP_OBJECTS)
 signal_test: signal_test.o
 	$(BUILDEXEWITHLIB)
 
-test: test.o
+log_test: log_test.o
 	$(BUILDEXEWITHLIB)
 
 echosv: echosv.o

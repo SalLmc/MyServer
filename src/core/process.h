@@ -3,6 +3,7 @@
 
 #include "core.h"
 #include <functional>
+#include <signal.h>
 
 void masterProcessCycle(Cycle *cycle);
 void workerProcessCycle(Cycle *cycle);

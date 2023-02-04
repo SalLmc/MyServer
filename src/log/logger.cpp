@@ -1,3 +1,5 @@
+#include "../core/core.h"
+#include "../util/utils_declaration.h"
 #include "logger.h"
 
 LogLine::LogLine()
@@ -8,6 +10,7 @@ LogLine::LogLine()
 
 LogLine::LogLine(Level level, char const *file, char const *function, unsigned int line)
 {
+    // time
     timeStamp_ = getTickMs();
     auto shortTime = timeStamp_ / 1000;
     std::time_t time_t = shortTime;
@@ -15,9 +18,17 @@ LogLine::LogLine(Level level, char const *file, char const *function, unsigned i
     gmtime->tm_hour += 8;
     char buffer[32];
     strftime(buffer, 100, "%Y-%m-%d %H:%M:%S", gmtime);
-
     strcpy(ctimeStamp_, buffer);
+
+    // pid
+    pid_ = getpid();
+    sprintf(cPid_, "%d", pid_);
+
+    // line
     sprintf(cLine_, "%d", line);
+    line_ = line;
+
+    // level
     switch (level)
     {
     case Level::CRIT:
@@ -30,11 +41,13 @@ LogLine::LogLine(Level level, char const *file, char const *function, unsigned i
         cLevel_ = "WARN";
         break;
     }
-
     level_ = level;
+
+    // file
     file_ = file;
+
+    // function
     function_ = function;
-    line_ = line;
 }
 
 LogLine &LogLine::operator<<(int8_t arg)
@@ -116,8 +129,17 @@ int LogLine::stringify(char *buffer, int n)
     tmp[pos++] = ' ';
 
     // time
+    tmp[pos++] = '[';
     strcpy(tmp + pos, ctimeStamp_);
     pos += strlen(tmp + pos);
+    tmp[pos++] = ']';
+    tmp[pos++] = ' ';
+
+    // pid
+    tmp[pos++] = '<';
+    strcpy(tmp + pos, cPid_);
+    pos += strlen(tmp + pos);
+    tmp[pos++] = '>';
     tmp[pos++] = ' ';
 
     // file function line
@@ -159,6 +181,9 @@ Logger::Logger(const char *path, const char *name, unsigned long long size)
 Logger::~Logger()
 {
     shutdown.store(1);
+    while (!writeThread.joinable())
+    {
+    }
     writeThread.join();
 }
 Logger &Logger::operator+=(LogLine &line)

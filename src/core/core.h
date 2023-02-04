@@ -68,12 +68,14 @@ class ConnectionPool
     void recoverConnection(Connection *c);
 };
 
-class Cycle : public std::enable_shared_from_this<Cycle>
+#include "../log/logger.h"
+
+class Cycle
 {
   public:
     ConnectionPool *pool_;
     std::vector<Connection *> listening_;
-    // std::shared_ptr<Cycle> getSharedPtr();
+    std::unique_ptr<Logger> logger;
 };
 
 #define NOT_USED 0

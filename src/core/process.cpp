@@ -1,6 +1,5 @@
 #include "process.h"
 #include "../global.h"
-#include <signal.h>
 
 void masterProcessCycle(Cycle *cycle)
 {
@@ -19,7 +18,6 @@ void masterProcessCycle(Cycle *cycle)
 
     startWorkerProcesses(cycle, 2);
 
-    sleep(1);
     printf("looping\n");
     for (;;)
     {

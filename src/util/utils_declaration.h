@@ -1,8 +1,6 @@
 #ifndef UTILS_DECLARATION_H
 #define UTILS_DECLARATION_H
 
-#include "../core/core.h"
-#include "../global.h"
 #include <signal.h>
 #include <string>
 #include <unordered_map>

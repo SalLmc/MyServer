@@ -1,6 +1,6 @@
 #include "http.h"
+#include "../util/utils_declaration.h"
 #include "../event/epoller.h"
-#include "../core/core.h"
 #include "../global.h"
 
 Connection *addListen(Cycle *cycle, int port)

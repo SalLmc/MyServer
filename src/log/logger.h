@@ -1,7 +1,7 @@
 #ifndef LOGGER_H
-#define LOGGER_h
+#define LOGGER_H
 
-#include "../util/utils_declaration.h"
+#include <list>
 #include <string>
 #include <sys/stat.h>
 #include <thread>
@@ -43,6 +43,9 @@ class LogLine
     char ctimeStamp_[32];
     unsigned long long timeStamp_;
 
+    char cPid_[16];
+    pid_t pid_;
+
     char buffer_[1024];
     int pos = 0;
 };
@@ -72,8 +75,8 @@ class Logger
     std::atomic<bool> shutdown;
 };
 
-#define LOG_INFO(logger) (logger) += LogLine(Level::INFO, __FILE__, __func__, __LINE__)
-#define LOG_WARN(logger) (logger) += LogLine(Level::WARN, __FILE__, __func__, __LINE__)
-#define LOG_CRIT(logger) (logger) += LogLine(Level::CRIT, __FILE__, __func__, __LINE__)
+#define LOG_INFO(logger) (logger)+= LogLine(Level::INFO, __FILE__, __func__, __LINE__)
+#define LOG_WARN(logger) (logger)+= LogLine(Level::WARN, __FILE__, __func__, __LINE__)
+#define LOG_CRIT(logger) (logger)+= LogLine(Level::CRIT, __FILE__, __func__, __LINE__)
 
 #endif

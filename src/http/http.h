@@ -2,7 +2,6 @@
 #define HTTP
 
 #include "../core/core.h"
-#include "../util/utils_declaration.h"
 
 Connection *addListen(Cycle *cycle, int port);
 

@@ -10,8 +10,6 @@
 
 #define MAX_PROCESS_N 16
 
-struct SignalWrapper;
-
 extern ConnectionPool pool;
 extern Epoller epoller;
 

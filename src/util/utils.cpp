@@ -1,5 +1,5 @@
-#include "../core/core.h"
 #include "utils_declaration.h"
+#include "../core/core.h"
 
 int setnonblocking(int fd)
 {
