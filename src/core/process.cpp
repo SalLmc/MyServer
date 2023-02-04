@@ -11,7 +11,7 @@ void masterProcessCycle(Cycle *cycle)
 
     if (sigprocmask(SIG_BLOCK, &set, NULL) == -1)
     {
-        LOG_CRIT << "sigprocmask failed";
+        // LOG_CRIT << "sigprocmask failed";
         return;
     }
 
@@ -19,6 +19,7 @@ void masterProcessCycle(Cycle *cycle)
 
     startWorkerProcesses(cycle, 2);
 
+    sleep(1);
     printf("looping\n");
     for (;;)
     {
@@ -52,7 +53,7 @@ void workerProcessCycle(Cycle *cycle)
 
     if (sigprocmask(SIG_SETMASK, &set, NULL) == -1)
     {
-        LOG_CRIT << "sigprocmask failed";
+        // LOG_CRIT << "sigprocmask failed";
         exit(1);
     }
 
@@ -83,7 +84,7 @@ pid_t spawnProcesses(Cycle *cycle, std::function<void(Cycle *)> proc)
         return -1;
     }
 
-    // fd[0] holds by master process fd[1] hold by worker process
+    // fd[0] holds by master process, fd[1] hold by worker process
     int fd[2];
     assert(socketpair(AF_UNIX, SOCK_STREAM, 0, fd) != -1);
     processes[slot].channel[0].fd_ = fd[0];
@@ -97,7 +98,7 @@ pid_t spawnProcesses(Cycle *cycle, std::function<void(Cycle *)> proc)
     switch (pid)
     {
     case 0: // worker
-        processes[slot].pid = pid;
+        processes[slot].pid = getpid();
         processes[slot].status = ACTIVE;
 
         processes[slot].channel[1].read_.c = &processes[slot].channel[1];
@@ -109,7 +110,7 @@ pid_t spawnProcesses(Cycle *cycle, std::function<void(Cycle *)> proc)
 
         break;
     case -1:
-        LOG_CRIT << "fork() failed";
+        // LOG_CRIT << "fork() failed";
         break;
     default: // master
         processes[slot].pid = pid;
@@ -126,32 +127,23 @@ int recvFromMaster(Event *rev)
     char buffer[64];
     memset(buffer, 0, sizeof(buffer));
     recv(rev->c->fd_.getFd(), buffer, 63, 0);
-    printf("recv from master:%s\n", buffer);
+    printf("slot:%d, recv from worker:%s\n", slot, buffer);
     return 0;
 }
 
-int recvFromWorker(Event *rev)
-{
-    char buffer[64];
-    memset(buffer, 0, sizeof(buffer));
-    recv(rev->c->fd_.getFd(), buffer, 63, 0);
+// int recvFromWorker(Event *rev)
+// {
+//     char buffer[64];
+//     memset(buffer, 0, sizeof(buffer));
+//     recv(rev->c->fd_.getFd(), buffer, 63, 0);
 
-    int idx = atoi(buffer);
-    printf("recv from worker:%d\n", idx);
-    processes[idx].status = NOT_USED;
-
-    return 0;
-}
+//     // printf("slot:%d, recv from worker:%d\n", slot, idx);
+//     LOG_INFO<<"slot:"<<slot<<", recv from worker:"<<buffer;
+//     return 0;
+// }
 
 void signalWorkerProcesses(int sig)
 {
-    for (int i = 0; i < MAX_PROCESS_N; i++)
-    {
-        if (processes[i].status == ACTIVE)
-        {
-            printf("pid:%d\n", processes[i].pid);
-        }
-    }
     for (int i = 0; i < MAX_PROCESS_N; i++)
     {
         if (processes[i].status == ACTIVE)

@@ -12,7 +12,6 @@
 #include <vector>
 
 #include "../buffer/buffer.h"
-#include "../log/nanolog.hpp"
 
 class Connection;
 

@@ -1,6 +1,5 @@
 #include "src/core/core.h"
 #include "src/global.h"
-#include "src/log/nanolog.hpp"
 #include "src/util/utils_declaration.h"
 #include <bits/stdc++.h>
 #include <stdio.h>
@@ -8,13 +7,15 @@
 #include <sys/fcntl.h>
 #include <unistd.h>
 #include <vector>
-#define POOLSIZE 32
+
+#include "src/log/logger.h"
+
+Logger lg("log/", "test", 10);
 
 int main(int argc, char *argv[])
 {
-    nanolog::initialize(nanolog::GuaranteedLogger(), "log/", "log", 1);
-    int fd;
-    assert(fd=open("pid_file",O_RDWR)>=0);
-    close(fd);
-    close(fd);
+    for (int i = 0; i < 10; i++)
+    {
+        LOG_INFO(lg) << "hello test " << 1;
+    }
 }

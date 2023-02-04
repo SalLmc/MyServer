@@ -1,5 +1,6 @@
 #include "../event/epoller.h"
 #include "../core/core.h"
+#include "../global.h"
 
 Epoller::Epoller(int max_event) : epollfd_(epoll_create(5)), events_(max_event)
 {
@@ -52,14 +53,14 @@ int Epoller::processEvents(int flags, int timeout_ms)
     for (int i = 0; i < ret; i++)
     {
         Connection *c = (Connection *)events_[i].data.ptr;
-
-        if ((events_[i].events & EPOLLIN) && c->idx_ != -1)
+        if ((events_[i].events & EPOLLIN) && c != NULL && c->idx_ != -1 && c->read_.handler)
         {
             c->read_.handler(&c->read_);
         }
-        if ((events_[i].events & EPOLLOUT) && c->idx_ != -1)
+        if ((events_[i].events & EPOLLOUT) && c != NULL && c->idx_ != -1 && c->write_.handler)
         {
             c->write_.handler(&c->write_);
         }
     }
+    return 0;
 }

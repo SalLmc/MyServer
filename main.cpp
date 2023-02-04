@@ -9,17 +9,16 @@
 
 int main(int argc, char *argv[])
 {
-    nanolog::initialize(nanolog::GuaranteedLogger(), "log/", "log", 1);
 
     if (getOption(argc, argv, &mp) == -1)
     {
-        LOG_CRIT << "get option failed";
+        // LOG_CRIT << "get option failed";
         return 1;
     }
 
     if (init_signals() == -1)
     {
-        LOG_CRIT << "init signals failed";
+        // LOG_CRIT << "init signals failed";
         return 1;
     }
 
@@ -33,12 +32,12 @@ int main(int argc, char *argv[])
             {
                 if (pid != -1)
                 {
-                    LOG_INFO << "process has been stopped";
+                    // LOG_INFO << "process has been stopped";
                     return 0;
                 }
                 else
                 {
-                    LOG_CRIT << "send signal failed";
+                    // LOG_CRIT << "send signal failed";
                     return 1;
                 }
             }
@@ -46,14 +45,14 @@ int main(int argc, char *argv[])
         }
         else
         {
-            LOG_CRIT << "open pid file failed";
+            // LOG_CRIT << "open pid file failed";
             return 1;
         }
     }
 
     if (writePid2File() == -1)
     {
-        LOG_CRIT << "write pid failed";
+        // LOG_CRIT << "write pid failed";
         return -1;
     }
 

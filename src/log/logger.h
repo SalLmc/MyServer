@@ -1,0 +1,79 @@
+#ifndef LOGGER_H
+#define LOGGER_h
+
+#include "../util/utils_declaration.h"
+#include <string>
+#include <sys/stat.h>
+#include <thread>
+#include <unistd.h>
+
+enum class Level
+{
+    INFO,
+    WARN,
+    CRIT
+};
+
+class LogLine
+{
+  public:
+    LogLine();
+    LogLine(Level level, char const *file, char const *function, unsigned int line);
+    int stringify(char *buffer, int n);
+    LogLine &operator<<(int8_t arg);
+    LogLine &operator<<(uint8_t arg);
+    LogLine &operator<<(int16_t arg);
+    LogLine &operator<<(uint16_t arg);
+    LogLine &operator<<(int32_t arg);
+    LogLine &operator<<(uint32_t arg);
+    LogLine &operator<<(int64_t arg);
+    LogLine &operator<<(uint64_t arg);
+    LogLine &operator<<(std::string &arg);
+    LogLine &operator<<(const char *arg);
+
+    char const *file_;
+    char const *function_;
+
+    unsigned int line_;
+    char cLine_[16];
+
+    Level level_;
+    char const *cLevel_;
+
+    char ctimeStamp_[32];
+    unsigned long long timeStamp_;
+
+    char buffer_[1024];
+    int pos = 0;
+};
+
+class Logger
+{
+  public:
+    Logger() = delete;
+    Logger(const char *path, const char *name, unsigned long long size);
+    ~Logger();
+    Logger &operator+=(LogLine &line);
+
+    void write2File();
+
+    const char *filePath_;
+    const char *fileName_;
+    unsigned long long maxFileSize_;
+
+  private:
+    std::list<LogLine> ls_;
+
+    Fd fd_;
+    int cnt;
+
+    std::thread writeThread;
+    std::atomic<bool> writing2List;
+    std::atomic<bool> shutdown;
+};
+
+#define LOG_INFO(logger) (logger) += LogLine(Level::INFO, __FILE__, __func__, __LINE__)
+#define LOG_WARN(logger) (logger) += LogLine(Level::WARN, __FILE__, __func__, __LINE__)
+#define LOG_CRIT(logger) (logger) += LogLine(Level::CRIT, __FILE__, __func__, __LINE__)
+
+#endif

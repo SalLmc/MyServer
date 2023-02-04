@@ -7,6 +7,8 @@
 #include <string>
 #include <unordered_map>
 
+#define asm_pause() __asm__("pause")
+
 /* utils.cpp */
 
 int setnonblocking(int fd);

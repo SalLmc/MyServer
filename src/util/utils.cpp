@@ -77,7 +77,7 @@ pid_t readPidFromFile()
     }
     char buffer[100];
     memset(buffer, '\0', sizeof(buffer));
-    int ret = read(filefd.getFd(), buffer, sizeof(buffer) - 1);
+    assert(read(filefd.getFd(), buffer, sizeof(buffer) - 1) > 0);
     pid_t pid = atoi(buffer);
     return pid;
 }

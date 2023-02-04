@@ -106,6 +106,7 @@ int sigDiffer(Event *ev)
     {
         isStop = 1;
     }
+    return 0;
 }
 
 void handleSignal()
@@ -128,7 +129,6 @@ void handleSignal()
 int main(int argc, char *argv[])
 {
     assert(getOption(argc, argv, &mp) == 0);
-    nanolog::initialize(nanolog::NonGuaranteedLogger(10), "./log/", "log", 1);
 
     Cycle cycle;
     cycle.pool_ = &pool;
