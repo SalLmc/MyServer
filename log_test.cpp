@@ -10,47 +10,35 @@
 
 #include "src/log/logger.h"
 
-class node
-{
-  public:
-    int x = 1;
-    node()
-    {
-        printf("constructing\n");
-    }
-    node(int n)
-    {
-        x = n;
-        printf("%d is constructing\n", x);
-    }
-    ~node()
-    {
-        printf("%d is destructing\n", x);
-    }
-};
-
 int main(int argc, char *argv[])
 {
-    std::unique_ptr<Logger> lg(new Logger("log/", "startup", 10));
-    LOG_CRIT(*lg) << "start";
-    lg.reset();
-    lg.reset(new Logger("log/", "anotherstartup", 10));
-    LOG_CRIT(*lg) << "anotherstart";
+    // std::unique_ptr<Logger> lg(new Logger("log/", "startup", 10));
+    Logger *lg = new Logger("log/", "startup", 10);
+
+    for (int i = 0; i < 10; i++)
+        LOG_CRIT(*lg) << "start";
+    printf("STARTUP END\n");
+
+    delete lg;
 
     switch (fork())
     {
     case 0:
-        printf("childpid:%d\n", getpid());
-        lg.reset();
-        lg.reset(new Logger("log/", "child", 10));
-        LOG_INFO(*lg) << "child";
+        lg = new Logger("log/", "child", 10);
+        // lg.reset(new Logger("log/", "child", 10));
+        for (int i = 0; i < 10; i++)
+            LOG_INFO(*lg) << "child";
+        printf("CHILD END\n");
         break;
 
     default:
-        printf("fatherpid:%d\n", getpid());
-        lg.reset();
-        lg.reset(new Logger("log/", "father", 10));
-        LOG_INFO(*lg) << "father";
+        lg = new Logger("log/", "father", 10);
+        // lg.reset(new Logger("log/", "father", 10));
+        for (int i = 0; i < 10; i++)
+            LOG_INFO(*lg) << "father";
+        printf("FATHER END\n");
         break;
     }
+
+    delete lg;
 }

@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "../buffer/buffer.h"
+#include "../log/logger.h"
 
 class Connection;
 
@@ -67,8 +68,6 @@ class ConnectionPool
     Connection *getNewConnection();
     void recoverConnection(Connection *c);
 };
-
-#include "../log/logger.h"
 
 class Cycle
 {

@@ -1,6 +1,9 @@
-#include "../core/core.h"
-#include "../util/utils_declaration.h"
 #include "logger.h"
+#include "../util/utils_declaration.h"
+#include <assert.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <string.h>
 
 LogLine::LogLine()
 {
@@ -169,66 +172,85 @@ int LogLine::stringify(char *buffer, int n)
 }
 
 Logger::Logger(const char *path, const char *name, unsigned long long size)
-    : filePath_(path), fileName_(name), maxFileSize_(size), cnt(1), writeThread(&Logger::write2File, this),
-      writing2List(0), shutdown(0)
+    : filePath_(path), fileName_(name), maxFileSize_(size), cnt(1), state(State::INIT),
+      writeThread(&Logger::write2File, this)
 {
     char loc[100];
     memset(loc, 0, sizeof(loc));
-    sprintf(loc, "%s%s_%d", filePath_, fileName_, cnt++);
+    sprintf(loc, "%s%s_%d.txt", filePath_, fileName_, cnt++);
     fd_ = open(loc, O_RDWR | O_CREAT | O_TRUNC, 0666);
-    assert(fd_.getFd() >= 0);
+    assert(fd_ >= 0);
+    state.store(State::ACTIVE, std::memory_order_release);
+    printf("Constructed\n");
 }
 Logger::~Logger()
 {
-    shutdown.store(1);
-    while (!writeThread.joinable())
+    state.store(State::SHUTDOWN);
     {
+        std::unique_lock<std::mutex> ulock(mutex_);
+        cond_.notify_all();
     }
     writeThread.join();
+    if (fd_ != -1)
+    {
+        close(fd_);
+    }
+    printf("DESTRUCTED\n");
 }
 Logger &Logger::operator+=(LogLine &line)
 {
-    writing2List.store(1, std::memory_order_acquire);
-    ls_.push_back(line);
-    writing2List.store(0, std::memory_order_release);
+    {
+        std::unique_lock<std::mutex> ulock(mutex_);
+        ls_.push_back(line);
+    }
+    cond_.notify_one();
     return *this;
 }
 
 void Logger::write2File()
 {
-    while (!shutdown.load())
+    while (state.load(std::memory_order_acquire) == State::INIT)
     {
-        while (writing2List.load() || ls_.empty())
-        {
-            asm_pause();
-        }
-        writing2List.store(0, std::memory_order_acquire);
-        while (!ls_.empty())
-        {
-            auto &line = ls_.front();
+    }
 
-            char buffer[2048];
-            memset(buffer, 0, sizeof(buffer));
-            int len = line.stringify(buffer, sizeof(buffer) - 1);
-            if (len != -1)
+    while (state.load() == State::ACTIVE)
+    {
+        std::unique_lock<std::mutex> ulock(mutex_);
+        while (ls_.empty() && state.load() == State::ACTIVE)
+        {
+            cond_.wait(ulock);
+        }
+        write2FileInner();
+    }
+
+    write2FileInner();
+}
+
+void Logger::write2FileInner()
+{
+    while (!ls_.empty())
+    {
+        auto &line = ls_.front();
+
+        char buffer[2048];
+        memset(buffer, 0, sizeof(buffer));
+        int len = line.stringify(buffer, sizeof(buffer) - 1);
+        if (len != -1)
+        {
+            buffer[len++] = '\n';
+            write(fd_, buffer, len);
+
+            struct stat st;
+            fstat(fd_, &st);
+            if (st.st_size >= maxFileSize_ * 1048576)
             {
-                buffer[len++] = '\n';
-                write(fd_.getFd(), buffer, len);
-
-                struct stat st;
-                fstat(fd_.getFd(), &st);
-                if (st.st_size >= maxFileSize_ * 1048576)
-                {
-                    char loc[100];
-                    memset(loc, 0, sizeof(loc));
-                    sprintf(loc, "%s%s_%d", filePath_, fileName_, cnt++);
-                    fd_ = open(loc, O_RDWR | O_CREAT | O_TRUNC, 0666);
-                    assert(fd_.getFd() >= 0);
-                }
+                char loc[100];
+                memset(loc, 0, sizeof(loc));
+                sprintf(loc, "%s%s_%d.txt", filePath_, fileName_, cnt++);
+                fd_ = open(loc, O_RDWR | O_CREAT | O_TRUNC, 0666);
+                assert(fd_ >= 0);
             }
-
-            ls_.pop_front();
         }
-        writing2List.store(1, std::memory_order_release);
+        ls_.pop_front();
     }
 }

@@ -1,7 +1,10 @@
 #ifndef LOGGER_H
 #define LOGGER_H
 
+#include <atomic>
+#include <condition_variable>
 #include <list>
+#include <mutex>
 #include <string>
 #include <sys/stat.h>
 #include <thread>
@@ -58,6 +61,7 @@ class Logger
     ~Logger();
     Logger &operator+=(LogLine &line);
 
+    void write2FileInner();
     void write2File();
 
     const char *filePath_;
@@ -65,18 +69,27 @@ class Logger
     unsigned long long maxFileSize_;
 
   private:
+    enum class State
+    {
+        INIT,
+        ACTIVE,
+        SHUTDOWN
+    };
     std::list<LogLine> ls_;
 
-    Fd fd_;
+    int fd_ = -1;
     int cnt;
 
+    std::atomic<State> state;
+
+    std::mutex mutex_;
+    std::condition_variable cond_;
+
     std::thread writeThread;
-    std::atomic<bool> writing2List;
-    std::atomic<bool> shutdown;
 };
 
-#define LOG_INFO(logger) (logger)+= LogLine(Level::INFO, __FILE__, __func__, __LINE__)
-#define LOG_WARN(logger) (logger)+= LogLine(Level::WARN, __FILE__, __func__, __LINE__)
-#define LOG_CRIT(logger) (logger)+= LogLine(Level::CRIT, __FILE__, __func__, __LINE__)
+#define LOG_INFO(logger) (logger) += LogLine(Level::INFO, __FILE__, __func__, __LINE__)
+#define LOG_WARN(logger) (logger) += LogLine(Level::WARN, __FILE__, __func__, __LINE__)
+#define LOG_CRIT(logger) (logger) += LogLine(Level::CRIT, __FILE__, __func__, __LINE__)
 
 #endif
