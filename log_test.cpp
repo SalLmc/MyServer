@@ -12,33 +12,33 @@
 
 int main(int argc, char *argv[])
 {
-    // std::unique_ptr<Logger> lg(new Logger("log/", "startup", 10));
-    Logger *lg = new Logger("log/", "startup", 10);
+
+    Cycle cycle(&pool, new Logger("log/", "startup", 10));
+    cyclePtr = &cycle;
 
     for (int i = 0; i < 10; i++)
-        LOG_CRIT(*lg) << "start";
+        LOG_CRIT << "start";
     printf("STARTUP END\n");
 
-    delete lg;
+    delete cycle.logger_;
 
     switch (fork())
     {
     case 0:
-        lg = new Logger("log/", "child", 10);
+        cycle.logger_ = new Logger("log/", "child", 10);
         // lg.reset(new Logger("log/", "child", 10));
         for (int i = 0; i < 10; i++)
-            LOG_INFO(*lg) << "child";
+            LOG_INFO << "child";
         printf("CHILD END\n");
         break;
 
     default:
-        lg = new Logger("log/", "father", 10);
+        cycle.logger_ = new Logger("log/", "father", 10);
         // lg.reset(new Logger("log/", "father", 10));
         for (int i = 0; i < 10; i++)
-            LOG_INFO(*lg) << "father";
+            LOG_INFO << "father";
         printf("FATHER END\n");
         break;
     }
-
-    delete lg;
+    // exit(0);
 }

@@ -5,6 +5,8 @@
 
 Connection *addListen(Cycle *cycle, int port);
 
+int initListen(Cycle *cycle, int port);
+
 // event handler
 int newConnection(Event *ev);
 

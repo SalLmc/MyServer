@@ -1,5 +1,5 @@
-#include "utils_declaration.h"
 #include "../global.h"
+#include "utils_declaration.h"
 
 void signal_handler(int sig)
 {
@@ -33,15 +33,20 @@ int init_signals()
 
 int send_signal(pid_t pid, std::string command)
 {
+    int sent=0;
     for (int i = 0; signals[i].command != ""; i++)
     {
         if (signals[i].command == command)
         {
+            sent=1;
             if (kill(pid, signals[i].sig) != -1)
             {
                 return 0;
             }
         }
     }
-    return -1;
+    if(sent)
+        return -1;
+    else 
+        return -2;
 }

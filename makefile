@@ -1,4 +1,4 @@
-PROGS = libmy.so signal_test log_test echosv main
+PROGS = libmy.so signal_test log_test main test
 
 SRCDIRS = src/buffer src/core src/event src/http src/log src/util src
 
@@ -25,14 +25,17 @@ signal_test: signal_test.o
 log_test: log_test.o
 	$(BUILDEXEWITHLIB)
 
-echosv: echosv.o
-	$(BUILDEXEWITHLIB)
-
 main: main.o
 	$(BUILDEXEWITHLIB)
 
+test: test.o
+	$(BUILDEXEWITHLIB)
+
 clean:
-	rm -f $(PROGS) $(CPP_OBJECTS) *.o
+	rm -f $(PROGS) $(CPP_OBJECTS) *.o log/* pid_file
+
+cmain:
+	rm -f main.o log/*
 
 %.o: %.cpp
 	g++ $(FLAGS) -fPIC -c $< -o $@

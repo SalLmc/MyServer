@@ -11,9 +11,10 @@
 class Epoller
 {
   public:
-    explicit Epoller(int max_event = 1024);
+    Epoller(int max_event = 1024);
     ~Epoller();
 
+    int setEpollFd(int fd);
     int getFd();
     bool addFd(int fd, uint32_t events, void *ctx);
     bool modFd(int fd, uint32_t events, void *ctx);

@@ -30,7 +30,7 @@ struct SignalWrapper
 void signal_handler(int sig);
 // return 0 for success, -1 for failure
 int init_signals();
-// return 0 for success, -1 for failure
+// return 0 for success, -1 for failure, -2 for invalid command
 int send_signal(pid_t pid, std::string command);
 
 #endif

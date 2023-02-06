@@ -128,24 +128,24 @@ void handleSignal()
 
 int main(int argc, char *argv[])
 {
-    assert(getOption(argc, argv, &mp) == 0);
+    // assert(getOption(argc, argv, &mp) == 0);
 
-    Cycle cycle;
-    cycle.pool_ = &pool;
+    // Cycle cycle;
+    // cycle.pool_ = &pool;
 
-    Connection *listenC = addListen(&cycle, std::stoi(mp["port"]));
-    listenC->read_.handler=newConnection;
+    // Connection *listenC = addListen(&cycle, std::stoi(mp["port"]));
+    // listenC->read_.handler=newConnection;
 
-    assert(epoller.addFd(listenC->fd_.getFd(), EPOLLIN, listenC));
+    // assert(epoller.addFd(listenC->fd_.getFd(), EPOLLIN, listenC));
 
-    handleSignal();
+    // handleSignal();
 
-    isStop = 0;
+    // isStop = 0;
 
-    while (!isStop)
-    {
-        epoller.processEvents();
-    }
+    // while (!isStop)
+    // {
+    //     epoller.processEvents();
+    // }
 
-    printf("server close\n");
+    // printf("server close\n");
 }

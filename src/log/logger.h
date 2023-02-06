@@ -88,8 +88,8 @@ class Logger
     std::thread writeThread;
 };
 
-#define LOG_INFO(logger) (logger) += LogLine(Level::INFO, __FILE__, __func__, __LINE__)
-#define LOG_WARN(logger) (logger) += LogLine(Level::WARN, __FILE__, __func__, __LINE__)
-#define LOG_CRIT(logger) (logger) += LogLine(Level::CRIT, __FILE__, __func__, __LINE__)
+#define LOG_INFO (*cyclePtr->logger_) += LogLine(Level::INFO, __FILE__, __func__, __LINE__)
+#define LOG_WARN (*cyclePtr->logger_) += LogLine(Level::WARN, __FILE__, __func__, __LINE__)
+#define LOG_CRIT (*cyclePtr->logger_) += LogLine(Level::CRIT, __FILE__, __func__, __LINE__)
 
 #endif

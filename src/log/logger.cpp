@@ -181,7 +181,6 @@ Logger::Logger(const char *path, const char *name, unsigned long long size)
     fd_ = open(loc, O_RDWR | O_CREAT | O_TRUNC, 0666);
     assert(fd_ >= 0);
     state.store(State::ACTIVE, std::memory_order_release);
-    printf("Constructed\n");
 }
 Logger::~Logger()
 {
@@ -195,7 +194,6 @@ Logger::~Logger()
     {
         close(fd_);
     }
-    printf("DESTRUCTED\n");
 }
 Logger &Logger::operator+=(LogLine &line)
 {

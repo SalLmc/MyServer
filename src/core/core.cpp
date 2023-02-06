@@ -12,7 +12,6 @@ Fd::~Fd()
 {
     if (fd_ != -1)
     {
-        // LOG_INFO<<fd_<<" closed";
         close(fd_);
     }
 }
@@ -89,7 +88,49 @@ void ConnectionPool::recoverConnection(Connection *c)
     }
 }
 
-// std::shared_ptr<Cycle> Cycle::getSharedPtr()
-// {
-//     return shared_from_this();
-// }
+Cycle::Cycle(ConnectionPool *pool, Logger *logger) : pool_(pool), logger_(logger)
+{
+}
+
+Cycle::~Cycle()
+{
+    if (logger_ != NULL)
+    {
+        delete logger_;
+        logger_ = NULL;
+    }
+}
+
+sharedMemory::sharedMemory() : addr_(NULL)
+{
+}
+
+sharedMemory::sharedMemory(size_t size) : size_(size)
+{
+    addr_ = mmap(NULL, size_, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED, -1, 0);
+    assert(addr_ != MAP_FAILED);
+}
+
+int sharedMemory::createShared(size_t size)
+{
+    size_ = size;
+    addr_ = mmap(NULL, size_, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED, -1, 0);
+    if (addr_ == MAP_FAILED)
+    {
+        return -1;
+    }
+    return 0;
+}
+
+sharedMemory::~sharedMemory()
+{
+    if (addr_ != NULL)
+    {
+        munmap(addr_, size_);
+    }
+}
+
+void *sharedMemory::getAddr()
+{
+    return addr_;
+}

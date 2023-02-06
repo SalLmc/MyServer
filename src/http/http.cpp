@@ -1,7 +1,18 @@
 #include "http.h"
-#include "../util/utils_declaration.h"
 #include "../event/epoller.h"
 #include "../global.h"
+#include "../util/utils_declaration.h"
+
+int initListen(Cycle *cycle, int port)
+{
+    Connection *listen = addListen(cycle, port);
+    cycle->listening_.push_back(listen);
+
+    listen->read_.c = listen;
+    listen->read_.handler = newConnection;
+
+    return 0;
+}
 
 Connection *addListen(Cycle *cycle, int port)
 {
@@ -29,6 +40,36 @@ Connection *addListen(Cycle *cycle, int port)
     return listenC;
 }
 
+static int recvPrint(Event *ev)
+{
+    int len = ev->c->readBuffer_.readFd(ev->c->fd_.getFd(), &errno);
+    if (len == 0)
+    {
+        printf("client close connection\n");
+        pool.recoverConnection(ev->c);
+        return 1;
+    }
+    else if (len < 0)
+    {
+        printf("errno:%d\n", errno);
+        pool.recoverConnection(ev->c);
+        return 1;
+    }
+    printf("%d recv len:%d from client:%s\n", getpid(), len, ev->c->readBuffer_.allToStr().c_str());
+    ev->c->writeBuffer_.append(ev->c->readBuffer_.retrieveAllToStr());
+    epoller.modFd(ev->c->fd_.getFd(), EPOLLOUT, ev->c);
+    return 0;
+}
+
+static int echoPrint(Event *ev)
+{
+    ev->c->writeBuffer_.writeFd(ev->c->fd_.getFd(), &errno);
+    ev->c->writeBuffer_.retrieveAll();
+
+    epoller.modFd(ev->c->fd_.getFd(), EPOLLIN, ev->c);
+    return 0;
+}
+
 int newConnection(Event *ev)
 {
     Connection *newc = pool.getNewConnection();
@@ -38,14 +79,15 @@ int newConnection(Event *ev)
     socklen_t len = sizeof(*addr);
 
     newc->fd_ = accept(ev->c->fd_.getFd(), (sockaddr *)addr, &len);
-    assert(newc->fd_.getFd() > 0);
+
+    assert(newc->fd_.getFd() >= 0);
 
     setnonblocking(newc->fd_.getFd());
 
     newc->read_.c = newc->write_.c = newc;
+    newc->read_.handler = recvPrint;
+    newc->write_.handler = echoPrint;
 
-    epoller.addFd(newc->fd_.getFd(), EPOLLIN | EPOLLOUT, newc);
-
-    printf("NEW CONNECTION\n");
+    epoller.addFd(newc->fd_.getFd(), EPOLLIN, newc);
     return 0;
 }

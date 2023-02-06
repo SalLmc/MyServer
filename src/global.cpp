@@ -1,5 +1,9 @@
 #include "global.h"
 
+bool isChild;
+
+Cycle *cyclePtr = NULL;
+
 ConnectionPool pool;
 Epoller epoller;
 
@@ -10,4 +14,9 @@ bool restart = 0;
 std::unordered_map<std::string, std::string> mp;
 
 Process processes[MAX_PROCESS_N];
-int slot=0;
+int slot = 0;
+
+bool useAcceptMutex = 1;
+sharedMemory shmForAMtx;
+bool acceptMutexHeld = 0;
+ProcessMutex acceptMutex;

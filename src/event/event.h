@@ -1,0 +1,34 @@
+#ifndef EVENT_H
+#define EVENT_H
+
+#include <assert.h>
+#include <semaphore.h>
+#include <string.h>
+
+struct ProcessMutexShare
+{
+    volatile unsigned long lock;
+    volatile unsigned long wait;
+};
+
+class ProcessMutex
+{
+  public:
+    ~ProcessMutex();
+    volatile unsigned long *lock;
+    volatile unsigned long *wait;
+    unsigned long semaphore;
+    sem_t sem;
+    unsigned long spin;
+};
+
+// 0 for success, -1 for failure
+int shmtxCreate(ProcessMutex *mtx, ProcessMutexShare *addr);
+// 1 for success, 0 for failure
+int shmtxTryLock(ProcessMutex *mtx);
+void shmtxLock(ProcessMutex *mtx);
+void shmtxUnlock(ProcessMutex *mtx);
+// -1 for error
+int acceptexTryLock(Cycle *cycle);
+
+#endif
