@@ -1,6 +1,6 @@
-PROGS = libmy.so signal_test log_test main test
+PROGS = libmy.so main signal_test log_test test
 
-SRCDIRS = src/buffer src/core src/event src/http src/log src/util src
+SRCDIRS = src/buffer src/core src/event src/http src/log src/timer src/util src
 
 CPP_SOURCES = $(foreach dir, $(SRCDIRS), $(wildcard $(dir)/*.cpp))
 CPP_OBJECTS = $(patsubst %.cpp, %.o, $(CPP_SOURCES))
@@ -34,8 +34,8 @@ test: test.o
 clean:
 	rm -f $(PROGS) $(CPP_OBJECTS) *.o log/* pid_file
 
-cmain:
-	rm -f main.o log/*
+re:
+	rm -f ./*.o log/* && make
 
 %.o: %.cpp
 	g++ $(FLAGS) -fPIC -c $< -o $@

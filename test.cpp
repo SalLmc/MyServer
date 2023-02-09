@@ -1,5 +1,7 @@
 #include "src/core/core.h"
 #include "src/event/event.h"
+#include "src/timer/timer.h"
+#include "src/util/utils_declaration.h"
 #include <sched.h>
 #include <stdio.h>
 #include <string.h>
@@ -7,24 +9,27 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-sharedMemory shm;
+int pt(void *arg)
+{
+    printf("%s\n", (char *)arg);
+}
 
 int main()
 {
-    assert(shm.createShared(sizeof(ProcessMutexShare)) == 0);
-    ProcessMutex mtx;
-    ProcessMutexShare *share = (ProcessMutexShare *)shm.getAddr();
+    HeapTimer timer;
+    char *arg = "hello";
 
-    shmtxCreate(&mtx, share);
-    shmtxTryLock(&mtx);
-    shmtxUnlock(&mtx);
-    switch (fork())
+    TimerNode node;
+    auto now = getTickMs();
+    printf("now:%lld\n", now);
+    timer.Add(1, now + 1000, pt, (void *)arg);
+    timer.Add(2, now + 2000, pt, (void *)arg);
+
+    printf("next tick:%lld\n", timer.GetNextTick());
+
+    while (getTickMs() < now + 2000)
     {
-    case 0:
-        if (shmtxTryLock(&mtx))
-        {
-            printf("child get lock\n");
-        }
-    default:;
+        timer.Tick();
     }
+
 }
