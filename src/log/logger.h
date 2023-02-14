@@ -92,4 +92,8 @@ class Logger
 #define LOG_WARN (*cyclePtr->logger_) += LogLine(Level::WARN, __FILE__, __func__, __LINE__)
 #define LOG_CRIT (*cyclePtr->logger_) += LogLine(Level::CRIT, __FILE__, __func__, __LINE__)
 
+#define LOG_INFO_BY(logger) (logger) += LogLine(Level::INFO, __FILE__, __func__, __LINE__)
+#define LOG_WARN_BY(logger) (logger) += LogLine(Level::WARN, __FILE__, __func__, __LINE__)
+#define LOG_CRIT_BY(logger) (logger) += LogLine(Level::CRIT, __FILE__, __func__, __LINE__)
+
 #endif

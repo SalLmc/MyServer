@@ -7,7 +7,7 @@ void signal_handler(int sig)
     {
     case SIGINT:
         quit = 1;
-        break; /*  */
+        break; 
     case SIGUSR1:
         restart = 1;
         break;

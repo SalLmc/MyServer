@@ -16,6 +16,7 @@ struct TimerNode
 {
     int id;
     TimeStamp expires;
+    TimeStamp newExpires=0;
     TimeoutCallBack cb;
     void *arg;
     bool operator<(const TimerNode &t)
@@ -36,6 +37,7 @@ class HeapTimer
         Clear();
     }
     void Adjust(int id, unsigned long long new_timeout_ms);
+    void Again(int id, unsigned long long new_timeout_ms);
     void Add(int id, unsigned long long timeout_ms, const TimeoutCallBack &cb, void *arg);
     void DoWork(int id); // delete node id && trigger id's callback
     void Clear();

@@ -15,6 +15,7 @@
 
 #include "../buffer/buffer.h"
 #include "../log/logger.h"
+#include "../timer/timer.h"
 
 class Connection;
 
@@ -80,6 +81,7 @@ class Cycle
     ConnectionPool *pool_;
     std::vector<Connection *> listening_;
     Logger *logger_;
+    HeapTimer timer;
 };
 
 #define NOT_USED 0

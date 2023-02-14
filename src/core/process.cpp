@@ -25,9 +25,9 @@ void masterProcessCycle(Cycle *cycle)
 
     isChild = 0;
     startWorkerProcesses(cycle, 2);
-    if(isChild)
+    if (isChild)
     {
-        return ;
+        return;
     }
 
     cycle->logger_ = new Logger("log/", "master_loop", 1);
@@ -145,6 +145,15 @@ void workerProcessCycle(Cycle *cycle)
     // epoll
     epoller.setEpollFd(epoll_create(5));
 
+    cycle->timer.Add(
+        1, getTickMs(),
+        [&](void *arg) {
+            printf("%d timer msg:%s\n", getpid(), (char *)arg);
+            cycle->timer.Again(1, getTickMs() + 3000);
+            return 1;
+        },
+        (void *)"HELLO");
+
     LOG_INFO << "Worker Looping";
     for (;;)
     {
@@ -173,10 +182,12 @@ void processEventsAndTimers(Cycle *cycle)
         }
     }
 
-    epoller.processEvents(0, 1000);
+    epoller.processEvents(0, 0);
 
     if (acceptMutexHeld)
     {
         shmtxUnlock(&acceptMutex);
     }
+
+    cycle->timer.Tick();
 }

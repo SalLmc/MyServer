@@ -14,10 +14,9 @@ int main(int argc, char *argv[])
 {
 
     Cycle cycle(&pool, new Logger("log/", "startup", 10));
-    cyclePtr = &cycle;
 
     for (int i = 0; i < 10; i++)
-        LOG_CRIT << "start";
+        LOG_CRIT_BY(*cycle.logger_) << "start";
     printf("STARTUP END\n");
 
     delete cycle.logger_;
@@ -28,7 +27,7 @@ int main(int argc, char *argv[])
         cycle.logger_ = new Logger("log/", "child", 10);
         // lg.reset(new Logger("log/", "child", 10));
         for (int i = 0; i < 10; i++)
-            LOG_INFO << "child";
+            LOG_INFO_BY(*cycle.logger_) << "child";
         printf("CHILD END\n");
         break;
 
@@ -36,7 +35,7 @@ int main(int argc, char *argv[])
         cycle.logger_ = new Logger("log/", "father", 10);
         // lg.reset(new Logger("log/", "father", 10));
         for (int i = 0; i < 10; i++)
-            LOG_INFO << "father";
+            LOG_INFO_BY(*cycle.logger_) << "father";
         printf("FATHER END\n");
         break;
     }

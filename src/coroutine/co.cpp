@@ -19,57 +19,68 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
+// 128KB
 #define STACK_SIZE 131072
 
-static co_routine_env_t *arr_env_thread[204800] = {0};
+co_routine_env_t *arr_env_thread[204800] = {0};
 
-stack_mem_t *co_alloc_stackmem(unsigned int stack_size)
+stack_mem_t::stack_mem_t(unsigned int size)
 {
-    stack_mem_t *stack_mem = (stack_mem_t *)malloc(sizeof(stack_mem_t));
-    stack_mem->occupy_co = NULL;
-    stack_mem->stack_size = stack_size;
-    stack_mem->stack_buffer = (char *)malloc(stack_size);
-    stack_mem->stack_bp = stack_mem->stack_buffer + stack_size;
-    return stack_mem;
+    occupy_co = NULL;
+    stack_size = size;
+    stack_buffer = (char *)malloc(stack_size);
+    stack_bp = stack_buffer + stack_size;
 }
 
-co_routine_t *co_create_env(co_routine_env_t *env, pfn_co_routine_t pfn, void *arg)
+stack_mem_t::~stack_mem_t()
 {
-    co_routine_t *lp = (co_routine_t *)malloc(sizeof(co_routine_t));
+    if (stack_buffer != NULL)
+    {
+        free(stack_buffer);
+    }
+}
 
-    memset(lp, 0, (sizeof(co_routine_t)));
+co_routine_env_t::co_routine_env_t()
+{
+    call_stack_size = 0;
+    epoller = new co_epoll_t();
+}
 
-    lp->env = env;
-    lp->pfn = pfn;
-    lp->arg = arg;
+co_routine_env_t::~co_routine_env_t()
+{
+    delete epoller;
+    delete call_stack[0];
+}
 
-    stack_mem_t *stack_mem = NULL;
+co_routine_t::co_routine_t(co_routine_env_t *envv, co_routine_fn fn, void *argg)
+{
+    env = envv;
+    func = fn;
+    arg = argg;
 
-    stack_mem = co_alloc_stackmem(STACK_SIZE);
+    stack_mem = new stack_mem_t(STACK_SIZE);
+    ctx.ss_sp = stack_mem->stack_buffer;
+    ctx.ss_size = STACK_SIZE;
 
-    lp->stack_mem = stack_mem;
+    c_start = 0;
+    c_end = 0;
+    c_is_main = 0;
+}
 
-    // 设置该协程的context
-    lp->ctx.ss_sp = stack_mem->stack_buffer; // 栈地址
-    lp->ctx.ss_size = STACK_SIZE;            // 栈大小
-
-    lp->c_start = 0;
-    lp->c_end = 0;
-    lp->c_is_main = 0;
-
-    return lp;
+co_routine_t::~co_routine_t()
+{
+    delete stack_mem;
 }
 
 void co_init_curr_thread_env()
 {
     pid_t pid = syscall(__NR_gettid);
-    arr_env_thread[pid] = (co_routine_env_t *)calloc(1, sizeof(co_routine_env_t));
 
-    co_routine_env_t *env = arr_env_thread[pid];
+    co_routine_env_t *env = new co_routine_env_t();
 
-    env->call_stack_size = 0;
+    arr_env_thread[pid] = env;
 
-    struct co_routine_t *self = co_create_env(env, NULL, NULL);
+    co_routine_t *self = new co_routine_t(env, NULL, NULL);
     self->c_is_main = 1;
 
     // the reason the main coroutine needs coctx_init is because
@@ -80,14 +91,16 @@ void co_init_curr_thread_env()
     coctx_init(&self->ctx);
 
     env->call_stack[env->call_stack_size++] = self;
-
-    co_epoll_t *epoller = alloc_epoll();
-    env->epoller = epoller;
 }
 
 co_routine_env_t *co_get_curr_thread_env()
 {
     return arr_env_thread[syscall(__NR_gettid)];
+}
+
+void clean_thread_env()
+{
+    delete arr_env_thread[syscall(__NR_gettid)];
 }
 
 co_routine_t *co_get_curr_routine()
@@ -130,9 +143,9 @@ co_epoll_t *co_get_epoll_ct()
 
 static int co_routine_func_wrapper(co_routine_t *co, void *)
 {
-    if (co->pfn)
+    if (co->func)
     {
-        co->pfn(co->arg);
+        co->func(co->arg);
     }
 
     // 标识该协程已经结束
@@ -144,13 +157,13 @@ static int co_routine_func_wrapper(co_routine_t *co, void *)
     return 0;
 }
 
-int co_create(co_routine_t **ppco, pfn_co_routine_t pfn, void *arg)
+int co_create(co_routine_t **ppco, co_routine_fn pfn, void *arg)
 {
     if (!co_get_curr_thread_env())
     {
         co_init_curr_thread_env();
     }
-    co_routine_t *co = co_create_env(co_get_curr_thread_env(), pfn, arg);
+    co_routine_t *co = new co_routine_t(co_get_curr_thread_env(), pfn, arg);
     *ppco = co;
     return 0;
 }
@@ -185,16 +198,16 @@ void co_release(co_routine_t *co)
     co_free(co);
 }
 
-void co_event_loop(co_epoll_t *ctx, pfn_co_eventloop_t pfn, void *arg)
+void co_event_loop(co_epoll_t *ctx, co_eventloop_fn pfn, void *arg, int *quit)
 {
     if (!ctx->result)
     {
-        ctx->result = co_epoll_res_alloc(co_epoll_t::_EPOLL_SIZE);
+        ctx->result = new co_epoll_res(co_epoll_t::_EPOLL_SIZE);
     }
 
     co_epoll_res *result = ctx->result;
 
-    for (;;)
+    for (; *quit != 3;)
     {
         // timeout 1ms
         int ret = co_epoll_wait(ctx->epollfd, result, co_epoll_t::_EPOLL_SIZE, 1);
@@ -209,9 +222,9 @@ void co_event_loop(co_epoll_t *ctx, pfn_co_eventloop_t pfn, void *arg)
         {
             timeout_item_t *item = (timeout_item_t *)result->events[i].data.ptr;
 
-            if (item->prework_pfn)
+            if (item->prework)
             {
-                item->prework_pfn(item, result->events[i], active);
+                item->prework(item, result->events[i], active);
             }
             else
             {
@@ -238,9 +251,9 @@ void co_event_loop(co_epoll_t *ctx, pfn_co_eventloop_t pfn, void *arg)
         while (now)
         {
             pop_head<timeout_link_t, timeout_item_t>(active);
-            if (now->handler_pfn)
+            if (now->handler)
             {
-                now->handler_pfn(now);
+                now->handler(now);
             }
             now = active->head;
         }
@@ -316,7 +329,7 @@ void pollevent_prework(timeout_item_t *item, epoll_event &ev, timeout_link_t *ac
     }
 }
 
-int co_poll_inner(co_epoll_t *epoller, pollfd fds[], nfds_t nfds, int timeout_ms, poll_pfn_t pollfunc)
+int co_poll_inner(co_epoll_t *epoller, pollfd fds[], nfds_t nfds, int timeout_ms, poll_fn pollfunc)
 {
     if (timeout_ms > timeout_item_t::eMaxTimeout)
     {
@@ -332,14 +345,14 @@ int co_poll_inner(co_epoll_t *epoller, pollfd fds[], nfds_t nfds, int timeout_ms
     poller->poll_items = (co_poll_item_t *)calloc(nfds, sizeof(co_poll_item_t));
 
     poller->arg = co_get_curr_routine();
-    poller->handler_pfn = poller_handler;
+    poller->handler = poller_handler;
 
     // poll events
     for (nfds_t i = 0; i < nfds; i++)
     {
         poller->poll_items[i].self = &poller->fds[i];
         poller->poll_items[i].poller = poller;
-        poller->poll_items[i].prework_pfn = pollevent_prework;
+        poller->poll_items[i].prework = pollevent_prework;
 
         epoll_event &ev = poller->poll_items[i].epevents;
 
@@ -348,7 +361,7 @@ int co_poll_inner(co_epoll_t *epoller, pollfd fds[], nfds_t nfds, int timeout_ms
             ev.data.ptr = &poller->poll_items[i];
             ev.events = poll2epoll(fds[i].events);
 
-            int ret = co_epoll_ctl(epfd, EPOLL_CTL_ADD, fds[i].fd, &ev);
+            int ret = epoll_ctl(epfd, EPOLL_CTL_ADD, fds[i].fd, &ev);
 
             if (ret < 0 && errno == EPERM && nfds == 1 && pollfunc != NULL)
             {
@@ -377,7 +390,7 @@ int co_poll_inner(co_epoll_t *epoller, pollfd fds[], nfds_t nfds, int timeout_ms
         int fd = fds[i].fd;
         if (fd > -1)
         {
-            co_epoll_ctl(epfd, EPOLL_CTL_DEL, fd, &poller->poll_items[i].epevents);
+            epoll_ctl(epfd, EPOLL_CTL_DEL, fd, &poller->poll_items[i].epevents);
         }
         fds[i].revents = poller->fds[i].revents;
     }

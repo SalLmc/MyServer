@@ -1,6 +1,6 @@
 #include "timer.h"
-#include <assert.h>
 #include "../util/utils_declaration.h"
+#include <assert.h>
 
 void HeapTimer::SwapNode(size_t i, size_t j)
 {
@@ -54,7 +54,7 @@ void HeapTimer::Add(int id, unsigned long long timeout_ms, const TimeoutCallBack
     {
         i = heap_.size();
         ref_[id] = i;
-        heap_.push_back({id, timeout_ms, cb, arg});
+        heap_.push_back({id, timeout_ms, 0, cb, arg});
         SiftUp(i);
     }
     else
@@ -105,6 +105,12 @@ void HeapTimer::Adjust(int id, unsigned long long new_timeout_ms)
     SiftDown(ref_[id], heap_.size());
 }
 
+void HeapTimer::Again(int id, unsigned long long new_timeout_ms)
+{
+    assert(!heap_.empty() && ref_.count(id) > 0);
+    heap_[ref_[id]].newExpires = new_timeout_ms;
+}
+
 void HeapTimer::Pop()
 {
     assert(!heap_.empty());
@@ -116,13 +122,23 @@ void HeapTimer::Tick()
     // callback expired node
     while (!heap_.empty())
     {
-        TimerNode node = heap_.front();
-        if (node.expires - getTickMs() > 0)
+        TimerNode *node = &heap_.front();
+        if ((long long)(node->expires - getTickMs()) > 0)
         {
             break;
         }
-        node.cb(node.arg);
-        Pop();
+
+        node->cb(node->arg);
+
+        if (node->newExpires == 0)
+        {
+            Pop();
+        }
+        else
+        {
+            Adjust(node->id, node->newExpires);
+            node->newExpires = 0;
+        }
     }
 }
 

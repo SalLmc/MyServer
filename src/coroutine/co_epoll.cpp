@@ -5,53 +5,34 @@ int co_epoll_wait(int epfd, struct co_epoll_res *events, int maxevents, int time
     return epoll_wait(epfd, events->events, maxevents, timeout);
 }
 
-int co_epoll_ctl(int epfd, int op, int fd, struct epoll_event *ev)
+co_epoll_res::co_epoll_res(int n)
 {
-    return epoll_ctl(epfd, op, fd, ev);
+    size = n;
+    events = (epoll_event *)calloc(1, n * sizeof(epoll_event));
 }
 
-int co_epoll_create(int size)
+co_epoll_res::~co_epoll_res()
 {
-    return epoll_create(size);
+    if (events != NULL)
+    {
+        free(events);
+    }
 }
 
-co_epoll_res *co_epoll_res_alloc(int n)
+co_epoll_t::co_epoll_t()
 {
-    co_epoll_res *now = (co_epoll_res *)malloc(sizeof(co_epoll_res));
-    now->size = n;
-    now->events = (epoll_event *)calloc(1, n * sizeof(epoll_event));
-    return now;
+    epollfd = epoll_create(co_epoll_t::_EPOLL_SIZE);
+    assert(epollfd >= 0);
+    timer = new timeout_t(60000);
+    list_timeout = (timeout_link_t *)calloc(1, sizeof(timeout_link_t));
+    list_active = (timeout_link_t *)calloc(1, sizeof(timeout_link_t));
+    result = new co_epoll_res(1024);
 }
 
-void co_epoll_res_free(struct co_epoll_res *ptr)
+co_epoll_t::~co_epoll_t()
 {
-    if(!ptr)
-        return ;
-    if(ptr->events)
-        free(ptr->events);
-    free(ptr);
-}
-
-co_epoll_t *alloc_epoll()
-{
-    co_epoll_t *now = (co_epoll_t *)calloc(1, sizeof(co_epoll_t));
-    now->epollfd = co_epoll_create(co_epoll_t::_EPOLL_SIZE);
-
-    now->timer = alloc_timer();
-    now->list_active = (timeout_link_t *)calloc(1, sizeof(timeout_link_t));
-    now->list_timeout = (timeout_link_t *)calloc(1, sizeof(timeout_link_t));
-
-    return now;
-}
-
-void free_epoll( co_epoll_t *ctx )
-{
-	if( ctx )
-	{
-		free( ctx->list_active );
-		free( ctx->list_timeout );
-		free_timer(ctx->timer);
-		co_epoll_res_free( ctx->result );
-	}
-	free( ctx );
+    delete timer;
+    free(list_timeout);
+    free(list_active);
+    delete result;
 }

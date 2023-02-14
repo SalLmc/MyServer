@@ -9,27 +9,20 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-int pt(void *arg)
-{
-    printf("%s\n", (char *)arg);
-}
-
 int main()
 {
     HeapTimer timer;
-    char *arg = "hello";
-
-    TimerNode node;
-    auto now = getTickMs();
-    printf("now:%lld\n", now);
-    timer.Add(1, now + 1000, pt, (void *)arg);
-    timer.Add(2, now + 2000, pt, (void *)arg);
-
-    printf("next tick:%lld\n", timer.GetNextTick());
-
-    while (getTickMs() < now + 2000)
-    {
-        timer.Tick();
-    }
-
+    printf("time:%lld\n",getTickMs());
+    timer.Add(
+        1, getTickMs(),
+        [&](void *arg) {
+            printf("timer msg:%s\n", (char *)arg);
+            printf("time triggered:%lld\n",getTickMs());
+            timer.Again(1, getTickMs() + 1000);
+            return 1;
+        },
+        (void *)"HELLO");
+    timer.Tick();
+    timer.Tick();
+    timer.Tick();
 }

@@ -11,6 +11,11 @@ cond_waitlist_t *alloc_cond()
     return (cond_waitlist_t *)calloc(1, sizeof(cond_waitlist_t));
 }
 
+void free_cond(cond_waitlist_t *cond)
+{
+    free(cond);
+}
+
 int cond_wait(cond_waitlist_t *cond, unsigned long long time_ms)
 {
     co_routine_env_t *env = co_get_curr_thread_env();
@@ -19,7 +24,7 @@ int cond_wait(cond_waitlist_t *cond, unsigned long long time_ms)
 
     cond_waitlist_item_t *citem = (cond_waitlist_item_t *)calloc(1, sizeof(cond_waitlist_item_t));
     citem->timeout.arg = curr;
-    citem->timeout.handler_pfn = cond_signal_handler;
+    citem->timeout.handler = cond_signal_handler;
 
     if (time_ms > 0)
     {
@@ -54,9 +59,4 @@ int cond_signal(cond_waitlist_t *cond)
     remove_from_link<timeout_link_t, timeout_item_t>(&citem->timeout);
     add_tail(co_get_epoll_ct()->list_active, &citem->timeout);
     return 0;
-}
-
-void free_cond(cond_waitlist_t *cond)
-{
-    free(cond);
 }
