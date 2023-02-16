@@ -8,14 +8,18 @@
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/time.h>
-#include <vector>
 #include <sys/mman.h>
+#include <sys/time.h>
 #include <sys/types.h>
+#include <vector>
 
 #include "../buffer/buffer.h"
 #include "../log/logger.h"
 #include "../timer/timer.h"
+
+#define OK 0
+#define ERROR -1
+#define AGAIN -2
 
 class Connection;
 
@@ -55,7 +59,8 @@ class Connection
     sockaddr_in addr_;
     Buffer readBuffer_;
     Buffer writeBuffer_;
-    int idx_;
+    int idx_ = -1;
+    void *data = NULL;
 };
 
 class ConnectionPool
@@ -75,13 +80,13 @@ class ConnectionPool
 class Cycle
 {
   public:
-    Cycle()=delete;
-    Cycle(ConnectionPool *pool,Logger *logger);
+    Cycle() = delete;
+    Cycle(ConnectionPool *pool, Logger *logger);
     ~Cycle();
     ConnectionPool *pool_;
     std::vector<Connection *> listening_;
     Logger *logger_;
-    HeapTimer timer;
+    HeapTimer timer_;
 };
 
 #define NOT_USED 0
@@ -95,13 +100,11 @@ class Process
     int status = NOT_USED;
 };
 
-
 class sharedMemory
 {
   public:
     sharedMemory();
     sharedMemory(size_t size);
-    // 0 for success, -1 for MAP_FAILED
     int createShared(size_t size);
     void *getAddr();
     ~sharedMemory();
@@ -110,4 +113,5 @@ class sharedMemory
     void *addr_;
     size_t size_;
 };
+
 #endif

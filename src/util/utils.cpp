@@ -46,10 +46,10 @@ int getOption(int argc, char *argv[], std::unordered_map<std::string, std::strin
             break;
         }
     }
-    return 0;
+    return OK;
 
 failed:
-    return -1;
+    return ERROR;
 }
 
 int writePid2File()
@@ -57,7 +57,7 @@ int writePid2File()
     Fd filefd = open("pid_file", O_CREAT | O_RDWR, 0666);
     if (filefd.getFd() < 0)
     {
-        return -1;
+        return ERROR;
     }
 
     pid_t pid = getpid();
@@ -65,7 +65,7 @@ int writePid2File()
     memset(buffer, '\0', sizeof(buffer));
     int len = sprintf(buffer, "%d\n", pid);
     write(filefd.getFd(), buffer, len);
-    return 0;
+    return OK;
 }
 
 pid_t readPidFromFile()
@@ -73,7 +73,7 @@ pid_t readPidFromFile()
     Fd filefd = open("pid_file", O_RDWR);
     if (filefd.getFd() < 0)
     {
-        return -1;
+        return ERROR;
     }
     char buffer[100];
     memset(buffer, '\0', sizeof(buffer));

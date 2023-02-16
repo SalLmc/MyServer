@@ -17,6 +17,7 @@ int Epoller::setEpollFd(int fd)
 {
     assert(fd>=0);
     epollfd_=fd;
+    return 0;
 }
 
 int Epoller::getFd()

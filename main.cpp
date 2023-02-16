@@ -1,6 +1,7 @@
 #include "src/core/core.h"
 #include "src/core/process.h"
 #include "src/event/epoller.h"
+#include "src/event/event.h"
 #include "src/global.h"
 #include "src/http/http.h"
 #include "src/util/utils_declaration.h"
@@ -9,10 +10,10 @@
 
 int main(int argc, char *argv[])
 {
-    std::unique_ptr<Cycle> cycle(new Cycle(&pool, new Logger("log/", "startup", 1)));
+    std::unique_ptr<Cycle> cycle(new Cycle(&cPool, new Logger("log/", "startup", 1)));
     cyclePtr = cycle.get();
 
-    if (getOption(argc, argv, &mp) == -1)
+    if (getOption(argc, argv, &mp) == ERROR)
     {
         LOG_CRIT << "get option failed";
         return 1;
@@ -52,13 +53,13 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (writePid2File() == -1)
+    if (writePid2File() == ERROR)
     {
         LOG_CRIT << "write pid failed";
         return 1;
     }
 
-    if (initListen(cycle.get(), 8088) == -1)
+    if (initListen(cycle.get(), 8088) == ERROR)
     {
         LOG_CRIT << "init listen failed";
         return 1;
@@ -67,12 +68,12 @@ int main(int argc, char *argv[])
     // accept mutex
     if (useAcceptMutex)
     {
-        if (shmForAMtx.createShared(sizeof(ProcessMutexShare)) == -1)
+        if (shmForAMtx.createShared(sizeof(ProcessMutexShare)) == ERROR)
         {
             LOG_CRIT << "create shm for acceptmutex failed";
             return 1;
         }
-        if (shmtxCreate(&acceptMutex, (ProcessMutexShare *)shmForAMtx.getAddr()) == -1)
+        if (shmtxCreate(&acceptMutex, (ProcessMutexShare *)shmForAMtx.getAddr()) == ERROR)
         {
             LOG_CRIT << "create acceptmutex failed";
             return 1;
@@ -81,4 +82,3 @@ int main(int argc, char *argv[])
 
     masterProcessCycle(cycle.get());
 }
-

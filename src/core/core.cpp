@@ -86,6 +86,9 @@ void ConnectionPool::recoverConnection(Connection *c)
         close(c->fd_.getFd());
         c->fd_ = -1;
     }
+    c->read_.handler = c->write_.handler = NULL;
+    c->readBuffer_.retrieveAll();
+    c->writeBuffer_.retrieveAll();
 }
 
 Cycle::Cycle(ConnectionPool *pool, Logger *logger) : pool_(pool), logger_(logger)
@@ -117,9 +120,9 @@ int sharedMemory::createShared(size_t size)
     addr_ = mmap(NULL, size_, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED, -1, 0);
     if (addr_ == MAP_FAILED)
     {
-        return -1;
+        return ERROR;
     }
-    return 0;
+    return OK;
 }
 
 sharedMemory::~sharedMemory()

@@ -11,12 +11,8 @@
 
 int setnonblocking(int fd);
 unsigned long long getTickMs();
-// return 0 for success, -1 for invalid option
 int getOption(int argc, char *argv[], std::unordered_map<std::string, std::string> *mp);
-
-// return 0 for success, -1 for failure
 int writePid2File();
-// return pid for success, -1 for file not existed
 pid_t readPidFromFile();
 
 /* signal.cpp */

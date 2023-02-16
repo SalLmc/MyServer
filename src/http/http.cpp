@@ -1,4 +1,5 @@
 #include "http.h"
+#include "../core/memory_manage.hpp"
 #include "../event/epoller.h"
 #include "../global.h"
 #include "../util/utils_declaration.h"
@@ -11,7 +12,7 @@ int initListen(Cycle *cycle, int port)
     listen->read_.c = listen;
     listen->read_.handler = newConnection;
 
-    return 0;
+    return OK;
 }
 
 Connection *addListen(Cycle *cycle, int port)
@@ -46,13 +47,13 @@ static int recvPrint(Event *ev)
     if (len == 0)
     {
         printf("client close connection\n");
-        pool.recoverConnection(ev->c);
+        cPool.recoverConnection(ev->c);
         return 1;
     }
     else if (len < 0)
     {
         printf("errno:%d\n", errno);
-        pool.recoverConnection(ev->c);
+        cPool.recoverConnection(ev->c);
         return 1;
     }
     printf("%d recv len:%d from client:%s\n", getpid(), len, ev->c->readBuffer_.allToStr().c_str());
@@ -72,7 +73,7 @@ static int echoPrint(Event *ev)
 
 int newConnection(Event *ev)
 {
-    Connection *newc = pool.getNewConnection();
+    Connection *newc = cPool.getNewConnection();
     assert(newc != NULL);
 
     sockaddr_in *addr = &newc->addr_;
@@ -82,12 +83,79 @@ int newConnection(Event *ev)
 
     assert(newc->fd_.getFd() >= 0);
 
+    LOG_INFO << "NEW CONNECTION";
+
     setnonblocking(newc->fd_.getFd());
 
     newc->read_.c = newc->write_.c = newc;
-    newc->read_.handler = recvPrint;
-    newc->write_.handler = echoPrint;
+    newc->read_.handler = waitRequest;
 
     epoller.addFd(newc->fd_.getFd(), EPOLLIN, newc);
+    return 0;
+}
+
+int waitRequest(Event *ev)
+{
+    Connection *c = ev->c;
+    int len = c->readBuffer_.readFd(c->fd_.getFd(), &errno);
+
+    if (len == 0)
+    {
+        finalizeConnection(c);
+        return -1;
+    }
+    else if (len < 0)
+    {
+        if (errno != EAGAIN)
+        {
+            finalizeConnection(c);
+            return -1;
+        }
+        else
+        {
+            return 0;
+        }
+    }
+
+    // c->data = rPool.getNewRequest();
+    c->data = heap.hNew<Request>();
+    ev->handler = processRequestLine;
+    processRequestLine(ev);
+    return 0;
+}
+
+int processRequestLine(Event *ev)
+{
+    Connection *c = ev->c;
+    Request *r = (Request *)c->data;
+
+    int ret = AGAIN;
+    for (;;)
+    {
+        if (ret == AGAIN)
+        {
+            int rett = readRequestHeader(r);
+            if (rett == AGAIN || ret == ERROR)
+            {
+                break;
+            }
+        }
+    }
+}
+
+int readRequestHeader(Request *r)
+{
+    Connection *c = r->c;
+    int n = c->readBuffer_.readFd(c->fd_.getFd(), &errno);
+    if (n <= 0)
+    {
+        finalizeConnection(c);
+    }
+}
+
+int finalizeConnection(Connection *c)
+{
+    epoller.delFd(c->fd_.getFd());
+    cPool.recoverConnection(c);
     return 0;
 }

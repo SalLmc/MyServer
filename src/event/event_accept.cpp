@@ -1,6 +1,7 @@
 #include "../core/core.h"
+#include "../event/epoller.h"
 #include "../global.h"
-#include "../http/http.h"
+#include "../util/utils_declaration.h"
 #include "event.h"
 
 int shmtxCreate(ProcessMutex *mtx, ProcessMutexShare *addr)
@@ -9,7 +10,7 @@ int shmtxCreate(ProcessMutex *mtx, ProcessMutexShare *addr)
 
     if (mtx->spin == (unsigned long)-1)
     {
-        return 0;
+        return OK;
     }
 
     mtx->spin = 2048;
@@ -18,14 +19,14 @@ int shmtxCreate(ProcessMutex *mtx, ProcessMutexShare *addr)
     if (sem_init(&mtx->sem, 1, 0) == -1)
     {
         LOG_CRIT << "sem_init failed";
-        return -1;
+        return ERROR;
     }
     else
     {
         mtx->semaphore = 1;
     }
 
-    return 0;
+    return OK;
 }
 
 int shmtxTryLock(ProcessMutex *mtx)

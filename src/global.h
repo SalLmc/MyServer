@@ -1,21 +1,28 @@
 #ifndef GLOBAL_H
 #define GLOBAL_H
 
-#include "core/core.h"
-#include "event/epoller.h"
-#include "event/event.h"
-#include "util/utils_declaration.h"
+#include <list>
 #include <unordered_map>
 #include <vector>
-#include <list>
 
 #define MAX_PROCESS_N 16
+
+class Cycle;
+class ConnectionPool;
+class RequestPool;
+class Epoller;
+struct SignalWrapper;
+class Process;
+class sharedMemory;
+class ProcessMutex;
+class HeapMemory;
 
 extern bool isChild;
 
 extern Cycle *cyclePtr;
 
-extern ConnectionPool pool;
+extern ConnectionPool cPool;
+extern RequestPool rPool;
 extern Epoller epoller;
 
 extern SignalWrapper signals[];
@@ -31,5 +38,7 @@ extern bool useAcceptMutex;
 extern sharedMemory shmForAMtx;
 extern bool acceptMutexHeld;
 extern ProcessMutex acceptMutex;
+
+extern HeapMemory heap;
 
 #endif

@@ -38,8 +38,8 @@ class Buffer
     void append(const void *data, size_t len);
     void append(const Buffer &buff);
 
-    ssize_t readFd(int fd, int *Errno);
-    ssize_t writeFd(int fd, int *Errno);
+    ssize_t readFd(int fd, int *saveErrno);
+    ssize_t writeFd(int fd, int *saveErrno);
 
   private:
     char *beginPtr();

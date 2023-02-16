@@ -1,4 +1,4 @@
-PROGS = libmy.so main signal_test log_test test
+PROGS = libmy.so main signal_test log_test timer_test 
 
 SRCDIRS = src/buffer src/core src/event src/http src/log src/timer src/util src
 
@@ -19,17 +19,20 @@ all: $(PROGS)
 libmy.so: $(CPP_OBJECTS)
 	$(CPPSHARELIB)
 
+main: main.o
+	$(BUILDEXEWITHLIB)
+
 signal_test: signal_test.o
 	$(BUILDEXEWITHLIB)
 
 log_test: log_test.o
 	$(BUILDEXEWITHLIB)
 
-main: main.o
+timer_test: timer_test.o
 	$(BUILDEXEWITHLIB)
 
-test: test.o
-	$(BUILDEXEWITHLIB)
+# test: test.o
+# 	$(BUILDEXEWITHLIB)
 
 clean:
 	rm -f $(PROGS) $(CPP_OBJECTS) *.o log/* pid_file

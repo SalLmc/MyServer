@@ -1,5 +1,6 @@
 #include "../global.h"
 #include "utils_declaration.h"
+#include <cstring>
 
 void signal_handler(int sig)
 {
@@ -7,7 +8,7 @@ void signal_handler(int sig)
     {
     case SIGINT:
         quit = 1;
-        break; 
+        break;
     case SIGUSR1:
         restart = 1;
         break;
@@ -33,20 +34,20 @@ int init_signals()
 
 int send_signal(pid_t pid, std::string command)
 {
-    int sent=0;
+    int sent = 0;
     for (int i = 0; signals[i].command != ""; i++)
     {
         if (signals[i].command == command)
         {
-            sent=1;
+            sent = 1;
             if (kill(pid, signals[i].sig) != -1)
             {
                 return 0;
             }
         }
     }
-    if(sent)
+    if (sent)
         return -1;
-    else 
+    else
         return -2;
 }

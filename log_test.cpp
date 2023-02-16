@@ -13,7 +13,7 @@
 int main(int argc, char *argv[])
 {
 
-    Cycle cycle(&pool, new Logger("log/", "startup", 10));
+    Cycle cycle(&cPool, new Logger("log/", "startup", 10));
 
     for (int i = 0; i < 10; i++)
         LOG_CRIT_BY(*cycle.logger_) << "start";

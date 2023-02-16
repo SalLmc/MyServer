@@ -1,6 +1,10 @@
 #include "process.h"
+#include "../core/core.h"
+#include "../event/epoller.h"
 #include "../event/event.h"
 #include "../global.h"
+#include "../log/logger.h"
+#include "../util/utils_declaration.h"
 
 void masterProcessCycle(Cycle *cycle)
 {
@@ -145,14 +149,14 @@ void workerProcessCycle(Cycle *cycle)
     // epoll
     epoller.setEpollFd(epoll_create(5));
 
-    cycle->timer.Add(
-        1, getTickMs(),
-        [&](void *arg) {
-            printf("%d timer msg:%s\n", getpid(), (char *)arg);
-            cycle->timer.Again(1, getTickMs() + 3000);
-            return 1;
-        },
-        (void *)"HELLO");
+    // cycle->timer_.Add(
+    //     1, getTickMs(),
+    //     [&](void *arg) {
+    //         printf("%d timer msg:%s\n", getpid(), (char *)arg);
+    //         cycle->timer.Again(1, getTickMs() + 1000);
+    //         return 1;
+    //     },
+    //     (void *)"HELLO");
 
     LOG_INFO << "Worker Looping";
     for (;;)
@@ -189,5 +193,5 @@ void processEventsAndTimers(Cycle *cycle)
         shmtxUnlock(&acceptMutex);
     }
 
-    cycle->timer.Tick();
+    cycle->timer_.Tick();
 }

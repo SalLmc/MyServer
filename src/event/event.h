@@ -22,13 +22,12 @@ class ProcessMutex
     unsigned long spin;
 };
 
-// 0 for success, -1 for failure
 int shmtxCreate(ProcessMutex *mtx, ProcessMutexShare *addr);
 // 1 for success, 0 for failure
 int shmtxTryLock(ProcessMutex *mtx);
 void shmtxLock(ProcessMutex *mtx);
 void shmtxUnlock(ProcessMutex *mtx);
-// -1 for error
+// 1 for success, 0 for failure, -1 for error
 int acceptexTryLock(Cycle *cycle);
 
 #endif
