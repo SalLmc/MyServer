@@ -1,5 +1,8 @@
 #include "core.h"
 
+Cycle *cyclePtr;
+ConnectionPool cPool;
+
 Fd::Fd() : fd_(-1)
 {
 }

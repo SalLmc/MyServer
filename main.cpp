@@ -8,6 +8,12 @@
 
 #include <memory>
 
+std::unordered_map<std::string, std::string> mp;
+extern ConnectionPool cPool;
+extern Cycle *cyclePtr;
+extern sharedMemory shmForAMtx;
+extern ProcessMutex acceptMutex;
+
 int main(int argc, char *argv[])
 {
     std::unique_ptr<Cycle> cycle(new Cycle(&cPool, new Logger("log/", "startup", 1)));

@@ -2,6 +2,8 @@
 #include "../core/core.h"
 #include "../global.h"
 
+Epoller epoller;
+
 Epoller::Epoller(int max_event) : epollfd_(-1), events_(max_event)
 {
     

@@ -2,6 +2,8 @@
 #include "utils_declaration.h"
 #include <cstring>
 
+SignalWrapper signals[] = {{SIGINT, signal_handler, "stop"}, {SIGUSR1, signal_handler, "reload"}, {0, NULL, ""}};
+
 void signal_handler(int sig)
 {
     switch (sig)

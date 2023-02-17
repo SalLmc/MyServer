@@ -6,6 +6,11 @@
 #include "../log/logger.h"
 #include "../util/utils_declaration.h"
 
+extern Epoller epoller;
+extern Cycle *cyclePtr;
+extern ProcessMutex acceptMutex;
+Process processes[MAX_PROCESS_N];
+
 void masterProcessCycle(Cycle *cycle)
 {
     sigset_t set;

@@ -4,6 +4,11 @@
 #include "../global.h"
 #include "../util/utils_declaration.h"
 
+extern ConnectionPool cPool;
+extern Epoller epoller;
+extern Cycle *cyclePtr;
+extern HeapMemory heap;
+
 int initListen(Cycle *cycle, int port)
 {
     Connection *listen = addListen(cycle, port);

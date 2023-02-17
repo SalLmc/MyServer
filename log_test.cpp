@@ -10,6 +10,8 @@
 
 #include "src/log/logger.h"
 
+extern ConnectionPool cPool;;
+
 int main(int argc, char *argv[])
 {
 

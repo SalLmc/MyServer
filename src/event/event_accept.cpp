@@ -4,6 +4,11 @@
 #include "../util/utils_declaration.h"
 #include "event.h"
 
+sharedMemory shmForAMtx;
+ProcessMutex acceptMutex;
+extern Cycle *cyclePtr;
+extern Epoller epoller;
+
 int shmtxCreate(ProcessMutex *mtx, ProcessMutexShare *addr)
 {
     mtx->lock = &addr->lock;
