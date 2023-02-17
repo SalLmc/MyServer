@@ -7,8 +7,8 @@ extern HeapMemory heap;
 
 int main()
 {
-    auto r=heap.hNew<Request>();
-    r->idx_=2;
-    printf("r:%d\n",r->idx_);
-    // heap.hDelete(r);
+    auto r = heap.hNew<Request>();
+    r->idx_ = 2;
+    printf("r:%d\n", r->idx_);
+    int *a = (int *)heap.hMalloc(100);
 }
