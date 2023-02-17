@@ -2,7 +2,7 @@
 
 #include "memory_manage.hpp"
 
-std::unordered_map<std::string, Type> typeMap{{typeid(void *).name(), Type::PV},
-                                              {typeid(Request *).name(), Type::P4REQUEST}};
+std::unordered_map<std::type_index, Type> typeMap{{std::type_index(typeid(void *)), Type::PV},
+                                                  {std::type_index(typeid(Request *)), Type::P4REQUEST}};
 
 HeapMemory heap;

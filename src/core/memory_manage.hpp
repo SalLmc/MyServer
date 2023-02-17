@@ -4,6 +4,7 @@
 #include <list>
 #include <string>
 #include <typeinfo>
+#include <typeindex>
 #include <unordered_map>
 
 enum class Type
@@ -12,20 +13,20 @@ enum class Type
     P4REQUEST
 };
 
-extern std::unordered_map<std::string, Type> typeMap;
+extern std::unordered_map<std::type_index, Type> typeMap;
 
 class AnyPtr
 {
   public:
     AnyPtr() = delete;
-    template <typename T> AnyPtr(T *t) : type(typeid(t).name()), addr(static_cast<void *>(t))
+    template <typename T> AnyPtr(T *t) : type(typeid(t)), addr(static_cast<void *>(t))
     {
     }
     bool operator==(const AnyPtr &a)
     {
         return a.addr == addr;
     }
-    std::string type;
+    std::type_index type;
     void *addr;
 };
 
@@ -38,6 +39,7 @@ class HeapMemory
         while (!ptrs_.empty())
         {
             AnyPtr &front = ptrs_.front();
+            // printf("%s\n",front.type.name());
             if (typeMap.count(front.type))
             {
                 switch (typeMap[front.type])
