@@ -164,6 +164,9 @@ int processRequestLine(Event *ev)
             r->request_line.data = r->request_start;
             r->request_length = r->c->readBuffer_.peek() - (char *)r->request_start;
 
+            LOG_INFO << "request line:"
+                     << std::string(r->request_line.data, r->request_line.data + r->request_line.len);
+
             r->method_name.len = r->method_end - r->request_start + 1;
             r->method_name.data = r->request_line.data;
 
@@ -198,7 +201,7 @@ int processRequestLine(Event *ev)
 
         if (ret != AGAIN)
         {
-            LOG_CRIT << "parse request line failed";
+            LOG_CRIT << "parse request line failed, FINALIZE CONNECTION";
 
             finalizeConnection(r->c);
             break;
@@ -236,6 +239,7 @@ int readRequestHeader(Request *r)
     else if (n == 0)
     {
         LOG_INFO << "client close connection";
+        finalizeConnection(c);
         return ERROR;
     }
     return OK;
