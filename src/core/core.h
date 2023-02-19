@@ -21,6 +21,10 @@
 #define ERROR -1
 #define AGAIN -2
 
+#define LF (u_char)'\n'
+#define CR (u_char)'\r'
+#define CRLF "\r\n"
+
 class Connection;
 
 struct Event
@@ -112,6 +116,12 @@ class sharedMemory
   private:
     void *addr_;
     size_t size_;
+};
+
+struct str_t
+{
+    size_t len;
+    u_char *data;
 };
 
 #endif

@@ -138,7 +138,7 @@ int acceptexTryLock(Cycle *cycle)
 
         for (auto listen : cycle->listening_)
         {
-            if (epoller.addFd(listen->fd_.getFd(), EPOLLIN, listen) == 0)
+            if (epoller.addFd(listen->fd_.getFd(), EPOLLIN | EPOLLET, listen) == 0)
             {
                 LOG_CRIT << "accept mutex addfd failed, errno:" << errno << " " << acceptMutexHeld;
                 shmtxUnlock(&acceptMutex);

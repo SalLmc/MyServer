@@ -13,6 +13,7 @@ Process processes[MAX_PROCESS_N];
 
 void masterProcessCycle(Cycle *cycle)
 {
+    // signal
     sigset_t set;
     sigemptyset(&set);
     sigaddset(&set, SIGINT);
@@ -26,12 +27,14 @@ void masterProcessCycle(Cycle *cycle)
 
     sigemptyset(&set);
 
+    // logger
     if (cycle->logger_ != NULL)
     {
         delete cycle->logger_;
         cycle->logger_ = NULL;
     }
 
+    // start processes
     isChild = 0;
     startWorkerProcesses(cycle, 2);
     if (isChild)

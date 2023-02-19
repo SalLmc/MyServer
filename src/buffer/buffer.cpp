@@ -20,6 +20,10 @@ const char *Buffer::peek() const
 {
     return beginPtr() + read_pos_;
 }
+char *Buffer::peek()
+{
+    return beginPtr() + read_pos_;
+}
 void Buffer::retrieve(size_t len)
 {
     assert(len <= readableBytes());

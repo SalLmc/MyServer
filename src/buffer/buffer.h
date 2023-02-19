@@ -20,6 +20,7 @@ class Buffer
     size_t prependableBytes() const;
 
     const char *peek() const;
+    char *peek();
     void ensureWriteable(size_t len);
     void hasWritten(size_t len);
 
