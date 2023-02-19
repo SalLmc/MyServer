@@ -32,6 +32,7 @@ class LogLine
     LogLine &operator<<(int64_t arg);
     LogLine &operator<<(uint64_t arg);
     LogLine &operator<<(std::string &arg);
+    LogLine &operator<<(std::string arg);
     LogLine &operator<<(const char *arg);
 
     char const *file_;

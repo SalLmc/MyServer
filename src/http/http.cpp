@@ -172,10 +172,10 @@ int processRequestLine(Event *ev)
                 r->http_protocol.len = r->request_end - r->http_protocol.data;
             }
 
-            // if (ngx_http_process_request_uri(r) != OK)
-            // {
-            //     break;
-            // }
+            if (processRequestUri(r) != OK)
+            {
+                break;
+            }
 
             if (r->schema_end)
             {
@@ -189,13 +189,7 @@ int processRequestLine(Event *ev)
                 r->host.data = r->host_start;
             }
 
-            // // HTTP 1.0
-            // if (r->http_version < 1000)
-            // {
-            //     ngx_http_process_request(r);
-            //     break;
-            // }
-
+            // TODO
             // ev->handler = ngx_http_process_request_headers;
             // ngx_http_process_request_headers(ev);
 
@@ -210,6 +204,7 @@ int processRequestLine(Event *ev)
             break;
         }
     }
+    return OK;
 }
 
 int readRequestHeader(Request *r)
@@ -243,6 +238,74 @@ int readRequestHeader(Request *r)
         LOG_INFO << "client close connection";
         return ERROR;
     }
+    return OK;
+}
+
+int processRequestUri(Request *r)
+{
+    if (r->args_start)
+    {
+        r->uri.len = r->args_start - 1 - r->uri_start;
+    }
+    else
+    {
+        r->uri.len = r->uri_end - r->uri_start;
+    }
+
+    if (r->complex_uri || r->quoted_uri || r->empty_path_in_uri)
+    {
+
+        if (r->empty_path_in_uri)
+        {
+            r->uri.len++;
+        }
+
+        r->uri.data = (u_char *)heap.hMalloc(r->uri.len);
+
+        if (parseComplexUri(r, 1) != OK)
+        {
+            r->uri.len = 0;
+            LOG_CRIT << "client sent invalid request";
+            finalizeConnection(r->c);
+            return ERROR;
+        }
+    }
+    else
+    {
+        r->uri.data = r->uri_start;
+    }
+
+    r->unparsed_uri.len = r->uri_end - r->uri_start;
+    r->unparsed_uri.data = r->uri_start;
+
+    r->valid_unparsed_uri = r->empty_path_in_uri ? 0 : 1;
+
+    if (r->uri_ext)
+    {
+        if (r->args_start)
+        {
+            r->exten.len = r->args_start - 1 - r->uri_ext;
+        }
+        else
+        {
+            r->exten.len = r->uri_end - r->uri_ext;
+        }
+
+        r->exten.data = r->uri_ext;
+    }
+
+    if (r->args_start && r->uri_end > r->args_start)
+    {
+        r->args.len = r->uri_end - r->args_start;
+        r->args.data = r->args_start;
+    }
+
+    LOG_INFO << "http uri:" << std::string(r->uri.data, r->uri.data + r->uri.len);
+
+    LOG_INFO << "http args:" << std::string(r->args.data, r->args.data + r->args.len);
+
+    LOG_INFO << "http exten:" << std::string(r->exten.data, r->exten.data + r->exten.len);
+
     return OK;
 }
 

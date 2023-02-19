@@ -3,6 +3,24 @@
 
 extern Cycle *cyclePtr;
 
+uint32_t usual[] = {
+    0x00000000, /* 0000 0000 0000 0000  0000 0000 0000 0000 */
+
+    /* ?>=< ;:98 7654 3210  /.-, +*)( '&%$ #"!  */
+    0x7fff37d6, /* 0111 1111 1111 1111  0011 0111 1101 0110 */
+
+    /* _^]\ [ZYX WVUT SRQP  ONML KJIH GFED CBA@ */
+    0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
+
+    /*  ~}| {zyx wvut srqp  onml kjih gfed cba` */
+    0x7fffffff, /* 0111 1111 1111 1111  1111 1111 1111 1111 */
+
+    0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
+    0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
+    0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
+    0xffffffff  /* 1111 1111 1111 1111  1111 1111 1111 1111 */
+};
+
 int parseRequestLine(Request *r)
 {
     LOG_INFO << "parse request line";
@@ -730,6 +748,367 @@ done:
     {
         return ERROR;
     }
+
+    return OK;
+}
+
+int parseComplexUri(Request *r, int merge_slashes)
+{
+    u_char c, ch, decoded, *p, *u;
+    enum
+    {
+        sw_usual = 0,
+        sw_slash,
+        sw_dot,
+        sw_dot_dot,
+        sw_quoted,
+        sw_quoted_second
+    } state, quoted_state;
+
+    state = sw_usual;
+    p = r->uri_start;
+    u = r->uri.data;
+    r->uri_ext = NULL;
+    r->args_start = NULL;
+
+    if (r->empty_path_in_uri)
+    {
+        *u++ = '/';
+    }
+
+    ch = *p++;
+
+    while (p <= r->uri_end)
+    {
+
+        /*
+         * we use "ch = *p++" inside the cycle, but this operation is safe,
+         * because after the URI there is always at least one character:
+         * the line feed
+         */
+
+        switch (state)
+        {
+
+        case sw_usual:
+
+            if (usual[ch >> 5] & (1U << (ch & 0x1f)))
+            {
+                *u++ = ch;
+                ch = *p++;
+                break;
+            }
+
+            switch (ch)
+            {
+            case '/':
+                r->uri_ext = NULL;
+                state = sw_slash;
+                *u++ = ch;
+                break;
+            case '%':
+                quoted_state = state;
+                state = sw_quoted;
+                break;
+            case '?':
+                r->args_start = p;
+                goto args;
+            case '#':
+                goto done;
+            case '.':
+                r->uri_ext = u + 1;
+                *u++ = ch;
+                break;
+            case '+':
+                r->plus_in_uri = 1;
+                /* fall through */
+            default:
+                *u++ = ch;
+                break;
+            }
+
+            ch = *p++;
+            break;
+
+        case sw_slash:
+
+            if (usual[ch >> 5] & (1U << (ch & 0x1f)))
+            {
+                state = sw_usual;
+                *u++ = ch;
+                ch = *p++;
+                break;
+            }
+
+            switch (ch)
+            {
+            case '/':
+                if (!merge_slashes)
+                {
+                    *u++ = ch;
+                }
+                break;
+            case '.':
+                state = sw_dot;
+                *u++ = ch;
+                break;
+            case '%':
+                quoted_state = state;
+                state = sw_quoted;
+                break;
+            case '?':
+                r->args_start = p;
+                goto args;
+            case '#':
+                goto done;
+            case '+':
+                r->plus_in_uri = 1;
+                /* fall through */
+            default:
+                state = sw_usual;
+                *u++ = ch;
+                break;
+            }
+
+            ch = *p++;
+            break;
+
+        case sw_dot:
+
+            if (usual[ch >> 5] & (1U << (ch & 0x1f)))
+            {
+                state = sw_usual;
+                *u++ = ch;
+                ch = *p++;
+                break;
+            }
+
+            switch (ch)
+            {
+            case '/':
+                state = sw_slash;
+                u--;
+                break;
+            case '.':
+                state = sw_dot_dot;
+                *u++ = ch;
+                break;
+            case '%':
+                quoted_state = state;
+                state = sw_quoted;
+                break;
+            case '?':
+                u--;
+                r->args_start = p;
+                goto args;
+            case '#':
+                u--;
+                goto done;
+            case '+':
+                r->plus_in_uri = 1;
+                /* fall through */
+            default:
+                state = sw_usual;
+                *u++ = ch;
+                break;
+            }
+
+            ch = *p++;
+            break;
+
+        case sw_dot_dot:
+
+            if (usual[ch >> 5] & (1U << (ch & 0x1f)))
+            {
+                state = sw_usual;
+                *u++ = ch;
+                ch = *p++;
+                break;
+            }
+
+            switch (ch)
+            {
+            case '/':
+            case '?':
+            case '#':
+                u -= 4;
+                for (;;)
+                {
+                    if (u < r->uri.data)
+                    {
+                        return ERROR;
+                    }
+                    if (*u == '/')
+                    {
+                        u++;
+                        break;
+                    }
+                    u--;
+                }
+                if (ch == '?')
+                {
+                    r->args_start = p;
+                    goto args;
+                }
+                if (ch == '#')
+                {
+                    goto done;
+                }
+                state = sw_slash;
+                break;
+            case '%':
+                quoted_state = state;
+                state = sw_quoted;
+                break;
+            case '+':
+                r->plus_in_uri = 1;
+                /* fall through */
+            default:
+                state = sw_usual;
+                *u++ = ch;
+                break;
+            }
+
+            ch = *p++;
+            break;
+
+        case sw_quoted:
+            r->quoted_uri = 1;
+
+            if (ch >= '0' && ch <= '9')
+            {
+                decoded = (u_char)(ch - '0');
+                state = sw_quoted_second;
+                ch = *p++;
+                break;
+            }
+
+            c = (u_char)(ch | 0x20);
+            if (c >= 'a' && c <= 'f')
+            {
+                decoded = (u_char)(c - 'a' + 10);
+                state = sw_quoted_second;
+                ch = *p++;
+                break;
+            }
+
+            return ERROR;
+
+        case sw_quoted_second:
+            if (ch >= '0' && ch <= '9')
+            {
+                ch = (u_char)((decoded << 4) + (ch - '0'));
+
+                if (ch == '%' || ch == '#')
+                {
+                    state = sw_usual;
+                    *u++ = ch;
+                    ch = *p++;
+                    break;
+                }
+                else if (ch == '\0')
+                {
+                    return ERROR;
+                }
+
+                state = quoted_state;
+                break;
+            }
+
+            c = (u_char)(ch | 0x20);
+            if (c >= 'a' && c <= 'f')
+            {
+                ch = (u_char)((decoded << 4) + (c - 'a') + 10);
+
+                if (ch == '?')
+                {
+                    state = sw_usual;
+                    *u++ = ch;
+                    ch = *p++;
+                    break;
+                }
+                else if (ch == '+')
+                {
+                    r->plus_in_uri = 1;
+                }
+
+                state = quoted_state;
+                break;
+            }
+
+            return ERROR;
+        }
+    }
+
+    if (state == sw_quoted || state == sw_quoted_second)
+    {
+        return ERROR;
+    }
+
+    if (state == sw_dot)
+    {
+        u--;
+    }
+    else if (state == sw_dot_dot)
+    {
+        u -= 4;
+
+        for (;;)
+        {
+            if (u < r->uri.data)
+            {
+                return ERROR;
+            }
+
+            if (*u == '/')
+            {
+                u++;
+                break;
+            }
+
+            u--;
+        }
+    }
+
+done:
+
+    r->uri.len = u - r->uri.data;
+
+    if (r->uri_ext)
+    {
+        r->exten.len = u - r->uri_ext;
+        r->exten.data = r->uri_ext;
+    }
+
+    r->uri_ext = NULL;
+
+    return OK;
+
+args:
+
+    while (p < r->uri_end)
+    {
+        if (*p++ != '#')
+        {
+            continue;
+        }
+
+        r->args.len = p - 1 - r->args_start;
+        r->args.data = r->args_start;
+        r->args_start = NULL;
+
+        break;
+    }
+
+    r->uri.len = u - r->uri.data;
+
+    if (r->uri_ext)
+    {
+        r->exten.len = u - r->uri_ext;
+        r->exten.data = r->uri_ext;
+    }
+
+    r->uri_ext = NULL;
 
     return OK;
 }

@@ -74,10 +74,15 @@ class Request
     uintptr_t http_version;
 
     str_t http_protocol;
-    str_t request_line;
     str_t method_name;
     str_t schema;
     str_t host;
+
+    str_t request_line;
+    str_t args;
+    str_t uri;
+    str_t exten;
+    str_t unparsed_uri;
 
     off_t request_length;
 
@@ -90,7 +95,9 @@ class Request
     /* URI with empty path */
     unsigned empty_path_in_uri : 1;
 
-    // http headers
+    unsigned valid_unparsed_uri : 1;
+
+    // used for parse http headers
     u_char *pos;
     State state = State::sw_start;
     uintptr_t header_hash;
@@ -101,11 +108,6 @@ class Request
     u_char *header_name_end;
     u_char *header_start;
     u_char *header_end;
-
-    /*
-     * a memory that can be reused after parsing a request line
-     * via ngx_http_ephemeral_t
-     */
 
     u_char *uri_start;
     u_char *uri_end;
