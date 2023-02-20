@@ -2,6 +2,8 @@
 #define HTTP
 
 #include "../core/core.h"
+#include <list>
+#include <unordered_map>
 
 class Request;
 
@@ -14,6 +16,21 @@ int readRequestHeader(Request *r);
 int newConnection(Event *ev);
 int waitRequest(Event *ev);
 int processRequestLine(Event *ev);
+int processRequestHeaders(Event *ev);
+
+#define PARSE_HEADER_DONE 1
+
+enum class HeaderState
+{
+    sw_start = 0,
+    sw_name,
+    sw_space_before_value,
+    sw_value,
+    sw_space_after_value,
+    sw_ignore_line,
+    sw_almost_done,
+    sw_header_almost_done
+};
 
 enum class State
 {
@@ -64,6 +81,35 @@ enum class Method
     PROPPATCH
 };
 
+enum class HttpState
+{
+    INITING_REQUEST_STATE,
+    READING_REQUEST_STATE,
+    PROCESS_REQUEST_STATE,
+
+    CONNECT_UPSTREAM_STATE,
+    WRITING_UPSTREAM_STATE,
+    READING_UPSTREAM_STATE,
+
+    WRITING_REQUEST_STATE,
+    LINGERING_CLOSE_STATE,
+    KEEPALIVE_STATE
+};
+
+class Header
+{
+  public:
+    std::string name;
+    unsigned long offset;
+};
+
+class Headers_in
+{
+  public:
+    std::list<Header> headers;
+    std::unordered_map<std::string, std::string> header_name_value_map;
+};
+
 class Request
 {
   public:
@@ -72,6 +118,8 @@ class Request
 
     Method method;
     uintptr_t http_version;
+
+    Headers_in headers_in;
 
     str_t http_protocol;
     str_t method_name;
@@ -86,6 +134,8 @@ class Request
 
     off_t request_length;
 
+    HttpState http_state;
+
     /* URI with "/." and on Win32 with "//" */
     unsigned complex_uri : 1;
     /* URI with "%" */
@@ -95,12 +145,15 @@ class Request
     /* URI with empty path */
     unsigned empty_path_in_uri : 1;
 
+    unsigned invalid_header : 1;
+
     unsigned valid_unparsed_uri : 1;
 
     // used for parse http headers
     u_char *pos;
+    HeaderState headerState = HeaderState::sw_start;
     State state = State::sw_start;
-    uintptr_t header_hash;
+    // uintptr_t header_hash;
     uintptr_t lowcase_index;
     u_char lowcase_header[32];
 
@@ -115,6 +168,7 @@ class Request
     u_char *args_start;
     u_char *request_start;
     u_char *request_end;
+    // method_end points to the last character of method, not the place after it
     u_char *method_end;
     u_char *schema_start;
     u_char *schema_end;

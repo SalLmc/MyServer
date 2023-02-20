@@ -246,7 +246,7 @@ void Logger::write2FileInner()
 
             struct stat st;
             fstat(fd_, &st);
-            if (st.st_size >= maxFileSize_ * 1048576)
+            if ((unsigned long long)st.st_size >= maxFileSize_ * 1048576)
             {
                 char loc[100];
                 memset(loc, 0, sizeof(loc));

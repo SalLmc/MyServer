@@ -31,5 +31,6 @@ class Request;
 int parseRequestLine(Request *r);
 int processRequestUri(Request *r);
 int parseComplexUri(Request *r, int merge_slashes);
+int parseHeaderLine(Request *r,int allow_underscores);
 
 #endif

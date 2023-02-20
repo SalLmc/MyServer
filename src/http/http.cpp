@@ -5,11 +5,18 @@
 #include "../util/utils_declaration.h"
 #include "http_parse.h"
 #include <string>
+#include <sys/sendfile.h>
 
 extern ConnectionPool cPool;
 extern Epoller epoller;
 extern Cycle *cyclePtr;
 extern HeapMemory heap;
+
+#define HEADER                                                                                                         \
+    "HTTP/1.1 200 OK\r\n"                                                                                              \
+    "Transfer-Encoding: chunked\r\n"                                                                                   \
+    "Content-Type: text/html\r\n"                                                                                      \
+    "\r\n"
 
 int initListen(Cycle *cycle, int port)
 {
@@ -192,9 +199,8 @@ int processRequestLine(Event *ev)
                 r->host.data = r->host_start;
             }
 
-            // TODO
-            // ev->handler = ngx_http_process_request_headers;
-            // ngx_http_process_request_headers(ev);
+            ev->handler = processRequestHeaders;
+            processRequestHeaders(ev);
 
             break;
         }
@@ -208,6 +214,114 @@ int processRequestLine(Event *ev)
         }
     }
     return OK;
+}
+
+int processRequestHeaders(Event *ev)
+{
+    int rc;
+    Connection *c;
+    Request *r;
+
+    c = ev->c;
+    r = (Request *)c->data;
+
+    LOG_INFO << "process request headers";
+
+    rc = AGAIN;
+
+    for (;;)
+    {
+        if (rc == AGAIN)
+        {
+            int ret = readRequestHeader(r);
+            if (ret == AGAIN || ret == ERROR)
+            {
+                break;
+            }
+        }
+
+        rc = parseHeaderLine(r, 1);
+
+        if (rc == OK)
+        {
+
+            r->request_length += (u_char *)r->c->readBuffer_.peek() - r->header_name_start;
+
+            if (r->invalid_header)
+            {
+
+                /* there was error while a header line parsing */
+                LOG_CRIT << "client sent invalid header line";
+                continue;
+            }
+
+            /* a header line has been parsed successfully */
+
+            r->headers_in.headers.emplace_back();
+            Header &now = r->headers_in.headers.back();
+            now.name = std::string(r->header_name_start, r->header_name_end);
+
+            r->headers_in.header_name_value_map[now.name] = std::string(r->header_start, r->header_end);
+
+            LOG_INFO << "header:< " << std::string(now.name) << ", "
+                     << std::string(r->headers_in.header_name_value_map[now.name]) << " >";
+
+            continue;
+        }
+
+        if (rc == PARSE_HEADER_DONE)
+        {
+
+            /* a whole header has been parsed successfully */
+
+            LOG_INFO << "http header done";
+
+            r->request_length += (u_char *)r->c->readBuffer_.peek() - r->header_name_start;
+
+            r->http_state = HttpState::PROCESS_REQUEST_STATE;
+
+            // rc = ngx_http_process_request_header(r);
+
+            // if (rc != OK)
+            // {
+            //     break;
+            // }
+
+            char tmp[] = HEADER;
+            Fd filefd = open("static/index.html", O_RDONLY);
+            assert(filefd.getFd() >= 0);
+            struct stat st;
+            fstat(filefd.getFd(), &st);
+            write(c->fd_.getFd(), tmp, strlen(tmp));
+
+            // char tt[]="hello\r\n";
+            // write(c->fd_.getFd(),tt,sizeof(tt));
+            sprintf(tmp, "%lx\r\n", st.st_size);
+            write(c->fd_.getFd(), tmp, strlen(tmp));
+            sendfile(c->fd_.getFd(), filefd.getFd(), NULL, st.st_size);
+            write(c->fd_.getFd(),CRLF,2);
+            write(c->fd_.getFd(), "0\r\n\r\n", 5);
+            heap.hDelete(r);
+            finalizeConnection(c);
+
+            break;
+        }
+
+        if (rc == AGAIN)
+        {
+
+            /* a header line parsing is still not complete */
+
+            continue;
+        }
+
+        /* rc == NGX_HTTP_PARSE_INVALID_HEADER */
+
+        LOG_WARN << "client sent invalid header line";
+        finalizeConnection(c);
+        break;
+    }
+    return ERROR;
 }
 
 int readRequestHeader(Request *r)
@@ -242,7 +356,7 @@ int readRequestHeader(Request *r)
         finalizeConnection(c);
         return ERROR;
     }
-    return OK;
+    return n;
 }
 
 int processRequestUri(Request *r)

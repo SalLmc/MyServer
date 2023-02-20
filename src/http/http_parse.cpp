@@ -1112,3 +1112,287 @@ args:
 
     return OK;
 }
+
+int parseHeaderLine(Request *r, int allow_underscores)
+{
+    u_char c, ch, *p;
+    // unsigned long hash;
+    unsigned long i;
+
+    /* the last '\0' is not needed because string is zero terminated */
+
+    static u_char lowcase[] = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+                              "\0\0\0\0\0\0\0\0\0\0\0\0\0-\0\0"
+                              "0123456789\0\0\0\0\0\0"
+                              "\0abcdefghijklmnopqrstuvwxyz\0\0\0\0\0"
+                              "\0abcdefghijklmnopqrstuvwxyz\0\0\0\0\0"
+                              "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+                              "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+                              "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+                              "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
+
+    HeaderState &state = r->headerState;
+    // hash = r->header_hash;
+    i = r->lowcase_index;
+
+    for (p = (u_char *)r->c->readBuffer_.peek(); p < (u_char *)r->c->readBuffer_.beginWrite(); p++)
+    {
+        ch = *p;
+
+        switch (state)
+        {
+
+        /* first char */
+        case HeaderState::sw_start:
+            r->header_name_start = p;
+            r->invalid_header = 0;
+
+            switch (ch)
+            {
+            case CR:
+                r->header_end = p;
+                state = HeaderState::sw_header_almost_done;
+                break;
+            case LF:
+                r->header_end = p;
+                goto header_done;
+            default:
+                state = HeaderState::sw_name;
+
+                c = lowcase[ch];
+
+                if (c)
+                {
+                    // hash = ngx_hash(0, c);
+                    r->lowcase_header[0] = c;
+                    i = 1;
+                    break;
+                }
+
+                if (ch == '_')
+                {
+                    if (allow_underscores)
+                    {
+                        // hash = ngx_hash(0, ch);
+                        r->lowcase_header[0] = ch;
+                        i = 1;
+                    }
+                    else
+                    {
+                        // hash = 0;
+                        i = 0;
+                        r->invalid_header = 1;
+                    }
+
+                    break;
+                }
+
+                if (ch <= 0x20 || ch == 0x7f || ch == ':')
+                {
+                    r->header_end = p;
+                    return ERROR;
+                }
+
+                // hash = 0;
+                i = 0;
+                r->invalid_header = 1;
+
+                break;
+            }
+            break;
+
+        /* header name */
+        case HeaderState::sw_name:
+            c = lowcase[ch];
+
+            if (c)
+            {
+                // hash = ngx_hash(hash, c);
+                r->lowcase_header[i++] = c;
+                i &= (32 - 1);
+                break;
+            }
+
+            if (ch == '_')
+            {
+                if (allow_underscores)
+                {
+                    // hash = ngx_hash(hash, ch);
+                    r->lowcase_header[i++] = ch;
+                    i &= (32 - 1);
+                }
+                else
+                {
+                    r->invalid_header = 1;
+                }
+
+                break;
+            }
+
+            if (ch == ':')
+            {
+                r->header_name_end = p;
+                state = HeaderState::sw_space_before_value;
+                break;
+            }
+
+            if (ch == CR)
+            {
+                r->header_name_end = p;
+                r->header_start = p;
+                r->header_end = p;
+                state = HeaderState::sw_almost_done;
+                break;
+            }
+
+            if (ch == LF)
+            {
+                r->header_name_end = p;
+                r->header_start = p;
+                r->header_end = p;
+                goto done;
+            }
+
+            // /* IIS may send the duplicate "HTTP/1.1 ..." lines */
+            // if (ch == '/' && r->upstream && p - r->header_name_start == 4 &&
+            //     ngx_strncmp(r->header_name_start, "HTTP", 4) == 0)
+            // {
+            //     state = sw_ignore_line;
+            //     break;
+            // }
+
+            if (ch <= 0x20 || ch == 0x7f)
+            {
+                r->header_end = p;
+                return ERROR;
+            }
+
+            r->invalid_header = 1;
+
+            break;
+
+        /* space* before header value */
+        case HeaderState::sw_space_before_value:
+            switch (ch)
+            {
+            case ' ':
+                break;
+            case CR:
+                r->header_start = p;
+                r->header_end = p;
+                state = HeaderState::sw_almost_done;
+                break;
+            case LF:
+                r->header_start = p;
+                r->header_end = p;
+                goto done;
+            case '\0':
+                r->header_end = p;
+                return ERROR;
+            default:
+                r->header_start = p;
+                state = HeaderState::sw_value;
+                break;
+            }
+            break;
+
+        /* header value */
+        case HeaderState::sw_value:
+            switch (ch)
+            {
+            case ' ':
+                r->header_end = p;
+                state = HeaderState::sw_space_after_value;
+                break;
+            case CR:
+                r->header_end = p;
+                state = HeaderState::sw_almost_done;
+                break;
+            case LF:
+                r->header_end = p;
+                goto done;
+            case '\0':
+                r->header_end = p;
+                return ERROR;
+            }
+            break;
+
+        /* space* before end of header line */
+        case HeaderState::sw_space_after_value:
+            switch (ch)
+            {
+            case ' ':
+                break;
+            case CR:
+                state = HeaderState::sw_almost_done;
+                break;
+            case LF:
+                goto done;
+            case '\0':
+                r->header_end = p;
+                return ERROR;
+            default:
+                state = HeaderState::sw_value;
+                break;
+            }
+            break;
+
+        /* ignore header line */
+        case HeaderState::sw_ignore_line:
+            switch (ch)
+            {
+            case LF:
+                state = HeaderState::sw_start;
+                break;
+            default:
+                break;
+            }
+            break;
+
+        /* end of header line */
+        case HeaderState::sw_almost_done:
+            switch (ch)
+            {
+            case LF:
+                goto done;
+            case CR:
+                break;
+            default:
+                return ERROR;
+            }
+            break;
+
+        /* end of header */
+        case HeaderState::sw_header_almost_done:
+            switch (ch)
+            {
+            case LF:
+                goto header_done;
+            default:
+                return ERROR;
+            }
+        }
+    }
+
+    r->c->readBuffer_.retrieveUntil((char *)p);
+    // r->header_hash = hash;
+    r->lowcase_index = i;
+
+    return AGAIN;
+
+done:
+
+    r->c->readBuffer_.retrieveUntil((char *)(p + 1));
+    r->headerState = HeaderState::sw_start;
+    // r->header_hash = hash;
+    r->lowcase_index = i;
+
+    return OK;
+
+header_done:
+
+    r->c->readBuffer_.retrieveUntil((char *)(p + 1));
+    r->headerState = HeaderState::sw_start;
+
+    return PARSE_HEADER_DONE;
+}

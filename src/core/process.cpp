@@ -156,15 +156,16 @@ void workerProcessCycle(Cycle *cycle)
 
     // epoll
     epoller.setEpollFd(epoll_create(5));
-
-    // cycle->timer_.Add(
-    //     1, getTickMs(),
-    //     [&](void *arg) {
-    //         printf("%d timer msg:%s\n", getpid(), (char *)arg);
-    //         cycle->timer.Again(1, getTickMs() + 1000);
-    //         return 1;
-    //     },
-    //     (void *)"HELLO");
+    if (!useAcceptMutex)
+    {
+        for (auto listen : cycle->listening_)
+        {
+            if (epoller.addFd(listen->fd_.getFd(), EPOLLIN | EPOLLET, listen) == 0)
+            {
+                LOG_CRIT << "accept mutex addfd failed, errno:" << strerror(errno);
+            }
+        }
+    }
 
     LOG_INFO << "Worker Looping";
     for (;;)

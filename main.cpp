@@ -13,6 +13,7 @@ extern ConnectionPool cPool;
 extern Cycle *cyclePtr;
 extern sharedMemory shmForAMtx;
 extern ProcessMutex acceptMutex;
+extern Epoller epoller;
 
 int main(int argc, char *argv[])
 {
