@@ -99,15 +99,18 @@ enum class HttpState
 class Header
 {
   public:
+    Header() = default;
+    Header(std::string &&namee, std::string &&valuee);
     std::string name;
-    unsigned long offset;
+    std::string value;
+    // unsigned long offset;
 };
 
 class Headers_in
 {
   public:
     std::list<Header> headers;
-    std::unordered_map<std::string, std::string> header_name_value_map;
+    std::unordered_map<std::string, Header> header_name_value_map;
 };
 
 class Request

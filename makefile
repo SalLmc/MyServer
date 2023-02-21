@@ -40,8 +40,8 @@ test: test.o
 clean:
 	rm -f $(PROGS) $(CPP_OBJECTS) *.o log/* pid_file
 
-re:
-	rm -f ./*.o log/* && make
+remain:
+	rm -f main.o log/* && make
 
 %.o: %.cpp
 	g++ $(FLAGS) -fPIC -c $< -o $@

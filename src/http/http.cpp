@@ -110,7 +110,7 @@ int newConnection(Event *ev)
 
 int waitRequest(Event *ev)
 {
-    LOG_INFO << "wait request";
+    // LOG_INFO << "wait request";
     Connection *c = ev->c;
     int len = c->readBuffer_.readFd(c->fd_.getFd(), &errno);
 
@@ -143,7 +143,7 @@ int waitRequest(Event *ev)
 
 int processRequestLine(Event *ev)
 {
-    LOG_INFO << "process request line";
+    // LOG_INFO << "process request line";
     Connection *c = ev->c;
     Request *r = (Request *)c->data;
 
@@ -225,7 +225,7 @@ int processRequestHeaders(Event *ev)
     c = ev->c;
     r = (Request *)c->data;
 
-    LOG_INFO << "process request headers";
+    // LOG_INFO << "process request headers";
 
     rc = AGAIN;
 
@@ -257,14 +257,12 @@ int processRequestHeaders(Event *ev)
 
             /* a header line has been parsed successfully */
 
-            r->headers_in.headers.emplace_back();
+            r->headers_in.headers.emplace_back(std::string(r->header_name_start, r->header_name_end),std::string(r->header_start,r->header_end));
+
             Header &now = r->headers_in.headers.back();
-            now.name = std::string(r->header_name_start, r->header_name_end);
+            r->headers_in.header_name_value_map[now.name] = now;
 
-            r->headers_in.header_name_value_map[now.name] = std::string(r->header_start, r->header_end);
-
-            LOG_INFO << "header:< " << std::string(now.name) << ", "
-                     << std::string(r->headers_in.header_name_value_map[now.name]) << " >";
+            LOG_INFO << "header:< " << now.name << ", " << now.value << " >";
 
             continue;
         }
@@ -280,6 +278,7 @@ int processRequestHeaders(Event *ev)
 
             r->http_state = HttpState::PROCESS_REQUEST_STATE;
 
+            // // TODO; validate headers
             // rc = ngx_http_process_request_header(r);
 
             // if (rc != OK)
@@ -294,12 +293,10 @@ int processRequestHeaders(Event *ev)
             fstat(filefd.getFd(), &st);
             write(c->fd_.getFd(), tmp, strlen(tmp));
 
-            // char tt[]="hello\r\n";
-            // write(c->fd_.getFd(),tt,sizeof(tt));
             sprintf(tmp, "%lx\r\n", st.st_size);
             write(c->fd_.getFd(), tmp, strlen(tmp));
             sendfile(c->fd_.getFd(), filefd.getFd(), NULL, st.st_size);
-            write(c->fd_.getFd(),CRLF,2);
+            write(c->fd_.getFd(), CRLF, 2);
             write(c->fd_.getFd(), "0\r\n\r\n", 5);
             heap.hDelete(r);
             finalizeConnection(c);
@@ -326,7 +323,7 @@ int processRequestHeaders(Event *ev)
 
 int readRequestHeader(Request *r)
 {
-    LOG_INFO << "read request header";
+    // LOG_INFO << "read request header";
     Connection *c = r->c;
     assert(c != NULL);
 

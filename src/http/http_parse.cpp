@@ -23,7 +23,7 @@ uint32_t usual[] = {
 
 int parseRequestLine(Request *r)
 {
-    LOG_INFO << "parse request line";
+    // LOG_INFO << "parse request line";
     u_char c, ch, *p, *m;
 
     auto &state = r->state;

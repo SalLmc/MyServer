@@ -107,7 +107,7 @@ LogLine &LogLine::operator<<(std::string &arg)
     pos += strlen(buffer_ + pos);
     return *this;
 }
-LogLine &LogLine::operator<<(std::string arg)
+LogLine &LogLine::operator<<(std::string &&arg)
 {
     strcpy(buffer_ + pos, arg.c_str());
     pos += strlen(buffer_ + pos);
