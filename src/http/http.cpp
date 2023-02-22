@@ -13,10 +13,16 @@ extern Epoller epoller;
 extern Cycle *cyclePtr;
 extern HeapMemory heap;
 
-#define HEADER                                                                                                         \
+#define HTML_HEADER                                                                                                    \
     "HTTP/1.1 200 OK\r\n"                                                                                              \
     "Transfer-Encoding: chunked\r\n"                                                                                   \
     "Content-Type: text/html\r\n"                                                                                      \
+    "\r\n"
+
+#define FAVICON_HEADER                                                                                                 \
+    "HTTP/1.1 200 OK\r\n"                                                                                              \
+    "Transfer-Encoding: chunked\r\n"                                                                                   \
+    "Content-Type: image/x-icon\r\n"                                                                                   \
     "\r\n"
 
 int initListen(Cycle *cycle, int port)
@@ -295,20 +301,36 @@ int processRequestHeaders(Event *ev)
             //     break;
             // }
 
-            char tmp[] = HEADER;
-            Fd filefd = open("static/index.html", O_RDONLY);
-            assert(filefd.getFd() >= 0);
-            struct stat st;
-            fstat(filefd.getFd(), &st);
-            write(c->fd_.getFd(), tmp, strlen(tmp));
-
-            sprintf(tmp, "%lx\r\n", st.st_size);
-            write(c->fd_.getFd(), tmp, strlen(tmp));
-            sendfile(c->fd_.getFd(), filefd.getFd(), NULL, st.st_size);
-            write(c->fd_.getFd(), CRLF, 2);
-            write(c->fd_.getFd(), "0\r\n\r\n", 5);
-            heap.hDelete(r);
-            finalizeConnection(c);
+            {
+                std::string path = "static" + std::string(r->uri.data, r->uri.data + r->uri.len);
+                if (path.back() == '/')
+                {
+                    path += "index.html";
+                }
+                Fd filefd = open(path.c_str(), O_RDONLY);
+                assert(filefd.getFd() >= 0);
+                struct stat st;
+                fstat(filefd.getFd(), &st);
+                if (std::string(r->exten.data, r->exten.data + r->exten.len) == "ico")
+                {
+                    char tmp[] = FAVICON_HEADER;
+                    write(c->fd_.getFd(), tmp, strlen(tmp));
+                    sprintf(tmp, "%lx\r\n", st.st_size);
+                    write(c->fd_.getFd(), tmp, strlen(tmp));
+                }
+                else
+                {
+                    char tmp[] = HTML_HEADER;
+                    write(c->fd_.getFd(), tmp, strlen(tmp));
+                    sprintf(tmp, "%lx\r\n", st.st_size);
+                    write(c->fd_.getFd(), tmp, strlen(tmp));
+                }
+                sendfile(c->fd_.getFd(), filefd.getFd(), NULL, st.st_size);
+                write(c->fd_.getFd(), CRLF, 2);
+                write(c->fd_.getFd(), "0\r\n\r\n", 5);
+                heap.hDelete(r);
+                finalizeConnection(c);
+            }
 
             break;
         }
