@@ -53,7 +53,7 @@ Connection::Connection() : read_(this), write_(this), idx_(-1), data(NULL)
 {
 }
 
-ConnectionPool::ConnectionPool():flags(0)
+ConnectionPool::ConnectionPool() : flags(0)
 {
     cPool_ = (Connection **)malloc(POOLSIZE * sizeof(Connection *));
     for (int i = 0; i < POOLSIZE; i++)
@@ -85,28 +85,32 @@ Connection *ConnectionPool::getNewConnection()
     return NULL;
 }
 
-#define RE_ALLOC
+// #define RE_ALLOC
 
 void ConnectionPool::recoverConnection(Connection *c)
 {
     uint8_t recover = ~(1 << c->idx_);
     flags &= recover;
-    
+
 #ifdef RE_ALLOC
     cPool_[c->idx_] = new Connection;
     delete c;
 #else
     c->idx_ = -1;
+    
     if (c->fd_ != -1)
     {
         close(c->fd_.getFd());
         c->fd_ = -1;
     }
+
     c->read_.handler = c->write_.handler = NULL;
     c->read_.timeout = c->write_.timeout = NOT_TIMEOUT;
 
     c->readBuffer_.retrieveAll();
     c->writeBuffer_.retrieveAll();
+
+    c->data = NULL;
 #endif
 }
 
