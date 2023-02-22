@@ -27,11 +27,19 @@
 
 class Connection;
 
-struct Event
+#define NOT_TIMEOUT 0
+#define TIMEOUT 1
+#define IGNORE_TIMEOUT 2
+
+class Event
 {
+  public:
+    Event()=delete;
+    Event(Connection *cc);
     std::function<int(Event *)> handler;
     Connection *c;
     int type;
+    unsigned timeout:2;
 };
 
 class Fd
@@ -54,9 +62,7 @@ class Fd
 class Connection
 {
   public:
-    ~Connection()
-    {
-    }
+    Connection();
     Event read_;
     Event write_;
     Fd fd_;

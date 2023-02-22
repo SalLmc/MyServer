@@ -38,8 +38,9 @@ class HeapTimer
     }
     void Adjust(int id, unsigned long long new_timeout_ms);
     void Again(int id, unsigned long long new_timeout_ms);
-    void Add(int id, unsigned long long timeout_ms, const TimeoutCallBack &cb, void *arg);
-    void DoWork(int id); // delete node id && trigger id's callback
+    void Add(int id, unsigned long long timeoutstamp_ms, const TimeoutCallBack &cb, void *arg);
+    void Remove(int id); // remove node 
+    void DoWork(int id); // delete node && trigger its callback
     void Clear();
     // remove invalid nodes and call callbacks
     void Tick();

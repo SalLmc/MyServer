@@ -1,6 +1,8 @@
 #include "timer.h"
 #include "../util/utils_declaration.h"
 #include <assert.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 void HeapTimer::SwapNode(size_t i, size_t j)
 {
@@ -46,7 +48,7 @@ bool HeapTimer::SiftDown(size_t index, size_t n)
     return i > index; // true means siftdown happened
 }
 
-void HeapTimer::Add(int id, unsigned long long timeout_ms, const TimeoutCallBack &cb, void *arg)
+void HeapTimer::Add(int id, unsigned long long timeoutstamp_ms, const TimeoutCallBack &cb, void *arg)
 {
     assert(id >= 0);
     size_t i;
@@ -54,13 +56,13 @@ void HeapTimer::Add(int id, unsigned long long timeout_ms, const TimeoutCallBack
     {
         i = heap_.size();
         ref_[id] = i;
-        heap_.push_back({id, timeout_ms, 0, cb, arg});
+        heap_.push_back({id, timeoutstamp_ms, 0, cb, arg});
         SiftUp(i);
     }
     else
     {
         i = ref_[id];
-        heap_[i].expires = timeout_ms;
+        heap_[i].expires = timeoutstamp_ms;
         heap_[i].cb = cb;
         if (!SiftDown(i, heap_.size()))
         {
@@ -86,6 +88,15 @@ void HeapTimer::Del(size_t index)
     heap_.pop_back();
 }
 
+void HeapTimer::Remove(int id)
+{
+    if (heap_.empty() || ref_.count(id) == 0)
+    {
+        return;
+    }
+    Del(ref_[id]);
+}
+
 void HeapTimer::DoWork(int id)
 {
     if (heap_.empty() || ref_.count(id) == 0)
@@ -101,8 +112,13 @@ void HeapTimer::DoWork(int id)
 void HeapTimer::Adjust(int id, unsigned long long new_timeout_ms)
 {
     assert(!heap_.empty() && ref_.count(id) > 0);
-    heap_[ref_[id]].expires = new_timeout_ms;
-    SiftDown(ref_[id], heap_.size());
+    size_t i = ref_[id];
+    size_t n = heap_.size();
+    heap_[i].expires = new_timeout_ms;
+    if (!SiftDown(i, n))
+    {
+        SiftUp(i);
+    }
 }
 
 void HeapTimer::Again(int id, unsigned long long new_timeout_ms)

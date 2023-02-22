@@ -1,6 +1,7 @@
 #include "http.h"
 #include "../core/memory_manage.hpp"
 #include "../event/epoller.h"
+#include "../event/event.h"
 #include "../global.h"
 #include "../util/utils_declaration.h"
 #include "http_parse.h"
@@ -23,7 +24,6 @@ int initListen(Cycle *cycle, int port)
     Connection *listen = addListen(cycle, port);
     cycle->listening_.push_back(listen);
 
-    listen->read_.c = listen->write_.c = listen;
     listen->read_.handler = newConnection;
 
     return OK;
@@ -39,7 +39,6 @@ Connection *addListen(Cycle *cycle, int port)
     listenC->addr_.sin_addr.s_addr = INADDR_ANY;
     listenC->addr_.sin_family = AF_INET;
     listenC->addr_.sin_port = htons(port);
-    listenC->read_.c = listenC->write_.c = listenC;
 
     listenC->fd_ = socket(AF_INET, SOCK_STREAM, 0);
     assert(listenC->fd_.getFd() > 0);
@@ -101,16 +100,25 @@ int newConnection(Event *ev)
 
     setnonblocking(newc->fd_.getFd());
 
-    newc->read_.c = newc->write_.c = newc;
     newc->read_.handler = waitRequest;
 
     epoller.addFd(newc->fd_.getFd(), EPOLLIN | EPOLLET, newc);
+
+    cyclePtr->timer_.Add(newc->fd_.getFd(), getTickMs() + 5000, setEventTimeout, (void *)&newc->read_);
     return 0;
 }
 
 int waitRequest(Event *ev)
 {
-    // LOG_INFO << "wait request";
+    if (ev->timeout == TIMEOUT)
+    {
+        LOG_INFO << "Client Timeout";
+        finalizeConnection(ev->c);
+        return -1;
+    }
+
+    cyclePtr->timer_.Remove(ev->c->fd_.getFd());
+
     Connection *c = ev->c;
     int len = c->readBuffer_.readFd(c->fd_.getFd(), &errno);
 
@@ -257,7 +265,8 @@ int processRequestHeaders(Event *ev)
 
             /* a header line has been parsed successfully */
 
-            r->headers_in.headers.emplace_back(std::string(r->header_name_start, r->header_name_end),std::string(r->header_start,r->header_end));
+            r->headers_in.headers.emplace_back(std::string(r->header_name_start, r->header_name_end),
+                                               std::string(r->header_start, r->header_end));
 
             Header &now = r->headers_in.headers.back();
             r->headers_in.header_name_value_map[now.name] = now;
@@ -426,6 +435,7 @@ int processRequestUri(Request *r)
 
 int finalizeConnection(Connection *c)
 {
+    LOG_INFO << "FINALIZE CONNECTION";
     epoller.delFd(c->fd_.getFd());
     cPool.recoverConnection(c);
     return 0;

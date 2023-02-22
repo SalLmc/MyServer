@@ -215,6 +215,7 @@ void Logger::write2File()
 {
     while (state.load(std::memory_order_acquire) == State::INIT)
     {
+        asm_pause();
     }
 
     while (state.load() == State::ACTIVE)

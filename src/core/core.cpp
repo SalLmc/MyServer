@@ -45,6 +45,14 @@ void Fd::operator=(int fd)
     fd_ = fd;
 }
 
+Event::Event(Connection *cc) : handler(NULL), c(cc), timeout(NOT_TIMEOUT)
+{
+}
+
+Connection::Connection() : read_(this), write_(this)
+{
+}
+
 ConnectionPool::ConnectionPool()
 {
     flags = 0;
@@ -90,6 +98,8 @@ void ConnectionPool::recoverConnection(Connection *c)
         c->fd_ = -1;
     }
     c->read_.handler = c->write_.handler = NULL;
+    c->read_.timeout = c->write_.timeout = NOT_TIMEOUT;
+
     c->readBuffer_.retrieveAll();
     c->writeBuffer_.retrieveAll();
 }
