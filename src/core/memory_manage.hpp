@@ -3,9 +3,11 @@
 
 #include <list>
 #include <string>
-#include <typeinfo>
 #include <typeindex>
+#include <typeinfo>
 #include <unordered_map>
+
+class Request;
 
 enum class Type
 {
@@ -39,7 +41,6 @@ class HeapMemory
         while (!ptrs_.empty())
         {
             AnyPtr &front = ptrs_.front();
-            // printf("%s\n",front.type.name());
             if (typeMap.count(front.type))
             {
                 switch (typeMap[front.type])
