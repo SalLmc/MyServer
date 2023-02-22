@@ -7,23 +7,10 @@
     "Content-Type: text/html\r\n\r\n"                                                                                  \
     "<em>Hello World</em>\r\n"
 
-class node
-{
-  public:
-    int val = 0;
-    ~node()
-    {
-        printf("des\n");
-    }
-};
-
-std::unordered_map<int, node> mp;
-
 int main()
 {
-    node a;
-    mp[0] = a;
-    printf("%d\n", mp[0].val);
-    a.val = 1;
-    printf("%d\n", mp[0].val);
+    size_t i,j;
+    i=0;
+    j=(i-1)/2;
+    printf("%lld",j==0);
 }

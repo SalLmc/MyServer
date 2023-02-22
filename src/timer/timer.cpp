@@ -17,7 +17,7 @@ void HeapTimer::SiftUp(size_t i)
 {
     assert(i >= 0 && i < heap_.size());
     size_t j = (i - 1) / 2; // father
-    while (j >= 0)
+    while (j >= 0 && j < heap_.size())
     {
         if (heap_[j] < heap_[i]) // smallest at top
             break;

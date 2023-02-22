@@ -49,18 +49,16 @@ Event::Event(Connection *cc) : handler(NULL), c(cc), timeout(NOT_TIMEOUT)
 {
 }
 
-Connection::Connection() : read_(this), write_(this)
+Connection::Connection() : read_(this), write_(this), idx_(-1), data(NULL)
 {
 }
 
-ConnectionPool::ConnectionPool()
+ConnectionPool::ConnectionPool():flags(0)
 {
-    flags = 0;
-    cPool_ = new Connection *[POOLSIZE];
+    cPool_ = (Connection **)malloc(POOLSIZE * sizeof(Connection *));
     for (int i = 0; i < POOLSIZE; i++)
     {
         cPool_[i] = new Connection;
-        cPool_[i]->idx_ = -1;
     }
 }
 
@@ -70,7 +68,7 @@ ConnectionPool::~ConnectionPool()
     {
         delete cPool_[i];
     }
-    delete cPool_;
+    free(cPool_);
 }
 
 Connection *ConnectionPool::getNewConnection()
@@ -87,10 +85,17 @@ Connection *ConnectionPool::getNewConnection()
     return NULL;
 }
 
+#define RE_ALLOC
+
 void ConnectionPool::recoverConnection(Connection *c)
 {
     uint8_t recover = ~(1 << c->idx_);
     flags &= recover;
+    
+#ifdef RE_ALLOC
+    cPool_[c->idx_] = new Connection;
+    delete c;
+#else
     c->idx_ = -1;
     if (c->fd_ != -1)
     {
@@ -102,6 +107,7 @@ void ConnectionPool::recoverConnection(Connection *c)
 
     c->readBuffer_.retrieveAll();
     c->writeBuffer_.retrieveAll();
+#endif
 }
 
 Cycle::Cycle(ConnectionPool *pool, Logger *logger) : pool_(pool), logger_(logger)

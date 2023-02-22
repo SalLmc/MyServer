@@ -34,12 +34,12 @@ class Connection;
 class Event
 {
   public:
-    Event()=delete;
+    Event() = delete;
     Event(Connection *cc);
     std::function<int(Event *)> handler;
     Connection *c;
     int type;
-    unsigned timeout:2;
+    unsigned timeout : 2;
 };
 
 class Fd
@@ -56,7 +56,7 @@ class Fd
     void operator=(int fd);
 
   private:
-    int fd_ = -1;
+    int fd_;
 };
 
 class Connection
@@ -69,15 +69,15 @@ class Connection
     sockaddr_in addr_;
     Buffer readBuffer_;
     Buffer writeBuffer_;
-    int idx_ = -1;
-    void *data = NULL;
+    int idx_;
+    void *data;
 };
 
 class ConnectionPool
 {
   private:
     Connection **cPool_;
-    uint32_t flags;
+    uint8_t flags;
 
   public:
     const static int POOLSIZE = 32;
