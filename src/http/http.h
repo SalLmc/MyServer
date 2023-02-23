@@ -11,12 +11,17 @@ int initListen(Cycle *cycle, int port);
 Connection *addListen(Cycle *cycle, int port);
 int finalizeConnection(Connection *c);
 int readRequestHeader(Request *r);
+int processRequestHeader(Request *r);
+int processRequest(Request *r);
+int sendResponseTest(Request *r);
 
 // event handler
 int newConnection(Event *ev);
 int waitRequest(Event *ev);
 int processRequestLine(Event *ev);
 int processRequestHeaders(Event *ev);
+int blockReading(Event *ev);
+int runPhases(Event *ev);
 
 #define PARSE_HEADER_DONE 1
 
@@ -106,11 +111,17 @@ class Header
     // unsigned long offset;
 };
 
+#define CONNECTION_CLOSE 0
+#define CONNECTION_KEEP_ALIVE 1
+
 class Headers_in
 {
   public:
     std::list<Header> headers;
     std::unordered_map<std::string, Header> header_name_value_map;
+    unsigned long content_length;
+    unsigned chunked : 1;
+    unsigned connection_type : 1;
 };
 
 class Request
