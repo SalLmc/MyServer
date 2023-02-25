@@ -13,7 +13,6 @@ int finalizeConnection(Connection *c);
 int readRequestHeader(Request *r);
 int processRequestHeader(Request *r);
 int processRequest(Request *r);
-int sendResponseTest(Request *r);
 
 // event handler
 int newConnection(Event *ev);
@@ -124,6 +123,16 @@ class Headers_in
     unsigned connection_type : 1;
 };
 
+class Headers_out
+{
+  public:
+    std::list<Header> headers;
+    std::unordered_map<std::string, Header> header_name_value_map;
+    unsigned long content_length;
+  
+    unsigned chunked : 1;
+};
+
 class Request
 {
   public:
@@ -134,6 +143,7 @@ class Request
     uintptr_t http_version;
 
     Headers_in headers_in;
+    Headers_out headers_out;
 
     str_t http_protocol;
     str_t method_name;
@@ -149,6 +159,7 @@ class Request
     off_t request_length;
 
     HttpState http_state;
+    int at_phase;
 
     /* URI with "/." and on Win32 with "//" */
     unsigned complex_uri : 1;

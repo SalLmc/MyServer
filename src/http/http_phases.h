@@ -1,6 +1,7 @@
 #ifndef HTTP_PHASES_H
 #define HTTP_PHASES_H
 
+#include "../core/core.h"
 #include <functional>
 
 class Request;
@@ -9,10 +10,15 @@ class PhaseHandler
 {
   public:
     PhaseHandler() = default;
+    PhaseHandler(std::function<int(Request *, PhaseHandler *)> checkerr,
+                 std::vector<std::function<int(Request *)>> &&handlerss);
     std::function<int(Request *, PhaseHandler *)> checker;
-    std::function<int(Request *)> handler;
-    unsigned long next;
+    std::vector<std::function<int(Request *)>> handlers;
 };
+
+#define NEXT_PHASE OK
+#define PHASE_ERR ERROR
+#define PHASE_CONTINUE AGAIN
 
 #define HTTP_POST_READ_PHASE 0
 #define HTTP_SERVER_REWRITE_PHASE 1
@@ -26,8 +32,7 @@ class PhaseHandler
 #define HTTP_CONTENT_PHASE 9
 #define HTTP_LOG_PHASE 10
 
-PhaseHandler phases[] = {{NULL, NULL, 0}, {NULL, NULL, 0}, {NULL, NULL, 0}, {NULL, NULL, 0},
-                         {NULL, NULL, 0}, {NULL, NULL, 0}, {NULL, NULL, 0}, {NULL, NULL, 0},
-                         {NULL, NULL, 0}, {NULL, NULL, 0}, {NULL, NULL, 0}};
+int genericPhaseChecker(Request *r, PhaseHandler *ph);
+int okPhaseHandler(Request *r);
 
 #endif
