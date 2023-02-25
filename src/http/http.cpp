@@ -7,7 +7,6 @@
 #include "http_parse.h"
 #include "http_phases.h"
 #include <string>
-#include <sys/sendfile.h>
 #include <unordered_map>
 
 extern ConnectionPool cPool;
@@ -164,35 +163,35 @@ Connection *addListen(Cycle *cycle, int port)
     return listenC;
 }
 
-static int recvPrint(Event *ev)
-{
-    int len = ev->c->readBuffer_.readFd(ev->c->fd_.getFd(), &errno);
-    if (len == 0)
-    {
-        printf("client close connection\n");
-        cPool.recoverConnection(ev->c);
-        return 1;
-    }
-    else if (len < 0 && errno != EAGAIN)
-    {
-        printf("errno:%s\n", strerror(errno));
-        cPool.recoverConnection(ev->c);
-        return 1;
-    }
-    printf("%d recv len:%d from client:%s\n", getpid(), len, ev->c->readBuffer_.allToStr().c_str());
-    ev->c->writeBuffer_.append(ev->c->readBuffer_.retrieveAllToStr());
-    epoller.modFd(ev->c->fd_.getFd(), EPOLLOUT | EPOLLET, ev->c);
-    return 0;
-}
+// static int recvPrint(Event *ev)
+// {
+//     int len = ev->c->readBuffer_.readFd(ev->c->fd_.getFd(), &errno);
+//     if (len == 0)
+//     {
+//         printf("client close connection\n");
+//         cPool.recoverConnection(ev->c);
+//         return 1;
+//     }
+//     else if (len < 0 && errno != EAGAIN)
+//     {
+//         printf("errno:%s\n", strerror(errno));
+//         cPool.recoverConnection(ev->c);
+//         return 1;
+//     }
+//     printf("%d recv len:%d from client:%s\n", getpid(), len, ev->c->readBuffer_.allToStr().c_str());
+//     ev->c->writeBuffer_.append(ev->c->readBuffer_.retrieveAllToStr());
+//     epoller.modFd(ev->c->fd_.getFd(), EPOLLOUT | EPOLLET, ev->c);
+//     return 0;
+// }
 
-static int echoPrint(Event *ev)
-{
-    ev->c->writeBuffer_.writeFd(ev->c->fd_.getFd(), &errno);
-    ev->c->writeBuffer_.retrieveAll();
+// static int echoPrint(Event *ev)
+// {
+//     ev->c->writeBuffer_.writeFd(ev->c->fd_.getFd(), &errno);
+//     ev->c->writeBuffer_.retrieveAll();
 
-    epoller.modFd(ev->c->fd_.getFd(), EPOLLIN | EPOLLET, ev->c);
-    return 0;
-}
+//     epoller.modFd(ev->c->fd_.getFd(), EPOLLIN | EPOLLET, ev->c);
+//     return 0;
+// }
 
 int newConnection(Event *ev)
 {
@@ -587,6 +586,7 @@ int processRequest(Request *r)
 
     r->at_phase = 0;
     runPhases(&c->write_);
+    return OK;
 }
 
 int runPhases(Event *ev)
@@ -611,6 +611,7 @@ int runPhases(Event *ev)
 int blockReading(Event *ev)
 {
     LOG_INFO << "block reading triggered";
+    return OK;
 }
 
 int finalizeConnection(Connection *c)

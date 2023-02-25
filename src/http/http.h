@@ -129,7 +129,6 @@ class Headers_out
     std::list<Header> headers;
     std::unordered_map<std::string, Header> header_name_value_map;
     unsigned long content_length;
-  
     unsigned chunked : 1;
 };
 

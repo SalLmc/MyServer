@@ -1,16 +1,12 @@
 #include "http_phases.h"
 #include "http.h"
+#include <sys/sendfile.h>
 #include <vector>
 
-extern std::unordered_map<std::string, std::string> exten_content_type_map;
+#include "../core/memory_manage.hpp"
 
-std::vector<PhaseHandler> phases{
-    {genericPhaseChecker, {passPhaseHandler}}, {genericPhaseChecker, {passPhaseHandler}},
-    {genericPhaseChecker, {passPhaseHandler}}, {genericPhaseChecker, {passPhaseHandler}},
-    {genericPhaseChecker, {passPhaseHandler}}, {genericPhaseChecker, {passPhaseHandler}},
-    {genericPhaseChecker, {passPhaseHandler}}, {genericPhaseChecker, {passPhaseHandler}},
-    {genericPhaseChecker, {passPhaseHandler}}, {genericPhaseChecker, {staticContentHandler}},
-    {genericPhaseChecker, {passPhaseHandler}}};
+extern std::unordered_map<std::string, std::string> exten_content_type_map;
+extern HeapMemory heap;
 
 PhaseHandler::PhaseHandler(std::function<int(Request *, PhaseHandler *)> checkerr,
                            std::vector<std::function<int(Request *)>> &&handlerss)
@@ -18,12 +14,12 @@ PhaseHandler::PhaseHandler(std::function<int(Request *, PhaseHandler *)> checker
 {
 }
 
-static int passPhaseHandler(Request *r)
+int passPhaseHandler(Request *r)
 {
     return NEXT_PHASE;
 }
 
-static int staticContentHandler(Request *r)
+int staticContentHandler(Request *r)
 {
     Connection *c = r->c;
     std::string path = "static" + std::string(r->uri.data, r->uri.data + r->uri.len);
@@ -31,40 +27,39 @@ static int staticContentHandler(Request *r)
     {
         path += "index.html";
     }
+
     Fd filefd = open(path.c_str(), O_RDONLY);
     assert(filefd.getFd() >= 0);
     struct stat st;
     fstat(filefd.getFd(), &st);
-    std::string exten=std::string(r->exten.data, r->exten.data + r->exten.len);
-    if(exten_content_type_map.count(exten))
+    std::string exten = std::string(r->exten.data, r->exten.data + r->exten.len);
+    if (exten_content_type_map.count(exten))
     {
-        r->headers_in
+        r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map[exten]));
+        r->headers_out.headers.emplace_back("Content-Length", std::to_string(st.st_size));
     }
-    if (std::string(r->exten.data, r->exten.data + r->exten.len) == "ico")
+
+    write(c->fd_.getFd(), "HTTP/1.1 200 OK\r\n", 17);
+
+    for (auto &x : r->headers_out.headers)
     {
-        char tmp[] = FAVICON_HEADER;
-        write(c->fd_.getFd(), tmp, strlen(tmp));
-        sprintf(tmp, "%lx\r\n", st.st_size);
-        write(c->fd_.getFd(), tmp, strlen(tmp));
+        std::string thisHeader = x.name + ": " + x.value + "\r\n";
+        write(c->fd_.getFd(), thisHeader.c_str(), thisHeader.length());
     }
-    else
-    {
-        char tmp[] = HTML_HEADER;
-        write(c->fd_.getFd(), tmp, strlen(tmp));
-        sprintf(tmp, "%lx\r\n", st.st_size);
-        write(c->fd_.getFd(), tmp, strlen(tmp));
-    }
+
+    write(c->fd_.getFd(), "\r\n", 2);
     sendfile(c->fd_.getFd(), filefd.getFd(), NULL, st.st_size);
-    write(c->fd_.getFd(), CRLF, 2);
-    write(c->fd_.getFd(), "0\r\n\r\n", 5);
+
     heap.hDelete(r);
     finalizeConnection(c);
+
+    return NEXT_PHASE;
 }
 
 int genericPhaseChecker(Request *r, PhaseHandler *ph)
 {
     int ret = 0;
-    for (int i = 0; i < ph->handlers.size(); i++)
+    for (size_t i = 0; i < ph->handlers.size(); i++)
     {
         ret = ph->handlers[i](r);
         if (ret == NEXT_PHASE)
@@ -84,3 +79,11 @@ int genericPhaseChecker(Request *r, PhaseHandler *ph)
     }
     return AGAIN;
 }
+
+std::vector<PhaseHandler> phases{
+    {genericPhaseChecker, {passPhaseHandler}}, {genericPhaseChecker, {passPhaseHandler}},
+    {genericPhaseChecker, {passPhaseHandler}}, {genericPhaseChecker, {passPhaseHandler}},
+    {genericPhaseChecker, {passPhaseHandler}}, {genericPhaseChecker, {passPhaseHandler}},
+    {genericPhaseChecker, {passPhaseHandler}}, {genericPhaseChecker, {passPhaseHandler}},
+    {genericPhaseChecker, {passPhaseHandler}}, {genericPhaseChecker, {staticContentHandler}},
+    {genericPhaseChecker, {passPhaseHandler}}};

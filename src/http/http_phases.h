@@ -33,6 +33,7 @@ class PhaseHandler
 #define HTTP_LOG_PHASE 10
 
 int genericPhaseChecker(Request *r, PhaseHandler *ph);
-int okPhaseHandler(Request *r);
+int passPhaseHandler(Request *r);
+int staticContentHandler(Request *r);
 
 #endif
