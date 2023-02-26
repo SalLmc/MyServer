@@ -172,7 +172,7 @@ void workerProcessCycle(Cycle *cycle)
     }
 
     // timer
-    cyclePtr->timer_.Add(0x7fffffff, getTickMs() + 5000, recoverRequests, NULL);
+    cyclePtr->timer_.Add(0x7fffffff, getTickMs() + 60000, recoverRequests, NULL);
 
     LOG_INFO << "Worker Looping";
     for (;;)
@@ -226,6 +226,6 @@ int recoverRequests(void *arg)
             }
         }
     }
-    cyclePtr->timer_.Again(0x7fffffff, getTickMs() + 5000);
+    cyclePtr->timer_.Again(0x7fffffff, getTickMs() + 60000);
     return OK;
 }
