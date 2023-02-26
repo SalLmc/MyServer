@@ -154,10 +154,6 @@ extern Cycle *cyclePtr;
 class Request
 {
   public:
-    ~Request()
-    {
-        LOG_INFO << "REQUEST DES";
-    }
     int quit = 0;
     Connection *c;
 
