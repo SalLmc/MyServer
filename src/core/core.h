@@ -71,6 +71,7 @@ class Connection
     Buffer readBuffer_;
     Buffer writeBuffer_;
     int idx_;
+    int server_idx_;
     void *data;
 };
 
@@ -88,6 +89,20 @@ class ConnectionPool
     void recoverConnection(Connection *c);
 };
 
+class ServerAttribute
+{
+  public:
+    ServerAttribute(int portt, std::string &&roott, std::string &&indexx, std::string &&from, std::string &&to);
+    int port;
+    std::string root;
+    std::string index;
+    struct Proxypass
+    {
+        std::string from;
+        std::string to;
+    } proxy_pass;
+};
+
 class Cycle
 {
   public:
@@ -96,6 +111,7 @@ class Cycle
     ~Cycle();
     ConnectionPool *pool_;
     std::vector<Connection *> listening_;
+    std::vector<ServerAttribute> servers_;
     Logger *logger_;
     HeapTimer timer_;
 };

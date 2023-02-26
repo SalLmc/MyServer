@@ -66,10 +66,17 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    if (initListen(cycle.get(), 8088) == ERROR)
+    // server init
+    // cyclePtr->servers_.emplace_back(80, "static", "", "");
+    cyclePtr->servers_.emplace_back(8081, "static", "index.html", "", "");
+
+    for (auto &x : cyclePtr->servers_)
     {
-        LOG_CRIT << "init listen failed";
-        return 1;
+        if (initListen(cyclePtr, x.port) == ERROR)
+        {
+            LOG_CRIT << "init listen failed";
+            return 1;
+        }
     }
 
     // accept mutex

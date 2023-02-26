@@ -49,7 +49,7 @@ Event::Event(Connection *cc) : handler(NULL), c(cc), timeout(NOT_TIMEOUT)
 {
 }
 
-Connection::Connection() : read_(this), write_(this), idx_(-1), data(NULL)
+Connection::Connection() : read_(this), write_(this), idx_(-1), server_idx_(-1), data(NULL)
 {
 }
 
@@ -97,7 +97,7 @@ void ConnectionPool::recoverConnection(Connection *c)
     delete c;
 #else
     c->idx_ = -1;
-    
+
     if (c->fd_ != -1)
     {
         close(c->fd_.getFd());
@@ -112,6 +112,14 @@ void ConnectionPool::recoverConnection(Connection *c)
 
     c->data = NULL;
 #endif
+}
+
+ServerAttribute::ServerAttribute(int portt, std::string &&roott, std::string &&indexx, std::string &&from,
+                                 std::string &&to)
+    : port(portt), root(roott), index(indexx)
+{
+    proxy_pass.from = from;
+    proxy_pass.to = to;
 }
 
 Cycle::Cycle(ConnectionPool *pool, Logger *logger) : pool_(pool), logger_(logger)

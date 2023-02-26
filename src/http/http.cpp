@@ -132,6 +132,8 @@ std::unordered_map<std::string, std::string> exten_content_type_map = {
 int initListen(Cycle *cycle, int port)
 {
     Connection *listen = addListen(cycle, port);
+    listen->server_idx_ = cycle->listening_.size();
+
     cycle->listening_.push_back(listen);
 
     listen->read_.handler = newConnection;
@@ -207,6 +209,8 @@ int newConnection(Event *ev)
     assert(newc->fd_.getFd() >= 0);
 
     LOG_INFO << "NEW CONNECTION";
+
+    newc->server_idx_ = ev->c->server_idx_;
 
     setnonblocking(newc->fd_.getFd());
 
@@ -326,7 +330,7 @@ int processRequestLine(Event *ev)
         if (ret != AGAIN)
         {
             LOG_CRIT << "parse request line failed, FINALIZE CONNECTION";
-            r->quit=1;
+            r->quit = 1;
             finalizeConnection(r->c);
             break;
         }
@@ -431,7 +435,7 @@ int processRequestHeaders(Event *ev)
         /* rc == NGX_HTTP_PARSE_INVALID_HEADER */
 
         LOG_WARN << "client sent invalid header line";
-        r->quit=1;
+        r->quit = 1;
         finalizeConnection(c);
         break;
     }
@@ -456,7 +460,7 @@ int readRequestHeader(Request *r)
     {
         if (errno != EAGAIN)
         {
-            r->quit=1;
+            r->quit = 1;
             finalizeConnection(c);
             return ERROR;
         }
@@ -468,7 +472,7 @@ int readRequestHeader(Request *r)
     else if (n == 0)
     {
         LOG_INFO << "client close connection";
-        r->quit=1;
+        r->quit = 1;
         finalizeConnection(c);
         return ERROR;
     }
@@ -500,7 +504,7 @@ int processRequestUri(Request *r)
         {
             r->uri.len = 0;
             LOG_CRIT << "client sent invalid request";
-            r->quit=1;
+            r->quit = 1;
             finalizeConnection(r->c);
             return ERROR;
         }
@@ -536,10 +540,9 @@ int processRequestUri(Request *r)
     }
 
     LOG_INFO << "http uri:" << std::string(r->uri.data, r->uri.data + r->uri.len);
-
     LOG_INFO << "http args:" << std::string(r->args.data, r->args.data + r->args.len);
-
     LOG_INFO << "http exten:" << std::string(r->exten.data, r->exten.data + r->exten.len);
+    LOG_INFO << "exten.data:" << (uint64_t)r->exten.data << "exten.len:" << r->exten.len;
 
     return OK;
 }
@@ -553,7 +556,7 @@ int processRequestHeader(Request *r)
     }
     else
     {
-        r->quit=1;
+        r->quit = 1;
         finalizeConnection(r->c);
         return ERROR;
     }

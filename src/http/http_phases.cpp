@@ -84,15 +84,20 @@ int genericPhaseChecker(Request *r, PhaseHandler *ph)
 
 int contentAccessHandler(Request *r)
 {
-    std::string path = "static" + std::string(r->uri.data, r->uri.data + r->uri.len);
-    if (path.back() == '/')
-    {
-        path += "index.html";
+    auto &server = cyclePtr->servers_[r->c->server_idx_];
+    std::string path;
 
+    if (r->exten.len == 0)
+    {
+        path = server.root + "/" + server.index;
         u_char *tmp = (u_char *)heap.hMalloc(5);
         tmp[0] = 'h', tmp[1] = 't', tmp[2] = 'm', tmp[3] = 'l', tmp[4] = '\0';
         r->exten.data = tmp;
         r->exten.len = 4;
+    }
+    else
+    {
+        path = server.root + std::string(r->uri.data, r->uri.data + r->uri.len);
     }
 
     int fd = open(path.c_str(), O_RDONLY);
@@ -115,13 +120,15 @@ int contentAccessHandler(Request *r)
         r->headers_out.status = HTTP_NOT_FOUND;
         r->headers_out.status_line = "HTTP/1.1 404 NOT FOUND\r\n";
 
-        int _404fd = open("static/404.html", O_RDONLY);
+        std::string _404_path = cyclePtr->servers_[r->c->server_idx_].root + "/404.html";
+        int _404fd = open(_404_path.c_str(), O_RDONLY);
         if (_404fd < 0)
         {
             r->headers_out.restype = RES_STR;
             auto &str = r->headers_out.str_body;
-            str.append("<html><head><title>404 Not Found</title></head>");
-            str.append("<body><center><h1>404 Not Found</h1></center><hr><center>MyServer</center></body></html>");
+            str.append("<html>\n<head>\n\t<title>404 Not Found</title>\n</head>\n");
+            str.append("<body>\n\t<center>\n\t\t<h1>404 Not "
+                       "Found</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
 
             r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
