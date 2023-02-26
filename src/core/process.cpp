@@ -172,7 +172,7 @@ void workerProcessCycle(Cycle *cycle)
     }
 
     // timer
-    cyclePtr->timer_.Add(0x7fffffff, getTickMs() + 60000, recoverRequests, NULL);
+    cyclePtr->timer_.Add(0x7fffffff, getTickMs() + 1000, recoverRequests, NULL);
 
     LOG_INFO << "Worker Looping";
     for (;;)
@@ -214,18 +214,21 @@ void processEventsAndTimers(Cycle *cycle)
 
 int recoverRequests(void *arg)
 {
-    for (auto &x : heap.ptrs_)
+    for (auto i = heap.ptrs_.begin(); i != heap.ptrs_.end();)
     {
-        if (typeMap[x.type] == Type::P4REQUEST)
+        if (typeMap[i->type] == Type::P4REQUEST)
         {
-            Request *r = (Request *)x.addr;
+            Request *r = (Request *)i->addr;
             if (r->quit == 1)
             {
-                delete (Request *)x.addr;
-                heap.ptrs_.remove(x);
+                delete r;
+                i = heap.ptrs_.erase(i);
             }
         }
+        else
+        {
+            i++;
+        }
     }
-    cyclePtr->timer_.Again(0x7fffffff, getTickMs() + 60000);
     return OK;
 }
