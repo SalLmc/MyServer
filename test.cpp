@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <unordered_map>
+#include <sys/file.h>
+#include <unistd.h>
 
 #define HELLOHTML                                                                                                      \
     "HTTP/1.1 200 OK\r\n"                                                                                              \
@@ -9,8 +11,7 @@
 
 int main()
 {
-    size_t i,j;
-    i=0;
-    j=(i-1)/2;
-    printf("%lld",j==0);
+    int fd=open("makefile",O_RDONLY);
+    close(fd);
+    close(fd);
 }

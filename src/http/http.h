@@ -1,5 +1,5 @@
 #ifndef HTTP_H
-#define HTTP
+#define HTTP_H
 
 #include "../core/core.h"
 #include <list>
@@ -21,6 +21,7 @@ int processRequestLine(Event *ev);
 int processRequestHeaders(Event *ev);
 int blockReading(Event *ev);
 int runPhases(Event *ev);
+int writeResponse(Event *ev);
 
 #define PARSE_HEADER_DONE 1
 
@@ -123,6 +124,10 @@ class Headers_in
     unsigned connection_type : 1;
 };
 
+#define RES_FILE 0
+#define RES_STR 1
+#define RES_EMPTY 2
+
 class Headers_out
 {
   public:
@@ -130,13 +135,31 @@ class Headers_out
     std::unordered_map<std::string, Header> header_name_value_map;
     unsigned long content_length;
     unsigned chunked : 1;
+
+    int status;
+    std::string status_line;
+
+    std::string str_body;
+    class
+    {
+      public:
+        Fd filefd;
+        off_t file_size;
+    } file_body;
+    int restype = RES_EMPTY;
 };
+
+extern Cycle *cyclePtr;
 
 class Request
 {
   public:
+    ~Request()
+    {
+        LOG_INFO << "REQUEST DES";
+    }
+    int quit = 0;
     Connection *c;
-    int idx_ = -1;
 
     Method method;
     uintptr_t http_version;
@@ -158,6 +181,7 @@ class Request
     off_t request_length;
 
     HttpState http_state;
+
     int at_phase;
 
     /* URI with "/." and on Win32 with "//" */
@@ -168,9 +192,7 @@ class Request
     unsigned plus_in_uri : 1;
     /* URI with empty path */
     unsigned empty_path_in_uri : 1;
-
     unsigned invalid_header : 1;
-
     unsigned valid_unparsed_uri : 1;
 
     // used for parse http headers
@@ -205,18 +227,38 @@ class Request
     unsigned http_major : 16;
 };
 
-class RequestPool
-{
-  private:
-    Request **rPool_;
-    uint32_t flags;
+#define HTTP_CONTINUE 100
+#define HTTP_SWITCHING_PROTOCOLS 101
+#define HTTP_PROCESSING 102
 
-  public:
-    const static int POOLSIZE = 32;
-    RequestPool();
-    ~RequestPool();
-    Request *getNewRequest();
-    void recoverRequest(Request *c);
-};
+#define HTTP_OK 200
+#define HTTP_CREATED 201
+#define HTTP_ACCEPTED 202
+#define HTTP_NO_CONTENT 204
+#define HTTP_PARTIAL_CONTENT 206
+
+#define HTTP_SPECIAL_RESPONSE 300
+#define HTTP_MOVED_PERMANENTLY 301
+#define HTTP_MOVED_TEMPORARILY 302
+#define HTTP_SEE_OTHER 303
+#define HTTP_NOT_MODIFIED 304
+#define HTTP_TEMPORARY_REDIRECT 307
+#define HTTP_PERMANENT_REDIRECT 308
+
+#define HTTP_BAD_REQUEST 400
+#define HTTP_UNAUTHORIZED 401
+#define HTTP_FORBIDDEN 403
+#define HTTP_NOT_FOUND 404
+#define HTTP_NOT_ALLOWED 405
+#define HTTP_REQUEST_TIME_OUT 408
+#define HTTP_CONFLICT 409
+#define HTTP_LENGTH_REQUIRED 411
+#define HTTP_PRECONDITION_FAILED 412
+#define HTTP_REQUEST_ENTITY_TOO_LARGE 413
+#define HTTP_REQUEST_URI_TOO_LARGE 414
+#define HTTP_UNSUPPORTED_MEDIA_TYPE 415
+#define HTTP_RANGE_NOT_SATISFIABLE 416
+#define HTTP_MISDIRECTED_REQUEST 421
+#define HTTP_TOO_MANY_REQUESTS 429
 
 #endif

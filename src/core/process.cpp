@@ -3,12 +3,16 @@
 #include "../event/epoller.h"
 #include "../event/event.h"
 #include "../global.h"
+#include "../http/http.h"
 #include "../log/logger.h"
 #include "../util/utils_declaration.h"
+
+#include "../core/memory_manage.hpp"
 
 extern Epoller epoller;
 extern Cycle *cyclePtr;
 extern ProcessMutex acceptMutex;
+extern HeapMemory heap;
 Process processes[MAX_PROCESS_N];
 
 void masterProcessCycle(Cycle *cycle)
@@ -167,6 +171,9 @@ void workerProcessCycle(Cycle *cycle)
         }
     }
 
+    // timer
+    cyclePtr->timer_.Add(0x7fffffff, getTickMs() + 5000, recoverRequests, NULL);
+
     LOG_INFO << "Worker Looping";
     for (;;)
     {
@@ -203,4 +210,22 @@ void processEventsAndTimers(Cycle *cycle)
     }
 
     cycle->timer_.Tick();
+}
+
+int recoverRequests(void *arg)
+{
+    for (auto &x : heap.ptrs_)
+    {
+        if (typeMap[x.type] == Type::P4REQUEST)
+        {
+            Request *r = (Request *)x.addr;
+            if (r->quit == 1)
+            {
+                delete (Request *)x.addr;
+                heap.ptrs_.remove(x);
+            }
+        }
+    }
+    cyclePtr->timer_.Again(0x7fffffff, getTickMs() + 5000);
+    return OK;
 }

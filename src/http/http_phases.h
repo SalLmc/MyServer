@@ -1,10 +1,8 @@
 #ifndef HTTP_PHASES_H
 #define HTTP_PHASES_H
 
-#include "../core/core.h"
+#include "http.h"
 #include <functional>
-
-class Request;
 
 class PhaseHandler
 {
@@ -16,7 +14,7 @@ class PhaseHandler
     std::vector<std::function<int(Request *)>> handlers;
 };
 
-#define NEXT_PHASE OK
+#define PHASE_NEXT OK
 #define PHASE_ERR ERROR
 #define PHASE_CONTINUE AGAIN
 
@@ -33,7 +31,15 @@ class PhaseHandler
 #define HTTP_LOG_PHASE 10
 
 int genericPhaseChecker(Request *r, PhaseHandler *ph);
+
 int passPhaseHandler(Request *r);
 int staticContentHandler(Request *r);
+int contentAccessHandler(Request *r);
+
+int appendResponseLine(Request *r);
+int appendResponseHeader(Request *r);
+int appendResponseBody(Request *r);
+
+int doResponse(Request *r);
 
 #endif

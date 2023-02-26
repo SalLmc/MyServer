@@ -39,6 +39,7 @@ bool Epoller::addFd(int fd, uint32_t events, void *ctx)
     return epoll_ctl(epollfd_, EPOLL_CTL_ADD, fd, &event) == 0;
 }
 
+// ctx is Connection*
 bool Epoller::modFd(int fd, uint32_t events, void *ctx)
 {
     if (fd < 0)

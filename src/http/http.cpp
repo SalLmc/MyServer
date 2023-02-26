@@ -7,6 +7,7 @@
 #include "http_parse.h"
 #include "http_phases.h"
 #include <string>
+#include <sys/sendfile.h>
 #include <unordered_map>
 
 extern ConnectionPool cPool;
@@ -325,7 +326,7 @@ int processRequestLine(Event *ev)
         if (ret != AGAIN)
         {
             LOG_CRIT << "parse request line failed, FINALIZE CONNECTION";
-
+            r->quit=1;
             finalizeConnection(r->c);
             break;
         }
@@ -380,7 +381,7 @@ int processRequestHeaders(Event *ev)
             Header &now = r->headers_in.headers.back();
             r->headers_in.header_name_value_map[now.name] = now;
 
-            LOG_INFO << "header:< " << now.name << ", " << now.value << " >";
+            // LOG_INFO << "header:< " << now.name << ", " << now.value << " >";
 
             // // TODO
             // hh = ngx_hash_find(&cmcf->headers_in_hash, h->hash, h->lowcase_key, h->key.len);
@@ -430,6 +431,7 @@ int processRequestHeaders(Event *ev)
         /* rc == NGX_HTTP_PARSE_INVALID_HEADER */
 
         LOG_WARN << "client sent invalid header line";
+        r->quit=1;
         finalizeConnection(c);
         break;
     }
@@ -454,6 +456,7 @@ int readRequestHeader(Request *r)
     {
         if (errno != EAGAIN)
         {
+            r->quit=1;
             finalizeConnection(c);
             return ERROR;
         }
@@ -465,6 +468,7 @@ int readRequestHeader(Request *r)
     else if (n == 0)
     {
         LOG_INFO << "client close connection";
+        r->quit=1;
         finalizeConnection(c);
         return ERROR;
     }
@@ -496,6 +500,7 @@ int processRequestUri(Request *r)
         {
             r->uri.len = 0;
             LOG_CRIT << "client sent invalid request";
+            r->quit=1;
             finalizeConnection(r->c);
             return ERROR;
         }
@@ -548,6 +553,7 @@ int processRequestHeader(Request *r)
     }
     else
     {
+        r->quit=1;
         finalizeConnection(r->c);
         return ERROR;
     }
@@ -582,7 +588,9 @@ int processRequest(Request *r)
 {
     Connection *c = r->c;
     c->read_.handler = blockReading;
-    c->write_.handler = runPhases;
+
+    // // haven't register EPOLLOUT, so runPhases won't be triggered
+    // c->write_.handler = runPhases;
 
     r->at_phase = 0;
     runPhases(&c->write_);
@@ -593,7 +601,7 @@ int runPhases(Event *ev)
 {
     int ret = 0;
     Request *r = (Request *)ev->c->data;
-    while (phases[r->at_phase].checker)
+    while (r->at_phase < 11 && phases[r->at_phase].checker)
     {
         ret = phases[r->at_phase].checker(r, &phases[r->at_phase]);
         if (ret == OK)
@@ -605,6 +613,40 @@ int runPhases(Event *ev)
             return ret;
         }
     }
+    return OK;
+}
+
+int writeResponse(Event *ev)
+{
+    Request *r = (Request *)ev->c->data;
+    auto &buffer = ev->c->writeBuffer_;
+
+    if (buffer.readableBytes() > 0)
+    {
+        int len = buffer.writeFd(ev->c->fd_.getFd(), &errno);
+        if (len < 0)
+        {
+            LOG_CRIT << "write response failed";
+            return ERROR;
+        }
+
+        if (buffer.readableBytes() > 0)
+        {
+            epoller.modFd(ev->c->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, ev->c);
+            return AGAIN;
+        }
+    }
+
+    if (r->headers_out.restype == RES_FILE)
+    {
+        auto &filebody = r->headers_out.file_body;
+        sendfile(r->c->fd_.getFd(), filebody.filefd.getFd(), NULL, filebody.file_size);
+    }
+
+    LOG_INFO << "RESPONSED";
+
+    r->quit = 1;
+    finalizeConnection(ev->c);
     return OK;
 }
 

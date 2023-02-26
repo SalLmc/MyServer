@@ -15,4 +15,5 @@ int recvFromMaster(Event *rev);
 void signalWorkerProcesses(int sig);
 void processEventsAndTimers(Cycle *cycle);
 
+int recoverRequests(void *arg);
 #endif

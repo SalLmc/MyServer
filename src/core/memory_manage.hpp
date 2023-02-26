@@ -82,7 +82,6 @@ class HeapMemory
         ptrs_.remove(AnyPtr(ptr));
     }
 
-  private:
     std::list<AnyPtr> ptrs_;
 };
 

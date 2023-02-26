@@ -13,7 +13,7 @@ int setEventTimeout(void *ev)
         return 0;
     }
 
-    LOG_INFO << "Timeout triggered";
+    // LOG_INFO << "Timeout triggered";
     thisev->timeout = TIMEOUT;
     thisev->handler(thisev);
     return 1;
