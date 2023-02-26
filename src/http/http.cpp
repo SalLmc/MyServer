@@ -542,7 +542,6 @@ int processRequestUri(Request *r)
     LOG_INFO << "http uri:" << std::string(r->uri.data, r->uri.data + r->uri.len);
     LOG_INFO << "http args:" << std::string(r->args.data, r->args.data + r->args.len);
     LOG_INFO << "http exten:" << std::string(r->exten.data, r->exten.data + r->exten.len);
-    LOG_INFO << "exten.data:" << (uint64_t)r->exten.data << "exten.len:" << r->exten.len;
 
     return OK;
 }
