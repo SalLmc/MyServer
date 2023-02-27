@@ -22,7 +22,7 @@ void *produce(void *)
         printf("producing %d\n", cnt++);
         cond_signal(cond);
 
-        co_poll_inner(co_get_curr_thread_env()->epoller, NULL, 0, 500, NULL);
+        co_poll_inner(co_get_curr_thread_env()->epoller, NULL, 0, 1000, NULL);
     }
     quit++;
     cond_signal(cond);

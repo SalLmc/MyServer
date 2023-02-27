@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
     }
 
     // server init
-    // cyclePtr->servers_.emplace_back(80, "static", "", "");
+    // cyclePtr->servers_.emplace_back(80, "static", "index.html", "", "");
     cyclePtr->servers_.emplace_back(8081, "static", "index.html", "", "");
 
     for (auto &x : cyclePtr->servers_)

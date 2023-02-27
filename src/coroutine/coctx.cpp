@@ -62,10 +62,12 @@ enum
     kRSP = 13,
 };
 
+#include <stdio.h>
+
 int coctx_make(coctx_t *ctx, coctx_pfn_t pfn, const void *s, const void *s1)
 {
-    // sp指向分配空间的高地址端，这样栈才好向下生长
     char *sp = ctx->ss_sp + ctx->ss_size;
+    // align by a byte
     sp = (char *)((unsigned long)sp & -16LL);
 
     memset(ctx->regs, 0, sizeof(ctx->regs));

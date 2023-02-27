@@ -28,7 +28,7 @@ stack_mem_t::stack_mem_t(unsigned int size)
 {
     occupy_co = NULL;
     stack_size = size;
-    stack_buffer = (char *)malloc(stack_size);
+    stack_buffer = (char *)calloc(1, stack_size);
     stack_bp = stack_buffer + stack_size;
 }
 
@@ -42,6 +42,7 @@ stack_mem_t::~stack_mem_t()
 
 co_routine_env_t::co_routine_env_t()
 {
+    memset(call_stack, 0, 128 * (sizeof(co_routine_t *)));
     call_stack_size = 0;
     epoller = new co_epoll_t();
 }
@@ -58,13 +59,13 @@ co_routine_t::co_routine_t(co_routine_env_t *envv, co_routine_fn fn, void *argg)
     func = fn;
     arg = argg;
 
-    stack_mem = new stack_mem_t(STACK_SIZE);
-    ctx.ss_sp = stack_mem->stack_buffer;
-    ctx.ss_size = STACK_SIZE;
-
     c_start = 0;
     c_end = 0;
     c_is_main = 0;
+
+    stack_mem = new stack_mem_t(STACK_SIZE);
+    ctx.ss_sp = stack_mem->stack_buffer;
+    ctx.ss_size = STACK_SIZE;
 }
 
 co_routine_t::~co_routine_t()
@@ -141,7 +142,7 @@ co_epoll_t *co_get_epoll_ct()
     return co_get_curr_thread_env()->epoller;
 }
 
-static int co_routine_func_wrapper(co_routine_t *co, void *)
+static int co_routine_func_wrapper(co_routine_t *co, void *extra)
 {
     if (co->func)
     {
@@ -151,9 +152,7 @@ static int co_routine_func_wrapper(co_routine_t *co, void *)
     // 标识该协程已经结束
     co->c_end = 1;
 
-    co_routine_env_t *env = co->env;
-
-    co_yield_env(env);
+    co_yield_env(co->env);
     return 0;
 }
 
@@ -188,9 +187,7 @@ void co_resume(co_routine_t *co)
 
 void co_free(co_routine_t *co)
 {
-    free(co->stack_mem->stack_buffer);
-    free(co->stack_mem);
-    free(co);
+    delete co;
 }
 
 void co_release(co_routine_t *co)

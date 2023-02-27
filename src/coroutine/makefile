@@ -6,6 +6,7 @@ ARSTATICLIB = ar rcs $@ $^
 CPPSHARELIB = g++ -fPIC -shared $^ -o $@
 
 BUILDEXE = g++ -Wall $^ ./libcolib.so -o $@
+BUILDWITHOUTLIB = g++ -Wall $^ -o $@
 
 all: $(PROGS)
 
@@ -18,8 +19,11 @@ libcolib.so: $(COLIB_OBJS)
 # test: test.o
 # 	$(BUILDEXE)
 
-test1: test1.o
-	$(BUILDEXE)
+test1: test1.o $(COLIB_OBJS)
+	$(BUILDWITHOUTLIB)
+
+retest1:
+	rm -f test1.o && make
 
 clean:
 	rm -f *.o $(PROGS)

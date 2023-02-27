@@ -21,6 +21,7 @@ class co_routine_t
     co_routine_t() = default;
     co_routine_t(co_routine_env_t *envv, co_routine_fn fn, void *argg);
     ~co_routine_t();
+
     co_routine_env_t *env = NULL;
 
     co_routine_fn func;
@@ -55,8 +56,9 @@ class stack_mem_t
     stack_mem_t() = default;
     stack_mem_t(unsigned int size);
     ~stack_mem_t();
+
     co_routine_t *occupy_co = NULL;
-    int stack_size = 0;
+    unsigned int stack_size = 0;
     char *stack_bp = NULL;
     char *stack_buffer = NULL;
 };
