@@ -66,13 +66,28 @@ enum
 
 int coctx_make(coctx_t *ctx, coctx_pfn_t pfn, const void *s, const void *s1)
 {
-    char *sp = ctx->ss_sp + ctx->ss_size;
-    // align by a byte
+    // char *sp = ctx->ss_sp + ctx->ss_size;
+    // // align by a byte
+    // sp = (char *)((unsigned long)sp & -16LL);
+
+    // memset(ctx->regs, 0, sizeof(ctx->regs));
+
+    // ctx->regs[kRSP] = sp - 8;
+
+    // ctx->regs[kRETAddr] = (char *)pfn;
+
+    // ctx->regs[kRDI] = (char *)s;
+    // ctx->regs[kRSI] = (char *)s1;
+    // return 0;
+
+    char *sp = ctx->ss_sp + ctx->ss_size - sizeof(void *);
     sp = (char *)((unsigned long)sp & -16LL);
 
     memset(ctx->regs, 0, sizeof(ctx->regs));
+    void **ret_addr = (void **)(sp);
+    *ret_addr = (void *)pfn;
 
-    ctx->regs[kRSP] = sp - 8;
+    ctx->regs[kRSP] = sp;
 
     ctx->regs[kRETAddr] = (char *)pfn;
 

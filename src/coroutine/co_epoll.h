@@ -17,7 +17,7 @@ class co_epoll_res
     co_epoll_res(int n);
     ~co_epoll_res();
     int size;
-    epoll_event *events = NULL;
+    epoll_event *events;
 };
 
 class co_epoll_t
@@ -26,13 +26,13 @@ class co_epoll_t
     co_epoll_t();
     ~co_epoll_t();
     int epollfd;
-    static const int _EPOLL_SIZE = 1024 * 10;
+    static const int _EPOLL_SIZE = 1024;
     timeout_t *timer;
     timeout_link_t *list_timeout;
     timeout_link_t *list_active;
     co_epoll_res *result;
 };
 
-int co_epoll_wait(int epfd, struct co_epoll_res *events, int maxevents, int timeout);
+int co_epoll_wait(int epfd, co_epoll_res *res, int maxevents, int timeout);
 
 #endif
