@@ -1,7 +1,10 @@
 #include "http_phases.h"
 #include "../event/epoller.h"
+#include "../util/utils_declaration.h"
 #include "http.h"
+#include <dirent.h>
 #include <list>
+#include <sys/types.h>
 #include <vector>
 
 #include "../core/memory_manage.hpp"
@@ -16,45 +19,13 @@ std::vector<PhaseHandler> phases{
     {genericPhaseChecker, {passPhaseHandler}},     {genericPhaseChecker, {passPhaseHandler}},
     {genericPhaseChecker, {passPhaseHandler}},     {genericPhaseChecker, {passPhaseHandler}},
     {genericPhaseChecker, {contentAccessHandler}}, {genericPhaseChecker, {passPhaseHandler}},
-    {genericPhaseChecker, {passPhaseHandler}},     {genericPhaseChecker, {staticContentHandler}},
+    {genericPhaseChecker, {passPhaseHandler}},     {genericPhaseChecker, {staticContentHandler, autoIndexHandler}},
     {genericPhaseChecker, {passPhaseHandler}}};
 
 PhaseHandler::PhaseHandler(std::function<int(Request *, PhaseHandler *)> checkerr,
                            std::vector<std::function<int(Request *)>> &&handlerss)
     : checker(checkerr), handlers(handlerss)
 {
-}
-
-int passPhaseHandler(Request *r)
-{
-    return PHASE_NEXT;
-}
-
-int staticContentHandler(Request *r)
-{
-    if (r->headers_out.restype == RES_FILE)
-    {
-        r->headers_out.content_length = r->headers_out.file_body.file_size;
-    }
-    else if (r->headers_out.restype == RES_STR)
-    {
-        r->headers_out.content_length = r->headers_out.str_body.length();
-    }
-    else if (r->headers_out.restype == RES_EMPTY)
-    {
-        r->headers_out.content_length = 0;
-    }
-
-    std::string exten = std::string(r->exten.data, r->exten.data + r->exten.len);
-    if (exten_content_type_map.count(exten))
-    {
-        r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map[exten]));
-        r->headers_out.headers.emplace_back("Content-Length", std::to_string(r->headers_out.content_length));
-    }
-
-    doResponse(r);
-
-    return PHASE_NEXT;
 }
 
 int genericPhaseChecker(Request *r, PhaseHandler *ph)
@@ -80,6 +51,11 @@ int genericPhaseChecker(Request *r, PhaseHandler *ph)
         }
     }
     return AGAIN;
+}
+
+int passPhaseHandler(Request *r)
+{
+    return PHASE_NEXT;
 }
 
 int contentAccessHandler(Request *r)
@@ -115,7 +91,7 @@ int contentAccessHandler(Request *r)
 
         return PHASE_NEXT;
     }
-    else
+    else if (server.auto_index == 0)
     {
         r->headers_out.status = HTTP_NOT_FOUND;
         r->headers_out.status_line = "HTTP/1.1 404 NOT FOUND\r\n";
@@ -148,6 +124,112 @@ int contentAccessHandler(Request *r)
         doResponse(r);
         return PHASE_ERR;
     }
+    else
+    {
+        r->headers_out.status = HTTP_OK;
+        r->headers_out.status_line = "HTTP/1.1 200 OK\r\n";
+        r->headers_out.restype = RES_AUTO_INDEX;
+        return PHASE_NEXT;
+    }
+}
+
+int staticContentHandler(Request *r)
+{
+    if (r->headers_out.restype == RES_FILE)
+    {
+        r->headers_out.content_length = r->headers_out.file_body.file_size;
+    }
+    else if (r->headers_out.restype == RES_STR)
+    {
+        r->headers_out.content_length = r->headers_out.str_body.length();
+    }
+    else if (r->headers_out.restype == RES_EMPTY)
+    {
+        r->headers_out.content_length = 0;
+    }
+    else if (r->headers_out.restype == RES_AUTO_INDEX)
+    {
+        return PHASE_CONTINUE;
+    }
+
+    std::string exten = std::string(r->exten.data, r->exten.data + r->exten.len);
+    if (exten_content_type_map.count(exten))
+    {
+        r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map[exten]));
+        r->headers_out.headers.emplace_back("Content-Length", std::to_string(r->headers_out.content_length));
+    }
+
+    doResponse(r);
+
+    return PHASE_NEXT;
+}
+
+int autoIndexHandler(Request *r)
+{
+    if (r->headers_out.restype != RES_AUTO_INDEX)
+    {
+        return PHASE_NEXT;
+    }
+
+    // setup
+    r->headers_out.restype = RES_STR;
+
+    u_char *tmp = (u_char *)heap.hMalloc(5);
+    tmp[0] = 'h', tmp[1] = 't', tmp[2] = 'm', tmp[3] = 'l', tmp[4] = '\0';
+    r->exten.data = tmp;
+    r->exten.len = 4;
+
+    // auto index
+    auto &out = r->headers_out;
+    auto &server = cyclePtr->servers_[r->c->server_idx_];
+
+    static char title[] = "<html>" CRLF "<head><title>Index of ";
+    static char header[] = "</title></head>" CRLF "<body>" CRLF "<h1>Index of ";
+    static char tail[] = "</pre>" CRLF "<hr>" CRLF "</body>" CRLF "</html>" CRLF;
+
+    auto &root = server.root;
+    auto subpath = std::string(r->uri.data, r->uri.data + r->uri.len);
+    out.str_body.append(title);
+    out.str_body.append(header);
+    out.str_body.append(subpath);
+    out.str_body.append("</h1>" CRLF "<hr>" CRLF);
+    out.str_body.append("<pre><a href=\"../\">../</a>" CRLF);
+
+    Dir dir(opendir((root + subpath).c_str()));
+    dir.getInfos(root + subpath);
+    for (auto &x : dir.infos)
+    {
+        out.str_body.append("<a href=\"");
+        out.str_body.append(x.name);
+        out.str_body.append("\">");
+        out.str_body.append(x.name);
+        out.str_body.append("</a>\t\t\t\t");
+        out.str_body.append(mtime2str(&x.mtime));
+        out.str_body.append("\t");
+        if (x.type == DT_DIR)
+        {
+            out.str_body.append("-");
+        }
+        else
+        {
+            out.str_body.append(byte2properstr(x.size_byte));
+        }
+        out.str_body.append(CRLF);
+    }
+
+    out.str_body.append(tail);
+
+    // headers
+    std::string exten = std::string(r->exten.data, r->exten.data + r->exten.len);
+    if (exten_content_type_map.count(exten))
+    {
+        r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map[exten]));
+        r->headers_out.headers.emplace_back("Content-Length", std::to_string(out.str_body.length()));
+    }
+
+    doResponse(r);
+
+    return PHASE_NEXT;
 }
 
 int appendResponseLine(Request *r)

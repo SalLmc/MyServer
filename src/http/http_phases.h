@@ -35,6 +35,7 @@ int genericPhaseChecker(Request *r, PhaseHandler *ph);
 int passPhaseHandler(Request *r);
 int staticContentHandler(Request *r);
 int contentAccessHandler(Request *r);
+int autoIndexHandler(Request *r);
 
 int appendResponseLine(Request *r);
 int appendResponseHeader(Request *r);

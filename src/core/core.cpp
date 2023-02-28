@@ -115,8 +115,8 @@ void ConnectionPool::recoverConnection(Connection *c)
 }
 
 ServerAttribute::ServerAttribute(int portt, std::string &&roott, std::string &&indexx, std::string &&from,
-                                 std::string &&to)
-    : port(portt), root(roott), index(indexx)
+                                 std::string &&to, int auto_indexx)
+    : port(portt), root(roott), index(indexx), auto_index(auto_indexx)
 {
     proxy_pass.from = from;
     proxy_pass.to = to;
@@ -167,4 +167,75 @@ sharedMemory::~sharedMemory()
 void *sharedMemory::getAddr()
 {
     return addr_;
+}
+
+FileInfo::FileInfo(std::string &&namee, unsigned char typee, off_t size_bytee, timespec mtimee)
+    : name(namee), type(typee), size_byte(size_bytee), mtime(mtimee)
+{
+}
+
+bool FileInfo::operator<(FileInfo &other)
+{
+    int ret = name.compare(other.name);
+    if (ret != 0)
+    {
+        return ret;
+    }
+    if (size_byte != other.size_byte)
+    {
+        return size_byte < other.size_byte;
+    }
+    return mtime.tv_sec < other.mtime.tv_sec;
+}
+
+Dir::Dir(DIR *dirr) : dir(dirr)
+{
+}
+
+Dir::~Dir()
+{
+    closedir(dir);
+}
+
+int Dir::readDir()
+{
+    de = readdir(dir);
+    if (de)
+    {
+        return OK;
+    }
+    else
+    {
+        return ERROR;
+    }
+}
+
+int Dir::getStat()
+{
+    stat(de->d_name, &info);
+    return OK;
+}
+
+int Dir::getInfos(std::string root)
+{
+    while (this->readDir() == OK)
+    {
+        if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0)
+        {
+            continue;
+        }
+
+        stat((root + "/" + std::string(de->d_name)).c_str(), &info);
+
+        if (de->d_type == DT_DIR)
+        {
+            infos.emplace_back(std::string(de->d_name) + "/", de->d_type, info.st_size, info.st_mtim);
+        }
+        else
+        {
+            infos.emplace_back(de->d_name, de->d_type, info.st_size, info.st_mtim);
+        }
+    }
+    std::sort(infos.begin(), infos.end());
+    return OK;
 }

@@ -1,5 +1,5 @@
-#include "utils_declaration.h"
 #include "../core/core.h"
+#include "utils_declaration.h"
 
 int setnonblocking(int fd)
 {
@@ -80,4 +80,38 @@ pid_t readPidFromFile()
     assert(read(filefd.getFd(), buffer, sizeof(buffer) - 1) > 0);
     pid_t pid = atoi(buffer);
     return pid;
+}
+
+std::string mtime2str(timespec *mtime)
+{
+    char buf[21];
+    buf[20] = '\0';
+    struct tm *tm;
+    tm = localtime(&mtime->tv_sec);
+    strftime(buf, 20, "%Y-%m-%d %H:%M:%S", tm);
+    return std::string(buf);
+}
+
+std::string byte2properstr(off_t bytes)
+{
+    int K = 1024;
+    int M = 1024 * K;
+    int G = 1024 * M;
+
+    if (bytes < K)
+    {
+        return std::to_string(bytes);
+    }
+    else if (bytes < M)
+    {
+        return std::to_string(bytes / K + bytes % K != 0) + "K";
+    }
+    else if (bytes < G)
+    {
+        return std::to_string(bytes / M + bytes % M != 0) + "M";
+    }
+    else
+    {
+        return std::to_string(bytes / G + bytes % G != 0) + "G";
+    }
 }

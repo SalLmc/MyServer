@@ -2,6 +2,7 @@
 #define CORE_H
 
 #include <assert.h>
+#include <dirent.h>
 #include <fcntl.h>
 #include <functional>
 #include <memory>
@@ -92,7 +93,8 @@ class ConnectionPool
 class ServerAttribute
 {
   public:
-    ServerAttribute(int portt, std::string &&roott, std::string &&indexx, std::string &&from, std::string &&to);
+    ServerAttribute(int portt, std::string &&roott, std::string &&indexx, std::string &&from, std::string &&to,
+                    int auto_indexx);
     int port;
     std::string root;
     std::string index;
@@ -101,6 +103,7 @@ class ServerAttribute
         std::string from;
         std::string to;
     } proxy_pass;
+    int auto_index;
 };
 
 class Cycle
@@ -145,6 +148,32 @@ struct str_t
 {
     size_t len;
     u_char *data;
+};
+
+class FileInfo
+{
+  public:
+    FileInfo(std::string &&namee, unsigned char typee, off_t size_bytee, timespec mtimee);
+    bool operator<(FileInfo &other);
+    std::string name;
+    unsigned char type;
+    off_t size_byte;
+    timespec mtime;
+};
+
+class Dir
+{
+  public:
+    Dir() = delete;
+    Dir(DIR *dirr);
+    ~Dir();
+    int getInfos(std::string root);
+    int readDir();
+    int getStat();
+    DIR *dir;
+    dirent *de;
+    struct stat info;
+    std::vector<FileInfo> infos;
 };
 
 #endif

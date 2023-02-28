@@ -14,6 +14,8 @@ unsigned long long getTickMs();
 int getOption(int argc, char *argv[], std::unordered_map<std::string, std::string> *mp);
 int writePid2File();
 pid_t readPidFromFile();
+std::string mtime2str(timespec *mtime);
+std::string byte2properstr(off_t bytes);
 
 /* signal.cpp */
 

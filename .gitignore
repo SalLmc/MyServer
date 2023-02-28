@@ -2,3 +2,5 @@
 /log
 *.o
 *.so
+*.a
+/static
