@@ -3,10 +3,17 @@
 
 #include <assert.h> // close()
 #include <errno.h>
-#include <fcntl.h>     // fcntl()
+#include <fcntl.h> // fcntl()
+#include <list>
 #include <sys/epoll.h> //epoll_ctl()
 #include <unistd.h>    // close()
 #include <vector>
+
+#define POST_EVENTS 1
+
+class Event;
+
+void process_posted_events(std::list<Event *> *events);
 
 class Epoller
 {
@@ -19,10 +26,10 @@ class Epoller
     bool addFd(int fd, uint32_t events, void *ctx);
     bool modFd(int fd, uint32_t events, void *ctx);
     bool delFd(int fd);
-    int processEvents(int flags=0,int timeout_ms = -1);
+    int processEvents(int flags = 0, int timeout_ms = -1);
 
   private:
-    int epollfd_=-1;
+    int epollfd_ = -1;
     std::vector<epoll_event> events_;
 };
 

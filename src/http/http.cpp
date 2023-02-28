@@ -224,9 +224,10 @@ int newConnection(Event *ev)
 
 int waitRequest(Event *ev)
 {
+
     if (ev->timeout == TIMEOUT)
     {
-        LOG_INFO << "Client Timeout";
+        LOG_INFO << "Client timeout";
         finalizeConnection(ev->c);
         return -1;
     }
@@ -238,13 +239,16 @@ int waitRequest(Event *ev)
 
     if (len == 0)
     {
+        LOG_INFO << "Client close connection";
         finalizeConnection(c);
         return -1;
     }
-    else if (len < 0)
+
+    if (len < 0)
     {
         if (errno != EAGAIN)
         {
+            LOG_INFO << "Read error";
             finalizeConnection(c);
             return -1;
         }
@@ -329,9 +333,8 @@ int processRequestLine(Event *ev)
 
         if (ret != AGAIN)
         {
-            LOG_CRIT << "parse request line failed, FINALIZE CONNECTION";
-            r->quit = 1;
-            finalizeConnection(r->c);
+            LOG_CRIT << "Parse request line failed";
+            finalizeRequest(r);
             break;
         }
     }
@@ -434,9 +437,8 @@ int processRequestHeaders(Event *ev)
 
         /* rc == NGX_HTTP_PARSE_INVALID_HEADER */
 
-        LOG_WARN << "client sent invalid header line";
-        r->quit = 1;
-        finalizeConnection(c);
+        LOG_WARN << "Client sent invalid header line";
+        finalizeRequest(r);
         break;
     }
     return ERROR;
@@ -460,8 +462,8 @@ int readRequestHeader(Request *r)
     {
         if (errno != EAGAIN)
         {
-            r->quit = 1;
-            finalizeConnection(c);
+            LOG_INFO << "Read error";
+            finalizeRequest(r);
             return ERROR;
         }
         else
@@ -471,9 +473,8 @@ int readRequestHeader(Request *r)
     }
     else if (n == 0)
     {
-        LOG_INFO << "client close connection";
-        r->quit = 1;
-        finalizeConnection(c);
+        LOG_INFO << "Client close connection";
+        finalizeRequest(r);
         return ERROR;
     }
     return n;
@@ -503,9 +504,8 @@ int processRequestUri(Request *r)
         if (parseComplexUri(r, 1) != OK)
         {
             r->uri.len = 0;
-            LOG_CRIT << "client sent invalid request";
-            r->quit = 1;
-            finalizeConnection(r->c);
+            LOG_CRIT << "Client sent invalid request";
+            finalizeRequest(r);
             return ERROR;
         }
     }
@@ -555,8 +555,8 @@ int processRequestHeader(Request *r)
     }
     else
     {
-        r->quit = 1;
-        finalizeConnection(r->c);
+        LOG_INFO << "Client headers error";
+        finalizeRequest(r);
         return ERROR;
     }
 
@@ -647,8 +647,8 @@ int writeResponse(Event *ev)
 
     LOG_INFO << "RESPONSED";
 
-    r->quit = 1;
-    finalizeConnection(ev->c);
+    keepAliveRequest(r);
+    // finalizeRequest(r);
     return OK;
 }
 
@@ -658,10 +658,33 @@ int blockReading(Event *ev)
     return OK;
 }
 
+int keepAliveRequest(Request *r)
+{
+    LOG_INFO << "KEEPALIVE CONNECTION";
+    Connection *c = r->c;
+
+    Request *newr = (Request *)heap.hNew<Request>();
+    newr->c = c;
+    c->data = newr;
+    heap.hDelete(r);
+
+    c->read_.handler = waitRequest;
+    c->write_.handler = NULL;
+
+    return 0;
+}
+
 int finalizeConnection(Connection *c)
 {
     LOG_INFO << "FINALIZE CONNECTION";
     epoller.delFd(c->fd_.getFd());
     cPool.recoverConnection(c);
+    return 0;
+}
+
+int finalizeRequest(Request *r)
+{
+    r->quit = 1;
+    finalizeConnection(r->c);
     return 0;
 }

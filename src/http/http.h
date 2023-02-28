@@ -9,7 +9,9 @@ class Request;
 
 int initListen(Cycle *cycle, int port);
 Connection *addListen(Cycle *cycle, int port);
+int keepAliveRequest(Request *r);
 int finalizeConnection(Connection *c);
+int finalizeRequest(Request *r);
 int readRequestHeader(Request *r);
 int processRequestHeader(Request *r);
 int processRequest(Request *r);

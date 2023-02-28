@@ -41,8 +41,8 @@ int genericPhaseChecker(Request *r, PhaseHandler *ph)
         }
         if (ret == PHASE_ERR)
         {
-            r->quit = 1;
-            finalizeConnection(r->c);
+            LOG_INFO << "Phase err";
+            finalizeRequest(r);
             return ERROR;
         }
         if (ret == PHASE_CONTINUE)
@@ -156,8 +156,12 @@ int staticContentHandler(Request *r)
     if (exten_content_type_map.count(exten))
     {
         r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map[exten]));
-        r->headers_out.headers.emplace_back("Content-Length", std::to_string(r->headers_out.content_length));
     }
+    else
+    {
+        r->headers_out.headers.emplace_back("Content-Type", "application/octet-stream");
+    }
+    r->headers_out.headers.emplace_back("Content-Length", std::to_string(r->headers_out.content_length));
 
     doResponse(r);
 
@@ -224,8 +228,12 @@ int autoIndexHandler(Request *r)
     if (exten_content_type_map.count(exten))
     {
         r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map[exten]));
-        r->headers_out.headers.emplace_back("Content-Length", std::to_string(out.str_body.length()));
     }
+    else
+    {
+        r->headers_out.headers.emplace_back("Content-Type", "application/octet-stream");
+    }
+    r->headers_out.headers.emplace_back("Content-Length", std::to_string(out.str_body.length()));
 
     doResponse(r);
 

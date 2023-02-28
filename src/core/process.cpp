@@ -13,6 +13,9 @@ extern Epoller epoller;
 extern Cycle *cyclePtr;
 extern ProcessMutex acceptMutex;
 extern HeapMemory heap;
+extern std::list<Event *> posted_accept_events;
+extern std::list<Event *> posted_events;
+
 Process processes[MAX_PROCESS_N];
 
 void masterProcessCycle(Cycle *cycle)
@@ -194,15 +197,22 @@ void workerProcessCycle(Cycle *cycle)
 
 void processEventsAndTimers(Cycle *cycle)
 {
+    int flags = 0;
     if (useAcceptMutex)
     {
         if (acceptexTryLock(cycle) == -1)
         {
             return;
         }
+        if (acceptMutexHeld)
+        {
+            flags |= POST_EVENTS;
+        }
     }
 
-    epoller.processEvents(0, 0);
+    epoller.processEvents(flags, 0);
+
+    process_posted_events(&posted_accept_events);
 
     if (acceptMutexHeld)
     {
@@ -210,6 +220,8 @@ void processEventsAndTimers(Cycle *cycle)
     }
 
     cycle->timer_.Tick();
+
+    process_posted_events(&posted_events);
 }
 
 int recoverRequests(void *arg)
