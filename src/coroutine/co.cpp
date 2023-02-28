@@ -204,7 +204,7 @@ void co_event_loop(co_epoll_t *ctx, co_eventloop_fn pfn, void *arg, int *quit)
 
     co_epoll_res *result = ctx->result;
 
-    for (; *quit != 3;)
+    for (; *quit != 1;)
     {
         // timeout 1ms
         int ret = co_epoll_wait(ctx->epollfd, result, co_epoll_t::_EPOLL_SIZE, 1);

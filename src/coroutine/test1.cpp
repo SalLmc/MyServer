@@ -17,16 +17,16 @@ void *produce(void *)
 {
     printf("producer begin\n");
     int cnt = 0;
-    while (quit != 1)
+    while (quit != 3)
     {
         printf("producing %d\n", cnt++);
         cond_signal(cond);
 
         co_poll_inner(co_get_curr_thread_env()->epoller, NULL, 0, 1000, NULL);
     }
-    quit++;
+    quit--;
     cond_signal(cond);
-    printf("producer ends, quit:%d\n",quit);
+    printf("producer ends, quit:%d\n", quit);
 }
 
 void *consume(void *)
@@ -37,8 +37,8 @@ void *consume(void *)
         cond_wait(cond);
         printf("consuming\n");
     }
-    quit++;
-    printf("consumer ends, quit:%d\n",quit);
+    quit--;
+    printf("consumer ends, quit:%d\n", quit);
 }
 
 void signal_handler(int sig)
@@ -46,7 +46,7 @@ void signal_handler(int sig)
     switch (sig)
     {
     case SIGINT:
-        quit = 1;
+        quit = 3;
         break;
     }
 }
@@ -67,7 +67,7 @@ int init_signals()
 
 int main()
 {
-    assert(init_signals()==0);
+    assert(init_signals() == 0);
 
     cond = alloc_cond();
 
