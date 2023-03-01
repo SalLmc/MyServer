@@ -10,7 +10,8 @@ void Request::init()
 {
     quit = 0;
     c = NULL;
-    
+    http_version = 0;
+
     headers_in.chunked = 0;
     headers_in.connection_type = 0;
     headers_in.content_length = 0;
@@ -28,5 +29,61 @@ void Request::init()
     headers_out.file_body.file_size = 0;
     headers_out.restype = RES_EMPTY;
 
-    at_phase=0;
+    http_protocol.data = NULL;
+    method_name.data = NULL;
+    schema.data = NULL;
+    host.data = NULL;
+    request_line.data = NULL;
+    args.data = NULL;
+    uri.data = NULL;
+    exten.data = NULL;
+    unparsed_uri.data = NULL;
+    http_protocol.len = 0;
+    method_name.len = 0;
+    schema.len = 0;
+    host.len = 0;
+    request_line.len = 0;
+    args.len = 0;
+    uri.len = 0;
+    exten.len = 0;
+    unparsed_uri.len = 0;
+
+    request_length = 0;
+
+    at_phase = 0;
+
+    complex_uri = 0;
+    quoted_uri = 0;
+    plus_in_uri = 0;
+    empty_path_in_uri = 0;
+    invalid_header = 0;
+    valid_unparsed_uri = 0;
+
+    pos = NULL;
+    headerState = HeaderState::sw_start;
+    state = State::sw_start;
+
+    lowcase_index = 0;
+
+    header_name_start = NULL;
+    header_name_end = NULL;
+    header_start = NULL;
+    header_end = NULL;
+
+    uri_start = NULL;
+    uri_end = NULL;
+    uri_ext = NULL;
+    args_start = NULL;
+    request_start = NULL;
+    request_end = NULL;
+    method_end = NULL;
+    schema_start = NULL;
+    schema_end = NULL;
+    host_start = NULL;
+    host_end = NULL;
+    port_start = NULL;
+    port_end = NULL;
+
+    http_minor = 0;
+    http_major = 0;
 }

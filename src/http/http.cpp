@@ -136,6 +136,7 @@ int initListen(Cycle *cycle, int port)
 
     cycle->listening_.push_back(listen);
 
+    listen->read_.type = ACCEPT;
     listen->read_.handler = newConnection;
 
     return OK;
@@ -208,7 +209,7 @@ int newConnection(Event *ev)
 
     assert(newc->fd_.getFd() >= 0);
 
-    LOG_INFO << "NEW CONNECTION";
+    LOG_INFO << "NEW CONNECTION FROM FD:" << ev->c->fd_.getFd() << ", WITH FD:" << newc->fd_.getFd();
 
     newc->server_idx_ = ev->c->server_idx_;
 
@@ -218,13 +219,12 @@ int newConnection(Event *ev)
 
     epoller.addFd(newc->fd_.getFd(), EPOLLIN | EPOLLET, newc);
 
-    cyclePtr->timer_.Add(newc->fd_.getFd(), getTickMs() + 5000, setEventTimeout, (void *)&newc->read_);
+    cyclePtr->timer_.Add(newc->fd_.getFd(), getTickMs() + 60000, setEventTimeout, (void *)&newc->read_);
     return 0;
 }
 
 int waitRequest(Event *ev)
 {
-
     if (ev->timeout == TIMEOUT)
     {
         LOG_INFO << "Client timeout";
@@ -236,6 +236,8 @@ int waitRequest(Event *ev)
 
     Connection *c = ev->c;
     int len = c->readBuffer_.recvFd(c->fd_.getFd(), &errno, 0);
+
+    LOG_INFO << "waitRequest recv from fd:" << c->fd_.getFd();
 
     if (len == 0)
     {
@@ -261,6 +263,48 @@ int waitRequest(Event *ev)
     Request *r = heap.hNew<Request>();
     r->c = c;
     c->data = r;
+
+    ev->handler = processRequestLine;
+    processRequestLine(ev);
+    return 0;
+}
+
+int keepAlive(Event *ev)
+{
+    if (ev->timeout == TIMEOUT)
+    {
+        LOG_INFO << "Client timeout";
+        finalizeRequest((Request *)ev->c->data);
+        return -1;
+    }
+
+    cyclePtr->timer_.Remove(ev->c->fd_.getFd());
+
+    Connection *c = ev->c;
+    int len = c->readBuffer_.recvFd(c->fd_.getFd(), &errno, 0);
+
+    LOG_INFO << "keepAlive recv from fd:" << c->fd_.getFd();
+
+    if (len == 0)
+    {
+        LOG_INFO << "Client close connection";
+        finalizeConnection(c);
+        return -1;
+    }
+
+    if (len < 0)
+    {
+        if (errno != EAGAIN)
+        {
+            LOG_INFO << "Read error";
+            finalizeConnection(c);
+            return -1;
+        }
+        else
+        {
+            return 0;
+        }
+    }
 
     ev->handler = processRequestLine;
     processRequestLine(ev);
@@ -605,6 +649,9 @@ int runPhases(Event *ev)
 {
     int ret = 0;
     Request *r = (Request *)ev->c->data;
+
+    // OK: keep running phases
+    // AGAIN/ERROR: quit phase running
     while (r->at_phase < 11 && phases[r->at_phase].checker)
     {
         ret = phases[r->at_phase].checker(r, &phases[r->at_phase]);
@@ -645,6 +692,7 @@ int writeResponse(Event *ev)
     {
         auto &filebody = r->headers_out.file_body;
         sendfile(r->c->fd_.getFd(), filebody.filefd.getFd(), NULL, filebody.file_size);
+        close(filebody.filefd.getFd());
     }
 
     LOG_INFO << "RESPONSED";
@@ -664,13 +712,13 @@ int writeResponse(Event *ev)
 
 int blockReading(Event *ev)
 {
-    LOG_INFO << "block reading triggered";
+    LOG_INFO << "Block reading triggered";
     return OK;
 }
 
 int keepAliveRequest(Request *r)
 {
-    LOG_INFO << "KEEPALIVE CONNECTION";
+    int fd = r->c->fd_.getFd();
 
     int at_phase = r->at_phase;
     Connection *c = r->c;
@@ -680,17 +728,27 @@ int keepAliveRequest(Request *r)
     r->c = c;
     r->at_phase = at_phase;
 
-    c->read_.handler = waitRequest;
+    c->read_.handler = keepAlive;
     c->write_.handler = NULL;
+
+    c->readBuffer_.retrieveAll();
+    c->writeBuffer_.retrieveAll();
+
+    cyclePtr->timer_.Add(c->fd_.getFd(), getTickMs() + 60000, setEventTimeout, (void *)&c->read_);
+
+    LOG_INFO << "KEEPALIVE CONNECTION DONE, FD:" << fd;
 
     return 0;
 }
 
 int finalizeConnection(Connection *c)
 {
-    LOG_INFO << "FINALIZE CONNECTION";
+    int fd = c->fd_.getFd();
+
     epoller.delFd(c->fd_.getFd());
     cPool.recoverConnection(c);
+
+    LOG_INFO << "FINALIZE CONNECTION DONE, FD:" << fd;
     return 0;
 }
 

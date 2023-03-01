@@ -31,6 +31,10 @@ PhaseHandler::PhaseHandler(std::function<int(Request *, PhaseHandler *)> checker
 int genericPhaseChecker(Request *r, PhaseHandler *ph)
 {
     int ret = 0;
+
+    // PHASE_CONTINUE: call the next function in this phase
+    // PHASE_NEXT: go to next phase & let runPhases keep running phases
+    // PHASE_ERR: do nothing & return
     for (size_t i = 0; i < ph->handlers.size(); i++)
     {
         ret = ph->handlers[i](r);
@@ -41,8 +45,6 @@ int genericPhaseChecker(Request *r, PhaseHandler *ph)
         }
         if (ret == PHASE_ERR)
         {
-            LOG_INFO << "Phase err";
-            finalizeRequest(r);
             return ERROR;
         }
         if (ret == PHASE_CONTINUE)
@@ -50,7 +52,8 @@ int genericPhaseChecker(Request *r, PhaseHandler *ph)
             continue;
         }
     }
-    return AGAIN;
+    // nothing went wrong & no function asks to go to the next phase
+    return OK;
 }
 
 int passPhaseHandler(Request *r)
@@ -94,14 +97,14 @@ int contentAccessHandler(Request *r)
 
         return PHASE_NEXT;
     }
-    else if (preExtenLen != 0 || server.auto_index == 0)
+    else if (preExtenLen != 0 || server.auto_index == 0) // return 404 page
     {
         r->headers_out.status = HTTP_NOT_FOUND;
         r->headers_out.status_line = "HTTP/1.1 404 NOT FOUND\r\n";
 
         std::string _404_path = cyclePtr->servers_[r->c->server_idx_].root + "/404.html";
-        int _404fd = open(_404_path.c_str(), O_RDONLY);
-        if (_404fd < 0)
+        Fd _404fd = open(_404_path.c_str(), O_RDONLY);
+        if (_404fd.getFd() < 0)
         {
             r->headers_out.restype = RES_STR;
             auto &str = r->headers_out.str_body;
@@ -111,22 +114,24 @@ int contentAccessHandler(Request *r)
 
             r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
-            // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=4");
+            // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=40");
         }
         else
         {
             r->headers_out.restype = RES_FILE;
             struct stat st;
-            fstat(_404fd, &st);
+            fstat(_404fd.getFd(), &st);
             r->headers_out.file_body.filefd = _404fd;
             r->headers_out.file_body.file_size = st.st_size;
 
             r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(st.st_size));
-            // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=4");
+            // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=40");
         }
 
         doResponse(r);
+
+        LOG_INFO << "PHASE_ERR";
         return PHASE_ERR;
     }
     else
@@ -167,7 +172,7 @@ int staticContentHandler(Request *r)
         r->headers_out.headers.emplace_back("Content-Type", "application/octet-stream");
     }
     r->headers_out.headers.emplace_back("Content-Length", std::to_string(r->headers_out.content_length));
-    // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=4");
+    // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=40");
 
     doResponse(r);
 
@@ -240,7 +245,7 @@ int autoIndexHandler(Request *r)
         r->headers_out.headers.emplace_back("Content-Type", "application/octet-stream");
     }
     r->headers_out.headers.emplace_back("Content-Length", std::to_string(out.str_body.length()));
-    // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=4");
+    // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=40");
 
     doResponse(r);
 

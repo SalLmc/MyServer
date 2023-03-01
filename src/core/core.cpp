@@ -45,7 +45,7 @@ void Fd::operator=(int fd)
     fd_ = fd;
 }
 
-Event::Event(Connection *cc) : handler(NULL), c(cc), timeout(NOT_TIMEOUT)
+Event::Event(Connection *cc) : handler(NULL), c(cc), type(NORMAL), timeout(NOT_TIMEOUT)
 {
 }
 

@@ -140,7 +140,10 @@ void signalWorkerProcesses(int sig)
     {
         if (processes[i].status == ACTIVE)
         {
-            kill(processes[i].pid, sig);
+            if (kill(processes[i].pid, sig) == -1)
+            {
+                LOG_CRIT << "Send signals to " << processes[i].pid << " failed";
+            }
         }
     }
 }
@@ -175,7 +178,7 @@ void workerProcessCycle(Cycle *cycle)
     }
 
     // timer
-    cyclePtr->timer_.Add(0x7fffffff, getTickMs() + 1000, recoverRequests, NULL);
+    cyclePtr->timer_.Add(0x7fffffff, getTickMs() + 60000, recoverRequests, NULL);
 
     LOG_INFO << "Worker Looping";
     for (;;)
@@ -236,11 +239,16 @@ int recoverRequests(void *arg)
                 delete r;
                 i = heap.ptrs_.erase(i);
             }
+            else
+            {
+                i++;
+            }
         }
         else
         {
             i++;
         }
     }
+    cyclePtr->timer_.Again(0x7fffffff, getTickMs() + 60000);
     return OK;
 }

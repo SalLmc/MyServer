@@ -33,6 +33,9 @@ class Connection;
 #define TIMEOUT 1
 #define IGNORE_TIMEOUT 2
 
+#define NORMAL 0
+#define ACCEPT 1
+
 class Event
 {
   public:

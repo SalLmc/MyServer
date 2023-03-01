@@ -72,6 +72,8 @@ bool Epoller::delFd(int fd)
     return epoll_ctl(epollfd_, EPOLL_CTL_DEL, fd, &event) == 0;
 }
 
+extern Cycle *cyclePtr;
+
 int Epoller::processEvents(int flags, int timeout_ms)
 {
     int ret = epoll_wait(epollfd_, &events_[0], static_cast<int>(events_.size()), timeout_ms);
@@ -81,7 +83,7 @@ int Epoller::processEvents(int flags, int timeout_ms)
 
         if (c->idx_ != -1 && (flags & POST_EVENTS))
         {
-            if (c->server_idx_ != -1)
+            if (c->read_.type == ACCEPT)
             {
                 posted_accept_events.push_back(&c->read_);
             }

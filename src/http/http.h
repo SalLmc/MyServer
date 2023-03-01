@@ -19,6 +19,7 @@ int processRequest(Request *r);
 // event handler
 int newConnection(Event *ev);
 int waitRequest(Event *ev);
+int keepAlive(Event *ev);
 int processRequestLine(Event *ev);
 int processRequestHeaders(Event *ev);
 int blockReading(Event *ev);
@@ -158,7 +159,7 @@ class Request
 {
   public:
     void init();
-    
+
     int quit = 0;
     Connection *c;
 
