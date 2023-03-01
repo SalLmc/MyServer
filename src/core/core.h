@@ -150,8 +150,8 @@ class sharedMemory
 
 struct str_t
 {
-    size_t len;
     u_char *data;
+    size_t len;
 };
 
 class FileInfo

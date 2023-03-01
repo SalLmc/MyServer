@@ -277,7 +277,7 @@ int autoIndexHandler(Request *r)
     auto &server = cyclePtr->servers_[r->c->server_idx_];
 
     static char title[] = "<html>" CRLF "<head><title>Index of ";
-    static char header[] = "</title></head>" CRLF "<body>" CRLF "<h1>Index of ";
+    static char header[] = "</title><meta charset=\"utf-8\"></head>" CRLF "<body>" CRLF "<h1>Index of ";
     static char tail[] = "</pre>" CRLF "<hr>" CRLF "</body>" CRLF "</html>";
 
     auto &root = server.root;
@@ -293,7 +293,7 @@ int autoIndexHandler(Request *r)
     for (auto &x : dir.infos)
     {
         out.str_body.append("<a href=\"");
-        out.str_body.append(x.name);
+        out.str_body.append(UrlEncode(x.name));
         out.str_body.append("\">");
         out.str_body.append(x.name);
         out.str_body.append("</a>\t\t\t\t");
