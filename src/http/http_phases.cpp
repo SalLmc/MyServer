@@ -198,9 +198,9 @@ int autoIndexHandler(Request *r)
     auto &out = r->headers_out;
     auto &server = cyclePtr->servers_[r->c->server_idx_];
 
-    static char title[] = "<html>" CRLF "<head><title>Index of ";
+    static char title[] = "<!DOCTYPE html>" CRLF "<html>" CRLF "<head><title>Index of ";
     static char header[] = "</title></head>" CRLF "<body>" CRLF "<h1>Index of ";
-    static char tail[] = "</pre>" CRLF "<hr>" CRLF "</body>" CRLF "</html>" CRLF;
+    static char tail[] = "</pre>" CRLF "<hr>" CRLF "</body>" CRLF "</html>";
 
     auto &root = server.root;
     auto subpath = std::string(r->uri.data, r->uri.data + r->uri.len);
@@ -308,7 +308,8 @@ int doResponse(Request *r)
         }
     }
 
-    r->c->write_.handler = writeResponse;
+    // epoller.modFd(r->c->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, r->c);
+    // r->c->write_.handler = writeResponse;
     writeResponse(&r->c->write_);
     return OK;
 }

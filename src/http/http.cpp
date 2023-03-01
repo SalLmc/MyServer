@@ -683,6 +683,7 @@ int writeResponse(Event *ev)
 
         if (buffer.readableBytes() > 0)
         {
+            r->c->write_.handler = writeResponse;
             epoller.modFd(ev->c->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, ev->c);
             return AGAIN;
         }
