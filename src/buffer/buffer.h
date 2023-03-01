@@ -1,12 +1,8 @@
 #ifndef BUFFER_H
 #define BUFFER_H
 
-#include <assert.h>
 #include <atomic>
-#include <cstring> //perror
-#include <iostream>
-#include <sys/uio.h> //readv
-#include <unistd.h>  // write
+#include <string>
 #include <vector>    //readv
 
 class Buffer
@@ -41,6 +37,8 @@ class Buffer
 
     ssize_t readFd(int fd, int *saveErrno);
     ssize_t writeFd(int fd, int *saveErrno);
+    ssize_t recvFd(int fd, int *saveErrno, int flags);
+    ssize_t sendFd(int fd, int *saveErrno, int flags);
 
   private:
     char *beginPtr();

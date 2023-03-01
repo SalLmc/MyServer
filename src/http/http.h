@@ -157,6 +157,8 @@ extern Cycle *cyclePtr;
 class Request
 {
   public:
+    void init();
+    
     int quit = 0;
     Connection *c;
 

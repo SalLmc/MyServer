@@ -108,6 +108,7 @@ int contentAccessHandler(Request *r)
 
             r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
+            // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=4");
         }
         else
         {
@@ -119,6 +120,7 @@ int contentAccessHandler(Request *r)
 
             r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(st.st_size));
+            // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=4");
         }
 
         doResponse(r);
@@ -162,6 +164,7 @@ int staticContentHandler(Request *r)
         r->headers_out.headers.emplace_back("Content-Type", "application/octet-stream");
     }
     r->headers_out.headers.emplace_back("Content-Length", std::to_string(r->headers_out.content_length));
+    // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=4");
 
     doResponse(r);
 
@@ -234,6 +237,7 @@ int autoIndexHandler(Request *r)
         r->headers_out.headers.emplace_back("Content-Type", "application/octet-stream");
     }
     r->headers_out.headers.emplace_back("Content-Length", std::to_string(out.str_body.length()));
+    // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=4");
 
     doResponse(r);
 
@@ -283,6 +287,7 @@ int appendResponseBody(Request *r)
     }
     return OK;
 }
+
 std::list<std::function<int(Request *)>> responseList{appendResponseLine, appendResponseHeader, appendResponseBody};
 
 int doResponse(Request *r)
@@ -297,6 +302,5 @@ int doResponse(Request *r)
 
     r->c->write_.handler = writeResponse;
     writeResponse(&r->c->write_);
-    epoller.modFd(r->c->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, r->c);
     return OK;
 }

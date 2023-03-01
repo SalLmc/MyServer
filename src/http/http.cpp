@@ -235,7 +235,7 @@ int waitRequest(Event *ev)
     cyclePtr->timer_.Remove(ev->c->fd_.getFd());
 
     Connection *c = ev->c;
-    int len = c->readBuffer_.readFd(c->fd_.getFd(), &errno);
+    int len = c->readBuffer_.recvFd(c->fd_.getFd(), &errno, 0);
 
     if (len == 0)
     {
@@ -439,9 +439,11 @@ int processRequestHeaders(Event *ev)
 
         LOG_WARN << "Client sent invalid header line";
         finalizeRequest(r);
+        return ERROR;
         break;
     }
-    return ERROR;
+
+    return OK;
 }
 
 int readRequestHeader(Request *r)
@@ -456,7 +458,7 @@ int readRequestHeader(Request *r)
         return n;
     }
 
-    n = c->readBuffer_.readFd(c->fd_.getFd(), &errno);
+    n = c->readBuffer_.recvFd(c->fd_.getFd(), &errno, 0);
 
     if (n < 0)
     {
@@ -625,7 +627,7 @@ int writeResponse(Event *ev)
 
     if (buffer.readableBytes() > 0)
     {
-        int len = buffer.writeFd(ev->c->fd_.getFd(), &errno);
+        int len = buffer.sendFd(ev->c->fd_.getFd(), &errno, 0);
         if (len < 0)
         {
             LOG_CRIT << "write response failed";
@@ -647,8 +649,14 @@ int writeResponse(Event *ev)
 
     LOG_INFO << "RESPONSED";
 
-    keepAliveRequest(r);
-    // finalizeRequest(r);
+    if (r->headers_in.connection_type == CONNECTION_KEEP_ALIVE)
+    {
+        keepAliveRequest(r);
+    }
+    else
+    {
+        finalizeRequest(r);
+    }
     return OK;
 }
 
@@ -661,13 +669,15 @@ int blockReading(Event *ev)
 int keepAliveRequest(Request *r)
 {
     LOG_INFO << "KEEPALIVE CONNECTION";
+
+    int at_phase = r->at_phase;
     Connection *c = r->c;
 
-    Request *newr = (Request *)heap.hNew<Request>();
-    newr->c = c;
-    c->data = newr;
-    heap.hDelete(r);
+    r->init();
 
+    r->c=c;
+    r->at_phase=at_phase;
+    
     c->read_.handler = waitRequest;
     c->write_.handler = NULL;
 

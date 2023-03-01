@@ -1,4 +1,10 @@
 #include "buffer.h"
+#include <assert.h>
+#include <cstring> //perror
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/uio.h> //readv
+#include <unistd.h>  // write
 
 Buffer::Buffer(int buff_size) : buffer_(buff_size), read_pos_(0), write_pos_(0)
 {
@@ -118,10 +124,38 @@ ssize_t Buffer::readFd(int fd, int *saveErrno)
     }
     return len;
 }
+ssize_t Buffer::recvFd(int fd, int *saveErrno, int flags)
+{
+    char buff[65535];
+    const ssize_t len = recv(fd, buff, sizeof(buff), flags);
+
+    if (len < 0)
+    {
+        *saveErrno = errno;
+    }
+    else if (len > 0)
+    {
+        append(buff, len);
+    }
+
+    return len;
+}
 ssize_t Buffer::writeFd(int fd, int *saveErrno)
 {
     size_t read_size = readableBytes();
     ssize_t len = write(fd, peek(), read_size);
+    if (len < 0)
+    {
+        *saveErrno = errno;
+        return len;
+    }
+    read_pos_ += len;
+    return len;
+}
+ssize_t Buffer::sendFd(int fd, int *saveErrno, int flags)
+{
+    size_t read_size = readableBytes();
+    ssize_t len = send(fd, peek(), read_size, flags);
     if (len < 0)
     {
         *saveErrno = errno;
@@ -146,10 +180,10 @@ void Buffer::makeSpace(size_t len)
     }
     else // move readable to prependable
     {
-        size_t readable=readableBytes();
-        std::copy(beginPtr()+read_pos_,beginPtr()+write_pos_,beginPtr());
-        read_pos_=0;
-        write_pos_=read_pos_+readable;
-        assert(readable==readableBytes());
+        size_t readable = readableBytes();
+        std::copy(beginPtr() + read_pos_, beginPtr() + write_pos_, beginPtr());
+        read_pos_ = 0;
+        write_pos_ = read_pos_ + readable;
+        assert(readable == readableBytes());
     }
 }

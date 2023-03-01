@@ -149,7 +149,7 @@ void workerProcessCycle(Cycle *cycle)
 {
     // log
     char name[20];
-    sprintf(name, "worker_loop_%d", getpid());
+    sprintf(name, "worker_loop_%d", slot);
     cycle->logger_ = new Logger("log/", name, 1);
 
     // sig
