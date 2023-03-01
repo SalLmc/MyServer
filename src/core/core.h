@@ -97,7 +97,7 @@ class ServerAttribute
 {
   public:
     ServerAttribute(int portt, std::string &&roott, std::string &&indexx, std::string &&from, std::string &&to,
-                    int auto_indexx);
+                    int auto_indexx, std::vector<std::string> &&tryfiles);
     int port;
     std::string root;
     std::string index;
@@ -107,6 +107,7 @@ class ServerAttribute
         std::string to;
     } proxy_pass;
     int auto_index;
+    std::vector<std::string> try_files;
 };
 
 class Cycle

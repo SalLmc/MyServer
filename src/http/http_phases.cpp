@@ -64,31 +64,87 @@ int passPhaseHandler(Request *r)
 int contentAccessHandler(Request *r)
 {
     auto &server = cyclePtr->servers_[r->c->server_idx_];
+    std::string uri = std::string(r->uri.data, r->uri.data + r->uri.len);
     std::string path;
+    int fd;
 
-    int preExtenLen = r->exten.len;
-    if (preExtenLen == 0)
+    if (uri.back() == '/')
     {
         path = server.root + "/" + server.index;
-        u_char *tmp = (u_char *)heap.hMalloc(5);
-        tmp[0] = 'h', tmp[1] = 't', tmp[2] = 'm', tmp[3] = 'l', tmp[4] = '\0';
-        r->exten.data = tmp;
-        r->exten.len = 4;
+        fd = open(path.c_str(), O_RDONLY);
+
+        if (fd >= 0) // return index if exist
+        {
+            u_char *tmp = (u_char *)heap.hMalloc(5);
+            tmp[0] = 'h', tmp[1] = 't', tmp[2] = 'm', tmp[3] = 'l', tmp[4] = '\0';
+            r->exten.data = tmp;
+            r->exten.len = 4;
+
+            goto fileok;
+        }
+        else
+        {
+            goto autoindex;
+        }
     }
     else
     {
-        path = server.root + std::string(r->uri.data, r->uri.data + r->uri.len);
+        path = server.root + uri;
+        fd = open(path.c_str(), O_RDONLY);
+
+        if (fd >= 0)
+        {
+            struct stat st;
+            fstat(fd, &st);
+            if (st.st_mode & S_IFDIR)
+            {
+                goto autoindex;
+            }
+            else
+            {
+                goto fileok;
+            }
+        }
+        else
+        {
+            // tryfiles...
+            for (auto &name : server.try_files)
+            {
+                path = server.root + "/" + name;
+                fd = open(path.c_str(), O_RDONLY);
+                if (fd >= 0)
+                {
+                    struct stat st;
+                    fstat(fd, &st);
+                    if (!(st.st_mode & S_IFDIR))
+                    {
+                        auto pos = path.find('.');
+                        if (pos != std::string::npos) // has exten
+                        {
+                            int extenlen = path.length() - pos;
+                            u_char *tmp = (u_char *)heap.hMalloc(extenlen);
+                            for (int i = 0; i < extenlen; i++)
+                            {
+                                tmp[i] = path[i + pos + 1];
+                            }
+                            r->exten.data = tmp;
+                            r->exten.len = 4;
+                        }
+                        goto fileok;
+                    }
+                }
+            }
+            goto send404;
+        }
     }
 
-    LOG_INFO << "Access content:" << path;
-
-    int fd = open(path.c_str(), O_RDONLY);
-
+fileok:
     if (fd >= 0)
     {
         r->headers_out.status = HTTP_OK;
         r->headers_out.status_line = "HTTP/1.1 200 OK\r\n";
         r->headers_out.restype = RES_FILE;
+        // close fd after sendfile in writeResponse
         r->headers_out.file_body.filefd = fd;
 
         struct stat st;
@@ -97,8 +153,11 @@ int contentAccessHandler(Request *r)
 
         return PHASE_NEXT;
     }
-    else if (preExtenLen != 0 || server.auto_index == 0) // return 404 page
+
+autoindex:
+    if (server.auto_index == 0)
     {
+    send404:
         r->headers_out.status = HTTP_NOT_FOUND;
         r->headers_out.status_line = "HTTP/1.1 404 NOT FOUND\r\n";
 
@@ -198,7 +257,7 @@ int autoIndexHandler(Request *r)
     auto &out = r->headers_out;
     auto &server = cyclePtr->servers_[r->c->server_idx_];
 
-    static char title[] = "<!DOCTYPE html>" CRLF "<html>" CRLF "<head><title>Index of ";
+    static char title[] = "<html>" CRLF "<head><title>Index of ";
     static char header[] = "</title></head>" CRLF "<body>" CRLF "<h1>Index of ";
     static char tail[] = "</pre>" CRLF "<hr>" CRLF "</body>" CRLF "</html>";
 
