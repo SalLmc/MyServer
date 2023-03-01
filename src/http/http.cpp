@@ -657,6 +657,8 @@ int writeResponse(Event *ev)
     {
         finalizeRequest(r);
     }
+
+    // finalizeRequest(r);
     return OK;
 }
 
@@ -675,9 +677,9 @@ int keepAliveRequest(Request *r)
 
     r->init();
 
-    r->c=c;
-    r->at_phase=at_phase;
-    
+    r->c = c;
+    r->at_phase = at_phase;
+
     c->read_.handler = waitRequest;
     c->write_.handler = NULL;
 

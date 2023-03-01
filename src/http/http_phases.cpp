@@ -63,7 +63,8 @@ int contentAccessHandler(Request *r)
     auto &server = cyclePtr->servers_[r->c->server_idx_];
     std::string path;
 
-    if (r->exten.len == 0)
+    int preExtenLen = r->exten.len;
+    if (preExtenLen == 0)
     {
         path = server.root + "/" + server.index;
         u_char *tmp = (u_char *)heap.hMalloc(5);
@@ -75,6 +76,8 @@ int contentAccessHandler(Request *r)
     {
         path = server.root + std::string(r->uri.data, r->uri.data + r->uri.len);
     }
+
+    LOG_INFO << "Access content:" << path;
 
     int fd = open(path.c_str(), O_RDONLY);
 
@@ -91,7 +94,7 @@ int contentAccessHandler(Request *r)
 
         return PHASE_NEXT;
     }
-    else if (server.auto_index == 0)
+    else if (preExtenLen != 0 || server.auto_index == 0)
     {
         r->headers_out.status = HTTP_NOT_FOUND;
         r->headers_out.status_line = "HTTP/1.1 404 NOT FOUND\r\n";
