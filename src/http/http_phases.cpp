@@ -14,6 +14,25 @@ extern HeapMemory heap;
 extern Epoller epoller;
 extern Cycle *cyclePtr;
 
+int testPhaseHandler(Request *r)
+{
+    r->headers_out.status = HTTP_OK;
+    r->headers_out.status_line = "HTTP/1.1 200 OK\r\n";
+    r->headers_out.restype = RES_STR;
+    auto &str = r->headers_out.str_body;
+    str.append("<html>\n<head>\n\t<title>404 Not Found</title>\n</head>\n");
+    str.append("<body>\n\t<center>\n\t\t<h1>404 Not "
+               "Found</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
+
+    r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));
+    r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
+    // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=40");
+    doResponse(r);
+
+    // LOG_INFO << "PHASE_ERR";
+    return PHASE_ERR;
+}
+
 std::vector<PhaseHandler> phases{
     {genericPhaseChecker, {passPhaseHandler}},     {genericPhaseChecker, {passPhaseHandler}},
     {genericPhaseChecker, {passPhaseHandler}},     {genericPhaseChecker, {passPhaseHandler}},
@@ -350,7 +369,6 @@ int appendResponseBody(Request *r)
     else if (out.restype == RES_STR)
     {
         writebuffer.append(out.str_body);
-        writebuffer.append("\r\n");
     }
     return OK;
 }
