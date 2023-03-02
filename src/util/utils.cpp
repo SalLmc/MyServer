@@ -135,16 +135,15 @@ unsigned char FromHex(unsigned char x)
     return y;
 }
 
-std::string UrlEncode(const std::string &str)
+std::string UrlEncode(const std::string &str, char ignore)
 {
     std::string strTemp = "";
     size_t length = str.length();
     for (size_t i = 0; i < length; i++)
     {
-        if (isalnum((unsigned char)str[i]) || (str[i] == '-') || (str[i] == '_') || (str[i] == '.') || (str[i] == '~'))
+        if (isalnum((unsigned char)str[i]) || (str[i] == ignore) || (str[i] == '-') || (str[i] == '_') ||
+            (str[i] == '.') || (str[i] == '~'))
             strTemp += str[i];
-        else if (str[i] == ' ')
-            strTemp += "+";
         else
         {
             strTemp += '%';
@@ -161,9 +160,7 @@ std::string UrlDecode(const std::string &str)
     size_t length = str.length();
     for (size_t i = 0; i < length; i++)
     {
-        if (str[i] == '+')
-            strTemp += ' ';
-        else if (str[i] == '%')
+        if (str[i] == '%')
         {
             assert(i + 2 < length);
             unsigned char high = FromHex((unsigned char)str[++i]);

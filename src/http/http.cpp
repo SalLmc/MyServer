@@ -323,15 +323,14 @@ int processRequestLine(Event *ev)
         if (ret == AGAIN)
         {
             int rett = readRequestHeader(r);
-            LOG_INFO << "readRequestHeader:" << rett;
             if (rett == AGAIN || rett == ERROR)
             {
+                LOG_INFO << "readRequestHeader AGAIN or ERROR, rett:" << rett;
                 break;
             }
         }
 
         ret = parseRequestLine(r);
-        LOG_INFO << "parse request line end, ret:" << ret;
         if (ret == OK)
         {
 
@@ -545,6 +544,7 @@ int processRequestUri(Request *r)
             r->uri.len++;
         }
 
+        // free in Request::init()
         r->uri.data = (u_char *)heap.hMalloc(r->uri.len);
 
         if (parseComplexUri(r, 1) != OK)

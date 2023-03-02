@@ -19,7 +19,9 @@ std::string byte2properstr(off_t bytes);
 
 unsigned char ToHex(unsigned char x);
 unsigned char FromHex(unsigned char x);
-std::string UrlEncode(const std::string &str);
+// space to %20
+std::string UrlEncode(const std::string &str, char ignore);
+// %20 to space
 std::string UrlDecode(const std::string &str);
 
 /* signal.cpp */

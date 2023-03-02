@@ -14,6 +14,8 @@ extern HeapMemory heap;
 extern Epoller epoller;
 extern Cycle *cyclePtr;
 
+u_char exten_save[16];
+
 int testPhaseHandler(Request *r)
 {
     r->headers_out.status = HTTP_OK;
@@ -87,16 +89,15 @@ int contentAccessHandler(Request *r)
     std::string path;
     int fd;
 
-    if (uri.back() == '/')
+    if (uri == "/")
     {
         path = server.root + "/" + server.index;
         fd = open(path.c_str(), O_RDONLY);
 
         if (fd >= 0) // return index if exist
         {
-            u_char *tmp = (u_char *)heap.hMalloc(5);
-            tmp[0] = 'h', tmp[1] = 't', tmp[2] = 'm', tmp[3] = 'l', tmp[4] = '\0';
-            r->exten.data = tmp;
+            exten_save[0] = 'h', exten_save[1] = 't', exten_save[2] = 'm', exten_save[3] = 'l', exten_save[4] = '\0';
+            r->exten.data = exten_save;
             r->exten.len = 4;
 
             goto fileok;
@@ -140,14 +141,13 @@ int contentAccessHandler(Request *r)
                         auto pos = path.find('.');
                         if (pos != std::string::npos) // has exten
                         {
-                            int extenlen = path.length() - pos;
-                            u_char *tmp = (u_char *)heap.hMalloc(extenlen);
+                            int extenlen = path.length() - pos - 1;
                             for (int i = 0; i < extenlen; i++)
                             {
-                                tmp[i] = path[i + pos + 1];
+                                exten_save[i] = path[i + pos + 1];
                             }
-                            r->exten.data = tmp;
-                            r->exten.len = 4;
+                            r->exten.data = exten_save;
+                            r->exten.len = extenlen;
                         }
                         goto fileok;
                     }
@@ -267,9 +267,8 @@ int autoIndexHandler(Request *r)
     // setup
     r->headers_out.restype = RES_STR;
 
-    u_char *tmp = (u_char *)heap.hMalloc(5);
-    tmp[0] = 'h', tmp[1] = 't', tmp[2] = 'm', tmp[3] = 'l', tmp[4] = '\0';
-    r->exten.data = tmp;
+    exten_save[0] = 'h', exten_save[1] = 't', exten_save[2] = 'm', exten_save[3] = 'l', exten_save[4] = '\0';
+    r->exten.data = exten_save;
     r->exten.len = 4;
 
     // auto index
@@ -293,7 +292,7 @@ int autoIndexHandler(Request *r)
     for (auto &x : dir.infos)
     {
         out.str_body.append("<a href=\"");
-        out.str_body.append(UrlEncode(x.name));
+        out.str_body.append(UrlEncode(x.name, '/'));
         out.str_body.append("\">");
         out.str_body.append(x.name);
         out.str_body.append("</a>\t\t\t\t");

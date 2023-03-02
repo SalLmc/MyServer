@@ -1,5 +1,9 @@
 #include "http.h"
 
+#include "../core/memory_manage.hpp"
+
+extern HeapMemory heap;
+
 Header::Header(std::string &&namee, std::string &&valuee)
 {
     name = namee;
@@ -35,6 +39,10 @@ void Request::init()
     host.data = NULL;
     request_line.data = NULL;
     args.data = NULL;
+    if (complex_uri || quoted_uri || empty_path_in_uri)
+    {
+        heap.hFree(uri.data);
+    }
     uri.data = NULL;
     exten.data = NULL;
     unparsed_uri.data = NULL;
