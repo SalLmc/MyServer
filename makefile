@@ -1,6 +1,6 @@
 PROGS = libmy.so main signal_test log_test timer_test memory_test test
 
-SRCDIRS = src/buffer src/core src/event src/http src/log src/timer src/util src
+SRCDIRS = src/buffer src/core src/event src/http src/log src/memory src/timer src/util src
 
 CPP_SOURCES = $(foreach dir, $(SRCDIRS), $(wildcard $(dir)/*.cpp))
 CPP_OBJECTS = $(patsubst %.cpp, %.o, $(CPP_SOURCES))

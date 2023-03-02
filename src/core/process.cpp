@@ -7,7 +7,7 @@
 #include "../log/logger.h"
 #include "../util/utils_declaration.h"
 
-#include "../core/memory_manage.hpp"
+#include "../memory/memory_manage.hpp"
 
 extern Epoller epoller;
 extern Cycle *cyclePtr;

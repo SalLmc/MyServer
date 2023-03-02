@@ -7,7 +7,7 @@
 #include <sys/types.h>
 #include <vector>
 
-#include "../core/memory_manage.hpp"
+#include "../memory/memory_manage.hpp"
 
 extern std::unordered_map<std::string, std::string> exten_content_type_map;
 extern HeapMemory heap;

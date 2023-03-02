@@ -1,7 +1,7 @@
 #include "src/core/core.h"
 #include "src/http/http.h"
 
-#include "src/core/memory_manage.hpp"
+#include "src/memory/memory_manage.hpp"
 
 extern HeapMemory heap;
 

@@ -1,6 +1,6 @@
 #include "http.h"
 
-#include "../core/memory_manage.hpp"
+#include "../memory/memory_manage.hpp"
 
 extern HeapMemory heap;
 
