@@ -160,6 +160,7 @@ class Request
   public:
     void init();
 
+    int now_proxy_pass = 0;
     int quit = 0;
     Connection *c;
 

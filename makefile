@@ -40,6 +40,9 @@ test: test.o
 clean:
 	rm -f $(PROGS) $(CPP_OBJECTS) *.o log/* pid_file
 
+re:
+	make clean && make && ./main
+
 remain:
 	rm -f main.o log/* && make
 

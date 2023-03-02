@@ -12,6 +12,7 @@ Header::Header(std::string &&namee, std::string &&valuee)
 
 void Request::init()
 {
+    now_proxy_pass = 0;
     quit = 0;
     c = NULL;
     http_version = 0;

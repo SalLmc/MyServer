@@ -35,13 +35,17 @@ int testPhaseHandler(Request *r)
     return PHASE_ERR;
 }
 
-std::vector<PhaseHandler> phases{
-    {genericPhaseChecker, {passPhaseHandler}},     {genericPhaseChecker, {passPhaseHandler}},
-    {genericPhaseChecker, {passPhaseHandler}},     {genericPhaseChecker, {passPhaseHandler}},
-    {genericPhaseChecker, {passPhaseHandler}},     {genericPhaseChecker, {passPhaseHandler}},
-    {genericPhaseChecker, {contentAccessHandler}}, {genericPhaseChecker, {passPhaseHandler}},
-    {genericPhaseChecker, {passPhaseHandler}},     {genericPhaseChecker, {staticContentHandler, autoIndexHandler}},
-    {genericPhaseChecker, {passPhaseHandler}}};
+std::vector<PhaseHandler> phases{{genericPhaseChecker, {passPhaseHandler}},
+                                 {genericPhaseChecker, {passPhaseHandler}},
+                                 {genericPhaseChecker, {passPhaseHandler}},
+                                 {genericPhaseChecker, {passPhaseHandler}},
+                                 {genericPhaseChecker, {passPhaseHandler}},
+                                 {genericPhaseChecker, {passPhaseHandler}},
+                                 {genericPhaseChecker, {contentAccessHandler}},
+                                 {genericPhaseChecker, {passPhaseHandler}},
+                                 {genericPhaseChecker, {passPhaseHandler}},
+                                 {genericPhaseChecker, {proxyPassHandler, staticContentHandler, autoIndexHandler}},
+                                 {genericPhaseChecker, {passPhaseHandler}}};
 
 PhaseHandler::PhaseHandler(std::function<int(Request *, PhaseHandler *)> checkerr,
                            std::vector<std::function<int(Request *)>> &&handlerss)
@@ -88,6 +92,56 @@ int contentAccessHandler(Request *r)
     std::string uri = std::string(r->uri.data, r->uri.data + r->uri.len);
     std::string path;
     int fd;
+
+    // proxy_pass
+    if (server.proxy_pass.from != "")
+    {
+        std::string checkUri = uri + ((uri.back() == '/') ? "" : "/");
+        if (checkUri.find(server.proxy_pass.from) != std::string::npos)
+        {
+            r->now_proxy_pass = 1;
+            return PHASE_NEXT;
+        }
+    }
+
+    // method check
+    if (r->method != Method::GET)
+    {
+        r->headers_out.status = HTTP_FORBIDDEN;
+        r->headers_out.status_line = "HTTP/1.1 403 FORBIDDEN\r\n";
+
+        std::string _403_path = cyclePtr->servers_[r->c->server_idx_].root + "/403.html";
+        Fd _403fd = open(_403_path.c_str(), O_RDONLY);
+        if (_403fd.getFd() < 0)
+        {
+            r->headers_out.restype = RES_STR;
+            auto &str = r->headers_out.str_body;
+            str.append("<html>\n<head>\n\t<title>403 Forbidden</title>\n</head>\n");
+            str.append("<body>\n\t<center>\n\t\t<h1>404 "
+                       "Forbidden</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
+
+            r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));
+            r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
+            // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=40");
+        }
+        else
+        {
+            r->headers_out.restype = RES_FILE;
+            struct stat st;
+            fstat(_403fd.getFd(), &st);
+            r->headers_out.file_body.filefd = _403fd;
+            r->headers_out.file_body.file_size = st.st_size;
+
+            r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));
+            r->headers_out.headers.emplace_back("Content-Length", std::to_string(st.st_size));
+            // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=40");
+        }
+        
+        doResponse(r);
+
+        LOG_INFO << "PHASE_ERR";
+        return PHASE_ERR;
+    }
 
     if (uri == "/")
     {
@@ -219,6 +273,21 @@ autoindex:
         r->headers_out.restype = RES_AUTO_INDEX;
         return PHASE_NEXT;
     }
+}
+
+int proxyPassHandler(Request *r)
+{
+    if (r->now_proxy_pass != 1)
+    {
+        return PHASE_CONTINUE;
+    }
+
+    printf("proxy_pass\n");
+
+    r->now_proxy_pass = 0;
+
+    return PHASE_CONTINUE;
+    // read body
 }
 
 int staticContentHandler(Request *r)

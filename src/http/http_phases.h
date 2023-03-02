@@ -36,6 +36,7 @@ int passPhaseHandler(Request *r);
 int staticContentHandler(Request *r);
 int contentAccessHandler(Request *r);
 int autoIndexHandler(Request *r);
+int proxyPassHandler(Request *r);
 
 int appendResponseLine(Request *r);
 int appendResponseHeader(Request *r);
