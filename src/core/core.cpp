@@ -239,3 +239,8 @@ int Dir::getInfos(std::string root)
     std::sort(infos.begin(), infos.end());
     return OK;
 }
+
+std::string str_t::toString()
+{
+    return std::string(data, data + len);
+}

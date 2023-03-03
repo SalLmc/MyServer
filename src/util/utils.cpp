@@ -116,6 +116,35 @@ std::string byte2properstr(off_t bytes)
     }
 }
 
+// @param addr is like http://xxx.xxx.xxx.xx/ or https://xxx.xxx.xxx.xx:8080/
+std::string getIp(std::string addr)
+{
+    auto first = addr.find_first_of(':');
+    auto last = addr.find_last_of(':');
+    if (first == last)
+    {
+        return addr.substr(first + 3, addr.length() - 1 - first - 3);
+    }
+    return addr.substr(first + 3, last - first - 3);
+}
+// @param addr is like http://xxx.xxx.xxx.xx/ or https://xxx.xxx.xxx.xx:8080/
+int getPort(std::string addr)
+{
+    auto first = addr.find_first_of(':');
+    auto last = addr.find_last_of(':');
+    if (first == last)
+    {
+        return 80;
+    }
+    return std::stoi(addr.substr(last + 1, addr.length() - 1 - last - 1));
+}
+// @param addr is like http://xxx.xxx.xxx.xx/ or https://xxx.xxx.xxx.xx:8080/ttt/
+std::string getNewUri(std::string addr)
+{
+    auto first = addr.find_first_of('/', 8);
+    return addr.substr(first,addr.length() - first);
+}
+
 unsigned char ToHex(unsigned char x)
 {
     return x > 9 ? x + 55 : x + 48;

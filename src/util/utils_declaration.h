@@ -16,6 +16,9 @@ int writePid2File();
 pid_t readPidFromFile();
 std::string mtime2str(timespec *mtime);
 std::string byte2properstr(off_t bytes);
+std::string getIp(std::string addr);
+int getPort(std::string addr);
+std::string getNewUri(std::string addr);
 
 unsigned char ToHex(unsigned char x);
 unsigned char FromHex(unsigned char x);

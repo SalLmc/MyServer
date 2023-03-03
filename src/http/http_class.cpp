@@ -12,7 +12,7 @@ Header::Header(std::string &&namee, std::string &&valuee)
 
 ChunkedInfo::ChunkedInfo()
 {
-    state == ChunkedState::sw_chunk_start;
+    state = ChunkedState::sw_chunk_start;
     size = 0;
     length = 0;
 }

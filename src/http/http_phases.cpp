@@ -284,11 +284,74 @@ int proxyPassHandler(Request *r)
     r->now_proxy_pass = 0;
 
     int ret = readRequestBody(r);
-
     LOG_INFO << "readRequestBody:" << ret;
+    if (ret != OK)
+    {
+        LOG_INFO << "PHASE ERR";
+        return PHASE_ERR;
+    }
 
-    return PHASE_NEXT;
-    // read body
+    auto &server = cyclePtr->servers_[r->c->server_idx_];
+    std::string addr = server.proxy_pass.to;
+    std::string ip = getIp(addr);
+    int port = getPort(addr);
+    std::string newUri = getNewUri(addr);
+
+    Connection *upc = initUpstream();
+
+    upc->addr_.sin_family = AF_INET;
+    inet_pton(AF_INET, ip.c_str(), &upc->addr_.sin_addr);
+    upc->addr_.sin_port = htons(port);
+
+    if (connect(upc->fd_.getFd(), (struct sockaddr *)&upc->addr_, sizeof(upc->addr_)) < 0)
+    {
+        LOG_INFO << "PHASE ERR";
+        return PHASE_ERR;
+    }
+    setnonblocking(upc->fd_.getFd());
+
+    // printf("%s\n", std::string(r->request_start, r->request_start + r->request_length).c_str());
+
+    auto &wb = upc->writeBuffer_;
+    wb.append("GET " + newUri + " HTTP/1.1\r\n");
+    auto &in = r->headers_in;
+    for (auto &x : in.headers)
+    {
+        if (x.name == "Accept-Encoding")
+        {
+            continue;
+        }
+        std::string thisHeader = x.name + ": " + x.value + "\r\n";
+        wb.append(thisHeader);
+    }
+    wb.append("\r\n");
+
+    printf("%s\n", wb.allToStr().c_str());
+
+    upc->writeBuffer_.sendFd(upc->fd_.getFd(), &errno, 0);
+
+    int n;
+    while (1)
+    {
+        n = upc->readBuffer_.recvFd(upc->fd_.getFd(), &errno, 0);
+        if (n < 0 && errno == EAGAIN)
+        {
+            continue;
+        }
+        else if (n < 0)
+        {
+            printf("%s\n", strerror(errno));
+        }
+        break;
+    }
+
+    for (auto x : upc->readBuffer_.allToStr())
+    {
+        printf("%c", x);
+    }
+    Fd fd = open("tmp", O_CREAT | O_RDWR, 0666);
+    write(fd.getFd(), upc->readBuffer_.peek(), upc->readBuffer_.readableBytes());
+    return testPhaseHandler(r);
 }
 
 int staticContentHandler(Request *r)
@@ -454,8 +517,6 @@ int doResponse(Request *r)
         }
     }
 
-    // epoller.modFd(r->c->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, r->c);
-    // r->c->write_.handler = writeResponse;
     writeResponse(&r->c->write_);
     return OK;
 }

@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
     }
 
     // server init
-    cyclePtr->servers_.emplace_back(8081, "static", "index.html", "/api/", "http://175.178.185.106/", 0,
+    cyclePtr->servers_.emplace_back(8081, "static", "index.html", "/api/", "http://175.178.175.106/", 0,
                                     std::vector<std::string>{"index.html"});
     cyclePtr->servers_.emplace_back(8082, "static", "sdfxcv", "", "", 1, std::vector<std::string>{});
 

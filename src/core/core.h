@@ -151,6 +151,7 @@ class sharedMemory
 
 struct str_t
 {
+    std::string toString();
     u_char *data;
     size_t len;
 };

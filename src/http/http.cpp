@@ -614,7 +614,7 @@ int processRequestHeader(Request *r)
     }
     else
     {
-        r->headers_in.content_length = -1;
+        r->headers_in.content_length = 0;
     }
 
     if (mp.count("Transfer-Encoding"))
@@ -646,8 +646,10 @@ int processRequest(Request *r)
     c->read_.handler = blockReading;
 
     // // haven't register EPOLLOUT, so runPhases won't be triggered
-    // c->write_.handler = runPhases;
+    epoller.modFd(c->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, c);
+    c->write_.handler = runPhases;
 
+    LOG_INFO << "Run phases";
     r->at_phase = 0;
     runPhases(&c->write_);
     return OK;
@@ -741,7 +743,7 @@ int requestBodyLength(Request *r)
     auto &buffer = r->c->readBuffer_;
     auto &rb = r->request_body;
 
-    if (rb.body.data != NULL)
+    if (rb.body.data == NULL)
     {
         rb.body.data = (u_char *)buffer.peek();
     }
@@ -771,7 +773,7 @@ int requestBodyChunked(Request *r)
     auto &buffer = r->c->readBuffer_;
     auto &rb = r->request_body;
 
-    if (rb.body.data != NULL)
+    if (rb.body.data == NULL)
     {
         rb.body.data = (u_char *)buffer.peek();
     }
@@ -897,6 +899,17 @@ int readRequestBodyInner(Event *ev)
 
     r->c->read_.handler = blockReading;
     return OK;
+}
+
+Connection *initUpstream()
+{
+    Connection *upc = cyclePtr->pool_->getNewConnection();
+    assert(upc != NULL);
+
+    upc->fd_ = socket(AF_INET, SOCK_STREAM, 0);
+    assert(upc->fd_.getFd() >= 0);
+    
+    return upc;
 }
 
 int keepAliveRequest(Request *r)

@@ -19,6 +19,7 @@ int readRequestBody(Request *r);
 int processRequestBody(Request *r);
 int requestBodyLength(Request *r);
 int requestBodyChunked(Request *r);
+Connection *initUpstream();
 
 // event handler
 int newConnection(Event *ev);
