@@ -3,7 +3,7 @@
 
 #include <atomic>
 #include <string>
-#include <vector>    //readv
+#include <vector> //readv
 
 class Buffer
 {
@@ -37,7 +37,7 @@ class Buffer
 
     ssize_t readFd(int fd, int *saveErrno);
     ssize_t writeFd(int fd, int *saveErrno);
-    ssize_t recvFd(int fd, int *saveErrno, int flags);
+    ssize_t recvFd(int fd, int *saveErrno, int flags, int n = 65535);
     ssize_t sendFd(int fd, int *saveErrno, int flags);
 
   private:

@@ -136,7 +136,7 @@ int contentAccessHandler(Request *r)
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(st.st_size));
             // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=40");
         }
-        
+
         doResponse(r);
 
         LOG_INFO << "PHASE_ERR";
@@ -281,12 +281,13 @@ int proxyPassHandler(Request *r)
     {
         return PHASE_CONTINUE;
     }
-
-    printf("proxy_pass\n");
-
     r->now_proxy_pass = 0;
 
-    return PHASE_CONTINUE;
+    int ret = readRequestBody(r);
+
+    LOG_INFO << "readRequestBody:" << ret;
+
+    return PHASE_NEXT;
     // read body
 }
 

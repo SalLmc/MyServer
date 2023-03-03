@@ -612,23 +612,29 @@ int processRequestHeader(Request *r)
     {
         r->headers_in.content_length = atoi(mp["Content-Length"].value.c_str());
     }
+    else
+    {
+        r->headers_in.content_length = -1;
+    }
 
     if (mp.count("Transfer-Encoding"))
     {
         r->headers_in.chunked = (0 == strcmp("chunked", mp["Transfer-Encoding"].value.c_str()));
     }
+    else
+    {
+        r->headers_in.chunked = 0;
+    }
 
     if (mp.count("Connection"))
     {
         auto &type = mp["Connection"].value;
-        if (strcmp("keep-alive", type.c_str()) == 0)
-        {
-            r->headers_in.connection_type = CONNECTION_KEEP_ALIVE;
-        }
-        else
-        {
-            r->headers_in.connection_type = CONNECTION_CLOSE;
-        }
+        r->headers_in.connection_type =
+            (0 == strcmp("keep-alive", type.c_str()) ? CONNECTION_KEEP_ALIVE : CONNECTION_CLOSE);
+    }
+    else
+    {
+        r->headers_in.connection_type = CONNECTION_KEEP_ALIVE;
     }
 
     return OK;
@@ -716,6 +722,180 @@ int writeResponse(Event *ev)
 int blockReading(Event *ev)
 {
     LOG_INFO << "Block reading triggered";
+    return OK;
+}
+
+int processRequestBody(Request *r)
+{
+    if (r->headers_in.chunked)
+    {
+        return requestBodyChunked(r);
+    }
+    else
+    {
+        return requestBodyLength(r);
+    }
+}
+int requestBodyLength(Request *r)
+{
+    auto &buffer = r->c->readBuffer_;
+    auto &rb = r->request_body;
+
+    if (rb.body.data != NULL)
+    {
+        rb.body.data = (u_char *)buffer.peek();
+    }
+
+    if (rb.rest == -1)
+    {
+        rb.rest = r->headers_in.content_length;
+    }
+
+    int rlen = buffer.readableBytes();
+    if (rlen <= rb.rest)
+    {
+        rb.rest -= rlen;
+        rb.body.len += rlen;
+        buffer.retrieve(rlen);
+    }
+    else
+    {
+        LOG_INFO << "ERROR";
+        return ERROR;
+    }
+
+    return OK;
+}
+int requestBodyChunked(Request *r)
+{
+    auto &buffer = r->c->readBuffer_;
+    auto &rb = r->request_body;
+
+    if (rb.body.data != NULL)
+    {
+        rb.body.data = (u_char *)buffer.peek();
+    }
+
+    if (rb.rest == -1)
+    {
+        // do nothing
+    }
+
+    int ret;
+
+    while (1)
+    {
+        ret = parseChunked(r);
+
+        if (ret == OK)
+        {
+            // a chunk has been parse successfully
+            continue;
+        }
+
+        if (ret == DONE)
+        {
+            rb.rest = 0;
+            break;
+        }
+
+        if (ret == AGAIN)
+        {
+            rb.rest = rb.chunkedInfo.length;
+            break;
+        }
+
+        // invalid
+        LOG_INFO << "ERROR";
+        return ERROR;
+    }
+
+    return ret;
+}
+
+int readRequestBody(Request *r)
+{
+    int ret = 0;
+    auto &buffer = r->c->readBuffer_;
+
+    // no content-length && not chunked
+    if (r->headers_in.content_length <= 0 && !r->headers_in.chunked)
+    {
+        return OK;
+    }
+
+    r->request_body.rest = -1;
+
+    int preRead = buffer.readableBytes();
+
+    ret = processRequestBody(r);
+    if (ret != OK)
+    {
+        goto done;
+    }
+
+    r->request_length += preRead;
+
+    r->c->read_.handler = readRequestBodyInner;
+    ret = readRequestBodyInner(&r->c->read_);
+
+done:
+    if (ret == OK || ret == AGAIN)
+    {
+        r->c->read_.handler = blockReading;
+    }
+    return ret;
+}
+
+int readRequestBodyInner(Event *ev)
+{
+    Connection *c = ev->c;
+    Request *r = (Request *)c->data;
+
+    auto &rb = r->request_body;
+    auto &buffer = c->readBuffer_;
+
+    while (1)
+    {
+        if (rb.rest == 0)
+        {
+            break;
+        }
+
+        int ret = buffer.recvFd(c->fd_.getFd(), &errno, 0, rb.rest);
+
+        if (ret == 0)
+        {
+            LOG_INFO << "Client close connection";
+            finalizeRequest(r);
+            return ERROR;
+        }
+        else if (ret < 0)
+        {
+            if (errno == EAGAIN)
+            {
+                LOG_INFO << "EAGAIN";
+                continue;
+            }
+            else
+            {
+                LOG_INFO << "Recv body error";
+                return ERROR;
+            }
+        }
+        else
+        {
+            r->request_length += ret;
+            ret = processRequestBody(r);
+
+            if (ret != OK)
+            {
+                return ret;
+            }
+        }
+    }
+
+    r->c->read_.handler = blockReading;
     return OK;
 }
 

@@ -1396,3 +1396,292 @@ header_done:
 
     return PARSE_HEADER_DONE;
 }
+
+#define MAX_OFF_T_VALUE 9223372036854775807LL
+
+int parseChunked(Request *r)
+{
+    u_char *pos, ch, c;
+    auto &ctx = r->request_body.chunkedInfo;
+
+    int rc;
+    enum
+    {
+        sw_chunk_start = 0,
+        sw_chunk_size,
+        sw_chunk_extension,
+        sw_chunk_extension_almost_done,
+        sw_chunk_data,
+        sw_after_data,
+        sw_after_data_almost_done,
+        sw_last_chunk_extension,
+        sw_last_chunk_extension_almost_done,
+        sw_trailer,
+        sw_trailer_almost_done,
+        sw_trailer_header,
+        sw_trailer_header_almost_done
+    } state;
+
+    auto &state = ctx.state;
+
+    if (state == sw_chunk_data && ctx.size == 0)
+    {
+        state = sw_after_data;
+    }
+
+    rc = AGAIN;
+
+    for (pos = (u_char *)r->c->readBuffer_.peek(); pos < (u_char *)r->c->readBuffer_.beginWrite(); pos++)
+    {
+
+        ch = *pos;
+
+        switch (state)
+        {
+
+        case sw_chunk_start:
+            if (ch >= '0' && ch <= '9')
+            {
+                state = sw_chunk_size;
+                ctx.size = ch - '0';
+                break;
+            }
+
+            c = (u_char)(ch | 0x20);
+
+            if (c >= 'a' && c <= 'f')
+            {
+                state = sw_chunk_size;
+                ctx.size = c - 'a' + 10;
+                break;
+            }
+
+            goto invalid;
+
+        case sw_chunk_size:
+            if (ctx.size > MAX_OFF_T_VALUE / 16)
+            {
+                goto invalid;
+            }
+
+            if (ch >= '0' && ch <= '9')
+            {
+                ctx.size = ctx.size * 16 + (ch - '0');
+                break;
+            }
+
+            c = (u_char)(ch | 0x20);
+
+            if (c >= 'a' && c <= 'f')
+            {
+                ctx.size = ctx.size * 16 + (c - 'a' + 10);
+                break;
+            }
+
+            if (ctx.size == 0)
+            {
+
+                switch (ch)
+                {
+                case CR:
+                    state = sw_last_chunk_extension_almost_done;
+                    break;
+                case LF:
+                    state = sw_trailer;
+                    break;
+                case ';':
+                case ' ':
+                case '\t':
+                    state = sw_last_chunk_extension;
+                    break;
+                default:
+                    goto invalid;
+                }
+
+                break;
+            }
+
+            switch (ch)
+            {
+            case CR:
+                state = sw_chunk_extension_almost_done;
+                break;
+            case LF:
+                state = sw_chunk_data;
+                break;
+            case ';':
+            case ' ':
+            case '\t':
+                state = sw_chunk_extension;
+                break;
+            default:
+                goto invalid;
+            }
+
+            break;
+
+        case sw_chunk_extension:
+            switch (ch)
+            {
+            case CR:
+                state = sw_chunk_extension_almost_done;
+                break;
+            case LF:
+                state = sw_chunk_data;
+            }
+            break;
+
+        case sw_chunk_extension_almost_done:
+            if (ch == LF)
+            {
+                state = sw_chunk_data;
+                break;
+            }
+            goto invalid;
+
+        case sw_chunk_data:
+            rc = OK;
+            goto data;
+
+        case sw_after_data:
+            switch (ch)
+            {
+            case CR:
+                state = sw_after_data_almost_done;
+                break;
+            case LF:
+                state = sw_chunk_start;
+                break;
+            default:
+                goto invalid;
+            }
+            break;
+
+        case sw_after_data_almost_done:
+            if (ch == LF)
+            {
+                state = sw_chunk_start;
+                break;
+            }
+            goto invalid;
+
+        case sw_last_chunk_extension:
+            switch (ch)
+            {
+            case CR:
+                state = sw_last_chunk_extension_almost_done;
+                break;
+            case LF:
+                state = sw_trailer;
+            }
+            break;
+
+        case sw_last_chunk_extension_almost_done:
+            if (ch == LF)
+            {
+                state = sw_trailer;
+                break;
+            }
+            goto invalid;
+
+        case sw_trailer:
+            switch (ch)
+            {
+            case CR:
+                state = sw_trailer_almost_done;
+                break;
+            case LF:
+                goto done;
+            default:
+                state = sw_trailer_header;
+            }
+            break;
+
+        case sw_trailer_almost_done:
+            if (ch == LF)
+            {
+                goto done;
+            }
+            goto invalid;
+
+        case sw_trailer_header:
+            switch (ch)
+            {
+            case CR:
+                state = sw_trailer_header_almost_done;
+                break;
+            case LF:
+                state = sw_trailer;
+            }
+            break;
+
+        case sw_trailer_header_almost_done:
+            if (ch == LF)
+            {
+                state = sw_trailer;
+                break;
+            }
+            goto invalid;
+        }
+    }
+
+data:
+
+    r->request_body.body.len += ((char *)pos - r->c->readBuffer_.peek());
+    r->c->readBuffer_.retrieveUntil((char *)(pos));
+
+    if (ctx.size > MAX_OFF_T_VALUE - 5)
+    {
+        goto invalid;
+    }
+
+    switch (state)
+    {
+
+    case sw_chunk_start:
+        ctx.length = 3 /* "0" LF LF */;
+        break;
+    case sw_chunk_size:
+        ctx.length = 1                          /* LF */
+                     + (ctx.size ? ctx.size + 4 /* LF "0" LF LF */
+                                 : 1 /* LF */);
+        break;
+    case sw_chunk_extension:
+    case sw_chunk_extension_almost_done:
+        ctx.length = 1 /* LF */ + ctx.size + 4 /* LF "0" LF LF */;
+        break;
+    case sw_chunk_data:
+        ctx.length = ctx.size + 4 /* LF "0" LF LF */;
+        break;
+    case sw_after_data:
+    case sw_after_data_almost_done:
+        ctx.length = 4 /* LF "0" LF LF */;
+        break;
+    case sw_last_chunk_extension:
+    case sw_last_chunk_extension_almost_done:
+        ctx.length = 2 /* LF LF */;
+        break;
+    case sw_trailer:
+    case sw_trailer_almost_done:
+        ctx.length = 1 /* LF */;
+        break;
+    case sw_trailer_header:
+    case sw_trailer_header_almost_done:
+        ctx.length = 2 /* LF LF */;
+        break;
+    }
+
+    return rc;
+
+done:
+
+    ctx.state = ChunkedState::sw_chunk_start;
+    r->request_body.body.len += ((char *)(pos + 1) - r->c->readBuffer_.peek());
+    r->c->readBuffer_.retrieveUntil((char *)(pos + 1));
+
+    return DONE;
+
+invalid:
+
+    return ERROR;
+}

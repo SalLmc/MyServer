@@ -10,12 +10,32 @@ Header::Header(std::string &&namee, std::string &&valuee)
     value = valuee;
 }
 
+ChunkedInfo::ChunkedInfo()
+{
+    state == ChunkedState::sw_chunk_start;
+    size = 0;
+    length = 0;
+}
+
+RequestBody::RequestBody()
+{
+    body.data = NULL;
+    body.len = 0;
+    rest = -1;
+}
+
 void Request::init()
 {
     now_proxy_pass = 0;
     quit = 0;
     c = NULL;
     http_version = 0;
+
+    request_body.body.data = NULL;
+    request_body.body.len = 0;
+    request_body.chunkedInfo.state = ChunkedState::sw_chunk_start;
+    request_body.chunkedInfo.size = 0;
+    request_body.chunkedInfo.length = 0;
 
     headers_in.chunked = 0;
     headers_in.connection_type = 0;

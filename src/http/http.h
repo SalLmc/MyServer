@@ -15,6 +15,10 @@ int finalizeRequest(Request *r);
 int readRequestHeader(Request *r);
 int processRequestHeader(Request *r);
 int processRequest(Request *r);
+int readRequestBody(Request *r);
+int processRequestBody(Request *r);
+int requestBodyLength(Request *r);
+int requestBodyChunked(Request *r);
 
 // event handler
 int newConnection(Event *ev);
@@ -25,6 +29,7 @@ int processRequestHeaders(Event *ev);
 int blockReading(Event *ev);
 int runPhases(Event *ev);
 int writeResponse(Event *ev);
+int readRequestBodyInner(Event *ev);
 
 #define PARSE_HEADER_DONE 1
 
@@ -104,6 +109,23 @@ enum class HttpState
     KEEPALIVE_STATE
 };
 
+enum class ChunkedState
+{
+    sw_chunk_start = 0,
+    sw_chunk_size,
+    sw_chunk_extension,
+    sw_chunk_extension_almost_done,
+    sw_chunk_data,
+    sw_after_data,
+    sw_after_data_almost_done,
+    sw_last_chunk_extension,
+    sw_last_chunk_extension_almost_done,
+    sw_trailer,
+    sw_trailer_almost_done,
+    sw_trailer_header,
+    sw_trailer_header_almost_done
+};
+
 class Header
 {
   public:
@@ -153,6 +175,24 @@ class Headers_out
     int restype = RES_EMPTY;
 };
 
+class ChunkedInfo
+{
+  public:
+    ChunkedInfo();
+    ChunkedState state;
+    off_t size;
+    off_t length;
+};
+
+class RequestBody
+{
+  public:
+    RequestBody();
+    off_t rest;
+    ChunkedInfo chunkedInfo;
+    str_t body;
+};
+
 extern Cycle *cyclePtr;
 
 class Request
@@ -163,6 +203,8 @@ class Request
     int now_proxy_pass = 0;
     int quit = 0;
     Connection *c;
+
+    RequestBody request_body;
 
     Method method;
     uintptr_t http_version;

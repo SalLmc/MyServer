@@ -124,10 +124,10 @@ ssize_t Buffer::readFd(int fd, int *saveErrno)
     }
     return len;
 }
-ssize_t Buffer::recvFd(int fd, int *saveErrno, int flags)
+ssize_t Buffer::recvFd(int fd, int *saveErrno, int flags, int n)
 {
     char buff[65535];
-    const ssize_t len = recv(fd, buff, sizeof(buff), flags);
+    const ssize_t len = recv(fd, buff, n, flags);
 
     if (len < 0)
     {

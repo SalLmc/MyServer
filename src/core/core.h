@@ -22,6 +22,7 @@
 #define ERROR -1
 #define AGAIN -2
 #define DECLINED -3
+#define DONE -4
 
 #define LF (u_char)'\n'
 #define CR (u_char)'\r'
