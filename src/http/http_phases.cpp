@@ -18,6 +18,9 @@ u_char exten_save[16];
 
 int testPhaseHandler(Request *r)
 {
+    readRequestBody(r, NULL);
+    printf("%s\n", r->request_body.body.toString().c_str());
+
     r->headers_out.status = HTTP_OK;
     r->headers_out.status_line = "HTTP/1.1 200 OK\r\n";
     r->headers_out.restype = RES_STR;
@@ -306,7 +309,6 @@ int initUpstream(Request *r)
     // setup connection
     Connection *upc = cyclePtr->pool_->getNewConnection();
     assert(upc != NULL);
-    upc->data = r;
     upc->fd_ = socket(AF_INET, SOCK_STREAM, 0);
     assert(upc->fd_.getFd() >= 0);
     upc->addr_.sin_family = AF_INET;
@@ -320,6 +322,13 @@ int initUpstream(Request *r)
         return ERROR;
     }
     setnonblocking(upc->fd_.getFd());
+
+    // setup upstream
+    Upstream *ups = heap.hNew<Upstream>();
+    r->c->ups_ = ups;
+    upc->ups_ = ups;
+    ups->c4client = r->c;
+    ups->c4upstream = upc;
 
     // setup send content
     auto &wb = upc->writeBuffer_;
@@ -338,21 +347,19 @@ int initUpstream(Request *r)
     upc->read_.handler = upstreamRecv;
 
     // send
-    int ret = upc->writeBuffer_.sendFd(upc->fd_.getFd(), &errno, 0);
-    if ((ret < 0 && errno == EAGAIN) || upc->writeBuffer_.readableBytes())
+    int ret = send2upstream(&upc->write_);
+    if (ret != OK)
     {
-        epoller.modFd(upc->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, upc);
-        upc->write_.handler = send2upstream;
-    }
-    else if (ret < 0 && errno != EAGAIN)
-    {
-        LOG_INFO << "SEND ERR, FINALIZE CONNECTION";
-        finalizeConnection(upc);
-        finalizeRequest(r);
-        return ERROR;
+        return ret;
     }
 
     // all has been sent
+    ups->process_handler = processStatusLine;
+    Request *upsr = (Request *)heap.hNew<Request>();
+    upsr->c = ups->c4upstream;
+    ups->c4upstream->data_ = upsr;
+
+    // recv response
     upstreamRecv(&upc->read_);
 
     return OK;
@@ -360,57 +367,118 @@ int initUpstream(Request *r)
 
 int upstreamRecv(Event *upc_ev)
 {
-    Connection *upc = upc_ev->c;
-    Request *cr = (Request *)upc->data;
     int n;
+    int ret;
+    Connection *upc = upc_ev->c;
+    Upstream *ups = upc->ups_;
+    Request *cr = (Request *)ups->c4client->data_;
+    Request *upsr = (Request *)ups->c4upstream->data_;
+
     while (1)
     {
         n = upc->readBuffer_.recvFd(upc->fd_.getFd(), &errno, 0);
         if (n < 0 && errno == EAGAIN)
         {
-            continue;
+            return AGAIN;
         }
-        else if (n < 0)
+        else if (n < 0 && errno != EAGAIN)
         {
-            printf("%s\n", strerror(errno));
+            LOG_INFO << "Recv error";
+            finalizeRequest(upsr);
+            finalizeRequest(cr);
+            heap.hDelete(upc->ups_);
+            return ERROR;
         }
-        break;
+        else if (n == 0)
+        {
+            LOG_INFO << "Upstream server close connection";
+            finalizeRequest(upsr);
+            finalizeRequest(cr);
+            heap.hDelete(upc->ups_);
+            return ERROR;
+        }
+        else
+        {
+            // processStatusLine->processHeaders->processBody
+            ret = ups->process_handler(upsr);
+            if (ret == AGAIN)
+            {
+                continue;
+            }
+            else if (ret == ERROR)
+            {
+                LOG_INFO << "Process error";
+                finalizeRequest(upsr);
+                finalizeRequest(cr);
+                heap.hDelete(upc->ups_);
+                return ERROR;
+            }
+            break;
+        }
     }
 
-    // printf("%s\n", upc->readBuffer_.allToStr().c_str());
-
-    upc->readBuffer_.sendFd(cr->c->fd_.getFd(), &errno, 0);
-
-    finalizeConnection(upc);
-    if (cr->headers_in.connection_type == CONNECTION_KEEP_ALIVE)
+    upsr->c->writeBuffer_.append("HTTP/1.1 " + std::string(ups->ctx.status.start, ups->ctx.status.end) + "\r\n");
+    for (auto &x : upsr->headers_in.headers)
     {
-        keepAliveRequest(cr);
+        upsr->c->writeBuffer_.append(x.name + ": " + x.value + "\r\n");
     }
-    else
-    {
-        finalizeRequest(cr);
-    }
+    upsr->c->writeBuffer_.append("\r\n");
+    upsr->c->writeBuffer_.append(upsr->request_body.body.toString());
+
+    // for (auto &x : upsr->request_body.body.toString())
+    // {
+    //     printf("%c", x);
+    // }
+
+    return upsResponse2Client(&upc->write_);
 }
 
 int send2upstream(Event *upc_ev)
 {
     Connection *upc = upc_ev->c;
-    Request *cr = (Request *)upc->data;
+    Request *cr = (Request *)upc->ups_->c4client->data_;
 
     int ret = upc->writeBuffer_.sendFd(upc->fd_.getFd(), &errno, 0);
 
-    if (ret < 0 && errno != EAGAIN)
+    if (ret < 0)
     {
-        LOG_INFO << "SEND ERR, FINALIZE CONNECTION";
+        if (errno == EAGAIN)
+        {
+            epoller.modFd(upc->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, upc);
+            upc->write_.handler = send2upstream;
+            return AGAIN;
+        }
+        else
+        {
+            LOG_INFO << "SEND ERR, FINALIZE CONNECTION";
+            finalizeConnection(upc);
+            finalizeRequest(cr);
+            heap.hDelete(upc->ups_);
+            return ERROR;
+        }
+    }
+    else if (ret == 0)
+    {
+        LOG_INFO << "Upstream close connection, FINALIZE CONNECTION";
         finalizeConnection(upc);
         finalizeRequest(cr);
+        heap.hDelete(upc->ups_);
         return ERROR;
     }
-
-    if (upc->writeBuffer_.readableBytes())
+    else
     {
-        return AGAIN;
+        if (upc->writeBuffer_.readableBytes())
+        {
+            return AGAIN;
+        }
     }
+
+    epoller.modFd(upc->fd_.getFd(), EPOLLIN | EPOLLET, upc);
+    upc->write_.handler = blockWriting;
+
+    upstreamRecv(&upc->read_);
+
+    return OK;
 }
 
 int staticContentHandler(Request *r)
@@ -577,5 +645,63 @@ int doResponse(Request *r)
     }
 
     writeResponse(&r->c->write_);
+    return OK;
+}
+
+int upsResponse2Client(Event *upc_ev)
+{
+    Connection *upc = upc_ev->c;
+    Upstream *ups = upc->ups_;
+    Connection *c = ups->c4client;
+    Request *cr = (Request *)c->data_;
+    Request *upsr = (Request *)upc->data_;
+
+    int ret = upc->writeBuffer_.sendFd(c->fd_.getFd(), &errno, 0);
+
+    if (ret < 0)
+    {
+        if (errno == EAGAIN)
+        {
+            epoller.modFd(upc->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, upc);
+            upc->write_.handler = upsResponse2Client;
+            return AGAIN;
+        }
+        else
+        {
+            LOG_INFO << "SEND ERR, FINALIZE CONNECTION";
+            finalizeRequest((Request *)upsr);
+            finalizeRequest((Request *)cr);
+            heap.hDelete(upc->ups_);
+            return ERROR;
+        }
+    }
+    else if (ret == 0)
+    {
+        LOG_INFO << "Upstream close connection, FINALIZE CONNECTION";
+        finalizeRequest((Request *)upsr);
+        finalizeRequest((Request *)cr);
+        heap.hDelete(upc->ups_);
+        return ERROR;
+    }
+    else
+    {
+        if (upc->writeBuffer_.readableBytes())
+        {
+            return AGAIN;
+        }
+    }
+
+    LOG_INFO << "PROXYPASS RESPONSED";
+
+    finalizeRequest((Request *)upc->data_);
+    if (cr->headers_in.connection_type == CONNECTION_KEEP_ALIVE)
+    {
+        keepAliveRequest(cr);
+    }
+    else
+    {
+        finalizeRequest(cr);
+    }
+    heap.hDelete(ups);
     return OK;
 }

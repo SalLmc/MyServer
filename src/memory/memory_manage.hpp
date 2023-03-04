@@ -12,7 +12,8 @@ class Request;
 enum class Type
 {
     PV,
-    P4REQUEST
+    P4REQUEST,
+    P4UPSTREAM
 };
 
 extern std::unordered_map<std::type_index, Type> typeMap;
@@ -48,7 +49,9 @@ class HeapMemory
                 case Type::P4REQUEST:
                     delete (Request *)front.addr;
                     break;
-
+                case Type::P4UPSTREAM:
+                    delete (Upstream *)front.addr;
+                    break;
                 default:
                     free(front.addr);
                     break;

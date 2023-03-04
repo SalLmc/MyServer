@@ -264,7 +264,7 @@ int waitRequest(Event *ev)
 
     Request *r = heap.hNew<Request>();
     r->c = c;
-    c->data = r;
+    c->data_ = r;
 
     ev->handler = processRequestLine;
     processRequestLine(ev);
@@ -276,7 +276,7 @@ int keepAlive(Event *ev)
     if (ev->timeout == TIMEOUT)
     {
         LOG_INFO << "Client timeout";
-        finalizeRequest((Request *)ev->c->data);
+        finalizeRequest((Request *)ev->c->data_);
         return -1;
     }
 
@@ -317,7 +317,7 @@ int processRequestLine(Event *ev)
 {
     // LOG_INFO << "process request line";
     Connection *c = ev->c;
-    Request *r = (Request *)c->data;
+    Request *r = (Request *)c->data_;
 
     int ret = AGAIN;
     for (;;)
@@ -393,7 +393,7 @@ int processRequestHeaders(Event *ev)
     Request *r;
 
     c = ev->c;
-    r = (Request *)c->data;
+    r = (Request *)c->data_;
 
     // LOG_INFO << "process request headers";
 
@@ -421,7 +421,7 @@ int processRequestHeaders(Event *ev)
             {
 
                 /* there was error while a header line parsing */
-                LOG_CRIT << "client sent invalid header line";
+                LOG_CRIT << "Client sent invalid header line";
                 continue;
             }
 
@@ -457,7 +457,7 @@ int processRequestHeaders(Event *ev)
 
             r->http_state = HttpState::PROCESS_REQUEST_STATE;
 
-            rc = processRequestHeader(r);
+            rc = processRequestHeader(r, 1);
             if (rc != OK)
             {
                 break;
@@ -594,14 +594,14 @@ int processRequestUri(Request *r)
     return OK;
 }
 
-int processRequestHeader(Request *r)
+int processRequestHeader(Request *r, int need_host)
 {
     auto &mp = r->headers_in.header_name_value_map;
 
     if (mp.count("Host") || mp.count("host"))
     {
     }
-    else
+    else if (need_host)
     {
         LOG_INFO << "Client headers error";
         finalizeRequest(r);
@@ -655,10 +655,106 @@ int processRequest(Request *r)
     return OK;
 }
 
+int processStatusLine(Request *upsr)
+{
+    Upstream *ups = upsr->c->ups_;
+
+    int ret = parseStatusLine(upsr, &ups->ctx.status);
+    if (ret != OK)
+    {
+        return ret;
+    }
+
+    ups->process_handler = processHeaders;
+    return processHeaders(upsr);
+}
+
+int processHeaders(Request *upsr)
+{
+    Upstream *ups = upsr->c->ups_;
+    int ret;
+
+    while (1)
+    {
+        ret = parseHeaderLine(upsr, 1);
+        if (ret == OK)
+        {
+            upsr->headers_in.headers.emplace_back(std::string(upsr->header_name_start, upsr->header_name_end),
+                                                  std::string(upsr->header_start, upsr->header_end));
+            Header &now = upsr->headers_in.headers.back();
+            upsr->headers_in.header_name_value_map[now.name] = now;
+            continue;
+        }
+
+        if (ret == AGAIN)
+        {
+            printf("AGAIN\n");
+            return AGAIN;
+        }
+
+        if (ret == PARSE_HEADER_DONE)
+        {
+            LOG_INFO << "upstream header done";
+            processRequestHeader(upsr, 0);
+
+            ups->process_handler = processBody;
+            return processBody(upsr);
+        }
+    }
+}
+
+int processBody(Request *upsr)
+{
+    int ret = 0;
+
+    // no content-length && not chunked
+    if (upsr->headers_in.content_length == 0 && !upsr->headers_in.chunked)
+    {
+        return OK;
+    }
+
+    upsr->request_body.rest = -1;
+
+    // for (auto &x : upsr->c->readBuffer_.allToStr())
+    // {
+    //     printf("%c", x);
+    // }
+
+    ret = processRequestBody(upsr);
+
+    if (upsr->headers_in.chunked)
+    {
+        if (ret == OK || ret == AGAIN)
+        {
+            return AGAIN;
+        }
+        if (ret == DONE)
+        {
+            upsr->c->read_.handler = blockReading;
+            return OK;
+        }
+        if (ret == ERROR)
+        {
+            return ERROR;
+        }
+    }
+    else
+    {
+        if (ret == OK)
+        {
+            upsr->c->read_.handler = blockReading;
+        }
+
+        return ret;
+    }
+
+    return ERROR;
+}
+
 int runPhases(Event *ev)
 {
     int ret = 0;
-    Request *r = (Request *)ev->c->data;
+    Request *r = (Request *)ev->c->data_;
 
     // OK: keep running phases
     // AGAIN/ERROR: quit phase running
@@ -679,7 +775,7 @@ int runPhases(Event *ev)
 
 int writeResponse(Event *ev)
 {
-    Request *r = (Request *)ev->c->data;
+    Request *r = (Request *)ev->c->data_;
     auto &buffer = ev->c->writeBuffer_;
 
     if (buffer.readableBytes() > 0)
@@ -803,6 +899,8 @@ int requestBodyChunked(Request *r)
         if (ret == OK)
         {
             // a chunk has been parse successfully
+            r->request_body.body.len += r->request_body.chunkedInfo.size;
+            r->c->readBuffer_.retrieve(r->request_body.chunkedInfo.size);
             continue;
         }
 
@@ -862,7 +960,10 @@ done:
     if (ret == OK)
     {
         r->c->read_.handler = blockReading;
-        post_handler(r);
+        if (post_handler)
+        {
+            post_handler(r);
+        }
     }
     return ret;
 }
@@ -871,7 +972,7 @@ done:
 int readRequestBodyInner(Event *ev)
 {
     Connection *c = ev->c;
-    Request *r = (Request *)c->data;
+    Request *r = (Request *)c->data_;
 
     auto &rb = r->request_body;
     auto &buffer = c->readBuffer_;
@@ -896,7 +997,7 @@ int readRequestBodyInner(Event *ev)
             if (errno == EAGAIN)
             {
                 LOG_INFO << "EAGAIN";
-                return EAGAIN;
+                return AGAIN;
             }
             else
             {
@@ -917,7 +1018,11 @@ int readRequestBodyInner(Event *ev)
     }
 
     r->c->read_.handler = blockReading;
-    rb.post_handler(r);
+    if (rb.post_handler)
+    {
+        rb.post_handler(r);
+    }
+
     return OK;
 }
 

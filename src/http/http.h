@@ -13,12 +13,15 @@ int keepAliveRequest(Request *r);
 int finalizeConnection(Connection *c);
 int finalizeRequest(Request *r);
 int readRequestHeader(Request *r);
-int processRequestHeader(Request *r);
+int processRequestHeader(Request *r, int need_host);
 int processRequest(Request *r);
 int readRequestBody(Request *r, std::function<int(Request *)> post_handler);
 int processRequestBody(Request *r);
 int requestBodyLength(Request *r);
 int requestBodyChunked(Request *r);
+int processStatusLine(Request *upsr);
+int processHeaders(Request *upsr);
+int processBody(Request *upsr);
 
 // event handler
 int newConnection(Event *ev);
@@ -46,7 +49,7 @@ enum class HeaderState
     sw_header_almost_done
 };
 
-enum class State
+enum class RequestState
 {
     sw_start = 0,
     sw_method,
@@ -127,6 +130,23 @@ enum class ChunkedState
     sw_trailer_header_almost_done
 };
 
+enum class ResponseState
+{
+    sw_start = 0,
+    sw_H,
+    sw_HT,
+    sw_HTT,
+    sw_HTTP,
+    sw_first_major_digit,
+    sw_major_digit,
+    sw_first_minor_digit,
+    sw_minor_digit,
+    sw_status,
+    sw_space_after_status,
+    sw_status_text,
+    sw_almost_done
+};
+
 class Header
 {
   public:
@@ -183,6 +203,7 @@ class ChunkedInfo
     ChunkedState state;
     off_t size;
     off_t length;
+    u_char *pos;
 };
 
 class RequestBody
@@ -209,6 +230,11 @@ class Request
     RequestBody request_body;
 
     Method method;
+    HttpState http_state;
+    HeaderState headerState = HeaderState::sw_start;
+    RequestState requestState = RequestState::sw_start;
+    ResponseState responseState = ResponseState::sw_start;
+
     uintptr_t http_version;
 
     Headers_in headers_in;
@@ -227,8 +253,6 @@ class Request
 
     off_t request_length;
 
-    HttpState http_state;
-
     int at_phase;
 
     /* URI with "/." and on Win32 with "//" */
@@ -244,8 +268,6 @@ class Request
 
     // used for parse http headers
     u_char *pos;
-    HeaderState headerState = HeaderState::sw_start;
-    State state = State::sw_start;
     // uintptr_t header_hash;
     uintptr_t lowcase_index;
     u_char lowcase_header[32];
@@ -272,6 +294,40 @@ class Request
 
     unsigned http_minor : 16;
     unsigned http_major : 16;
+};
+
+class Status
+{
+  public:
+    Status();
+    void init();
+    uintptr_t http_version;
+    uintptr_t code;
+    uintptr_t count;
+    u_char *start;
+    u_char *end;
+};
+
+class ProxyCtx
+{
+  public:
+    ProxyCtx();
+    void init();
+    Status status;
+    off_t internal_body_length;
+    unsigned head : 1;
+    unsigned internal_chunked : 1;
+    unsigned header_sent : 1;
+};
+
+class Upstream
+{
+  public:
+    Upstream();
+    Connection *c4upstream;
+    Connection *c4client;
+    ProxyCtx ctx;
+    std::function<int(Request *r)> process_handler;
 };
 
 #define HTTP_CONTINUE 100

@@ -49,7 +49,7 @@ Event::Event(Connection *cc) : handler(NULL), c(cc), type(NORMAL), timeout(NOT_T
 {
 }
 
-Connection::Connection() : read_(this), write_(this), idx_(-1), server_idx_(-1), data(NULL)
+Connection::Connection() : read_(this), write_(this), idx_(-1), server_idx_(-1), data_(NULL), ups_(NULL)
 {
 }
 
@@ -89,6 +89,11 @@ Connection *ConnectionPool::getNewConnection()
 
 void ConnectionPool::recoverConnection(Connection *c)
 {
+    if (c->idx_ == -1)
+    {
+        return;
+    }
+    
     uint8_t recover = ~(1 << c->idx_);
     flags &= recover;
 
@@ -110,7 +115,8 @@ void ConnectionPool::recoverConnection(Connection *c)
     c->readBuffer_.retrieveAll();
     c->writeBuffer_.retrieveAll();
 
-    c->data = NULL;
+    c->data_ = NULL;
+    c->ups_ = NULL;
 #endif
 }
 

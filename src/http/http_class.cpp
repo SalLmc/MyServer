@@ -15,6 +15,7 @@ ChunkedInfo::ChunkedInfo()
     state = ChunkedState::sw_chunk_start;
     size = 0;
     length = 0;
+    pos = NULL;
 }
 
 RequestBody::RequestBody()
@@ -39,6 +40,10 @@ void Request::init()
     request_body.chunkedInfo.state = ChunkedState::sw_chunk_start;
     request_body.chunkedInfo.size = 0;
     request_body.chunkedInfo.length = 0;
+
+    headerState = HeaderState::sw_start;
+    requestState = RequestState::sw_start;
+    responseState = ResponseState::sw_start;
 
     headers_in.chunked = 0;
     headers_in.connection_type = 0;
@@ -92,8 +97,6 @@ void Request::init()
     valid_unparsed_uri = 0;
 
     pos = NULL;
-    headerState = HeaderState::sw_start;
-    state = State::sw_start;
 
     lowcase_index = 0;
 
@@ -118,4 +121,41 @@ void Request::init()
 
     http_minor = 0;
     http_major = 0;
+}
+
+Status::Status() : http_version(0), code(0), count(0), start(NULL), end(NULL)
+{
+}
+
+void Status::init()
+{
+    http_version = 0;
+    code = 0;
+    count = 0;
+    start = NULL;
+    end = NULL;
+}
+
+ProxyCtx::ProxyCtx()
+{
+    internal_body_length = 0;
+    head = 0;
+    internal_chunked = 0;
+    header_sent = 0;
+}
+
+void ProxyCtx::init()
+{
+    status.init();
+    internal_body_length = 0;
+    head = 0;
+    internal_chunked = 0;
+    header_sent = 0;
+}
+
+Upstream::Upstream()
+{
+    c4upstream = NULL;
+    c4client = NULL;
+    process_handler = NULL;
 }

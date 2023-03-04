@@ -29,6 +29,7 @@
 #define CRLF "\r\n"
 
 class Connection;
+class Upstream;
 
 #define NOT_TIMEOUT 0
 #define TIMEOUT 1
@@ -77,7 +78,8 @@ class Connection
     Buffer writeBuffer_;
     int idx_;
     int server_idx_;
-    void *data;
+    void *data_;
+    Upstream *ups_;
 };
 
 class ConnectionPool

@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 class Request;
+class Status;
 
 #define ngx_str3_cmp(m, c0, c1, c2, c3) *(uint32_t *)m == ((c3 << 24) | (c2 << 16) | (c1 << 8) | c0)
 
@@ -31,7 +32,7 @@ class Request;
 int parseRequestLine(Request *r);
 int processRequestUri(Request *r);
 int parseComplexUri(Request *r, int merge_slashes);
-int parseHeaderLine(Request *r,int allow_underscores);
+int parseHeaderLine(Request *r, int allow_underscores);
 int parseChunked(Request *r);
-
+int parseStatusLine(Request *r, Status *status);
 #endif

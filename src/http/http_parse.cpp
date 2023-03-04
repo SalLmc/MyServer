@@ -26,7 +26,7 @@ int parseRequestLine(Request *r)
     // LOG_INFO << "parse request line";
     u_char c, ch, *p, *m;
 
-    auto &state = r->state;
+    auto &state = r->requestState;
 
     for (p = (u_char *)r->c->readBuffer_.peek(); p < (u_char *)r->c->readBuffer_.beginWrite(); p++)
     {
@@ -36,7 +36,7 @@ int parseRequestLine(Request *r)
         {
 
         /* HTTP methods: GET, HEAD, POST */
-        case State::sw_start:
+        case RequestState::sw_start:
             r->request_start = p;
 
             if (ch == CR || ch == LF)
@@ -49,10 +49,10 @@ int parseRequestLine(Request *r)
                 return ERROR;
             }
 
-            state = State::sw_method;
+            state = RequestState::sw_method;
             break;
 
-        case State::sw_method:
+        case RequestState::sw_method:
             if (ch == ' ')
             {
                 r->method_end = p - 1;
@@ -182,7 +182,7 @@ int parseRequestLine(Request *r)
                     break;
                 }
 
-                state = State::sw_spaces_before_uri;
+                state = RequestState::sw_spaces_before_uri;
                 break;
             }
 
@@ -194,12 +194,12 @@ int parseRequestLine(Request *r)
             break;
 
         /* space* before URI */
-        case State::sw_spaces_before_uri:
+        case RequestState::sw_spaces_before_uri:
 
             if (ch == '/')
             {
                 r->uri_start = p;
-                state = State::sw_after_slash_in_uri;
+                state = RequestState::sw_after_slash_in_uri;
                 break;
             }
 
@@ -207,7 +207,7 @@ int parseRequestLine(Request *r)
             if (c >= 'a' && c <= 'z')
             {
                 r->schema_start = p;
-                state = State::sw_schema;
+                state = RequestState::sw_schema;
                 break;
             }
 
@@ -220,7 +220,7 @@ int parseRequestLine(Request *r)
             }
             break;
 
-        case State::sw_schema:
+        case RequestState::sw_schema:
 
             c = (u_char)(ch | 0x20);
             if (c >= 'a' && c <= 'z')
@@ -237,50 +237,50 @@ int parseRequestLine(Request *r)
             {
             case ':':
                 r->schema_end = p;
-                state = State::sw_schema_slash;
+                state = RequestState::sw_schema_slash;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        case State::sw_schema_slash:
+        case RequestState::sw_schema_slash:
             switch (ch)
             {
             case '/':
-                state = State::sw_schema_slash_slash;
+                state = RequestState::sw_schema_slash_slash;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        case State::sw_schema_slash_slash:
+        case RequestState::sw_schema_slash_slash:
             switch (ch)
             {
             case '/':
-                state = State::sw_host_start;
+                state = RequestState::sw_host_start;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        case State::sw_host_start:
+        case RequestState::sw_host_start:
 
             r->host_start = p;
 
             if (ch == '[')
             {
-                state = State::sw_host_ip_literal;
+                state = RequestState::sw_host_ip_literal;
                 break;
             }
 
-            state = State::sw_host;
+            state = RequestState::sw_host;
 
             /* fall through */
 
-        case State::sw_host:
+        case RequestState::sw_host:
 
             c = (u_char)(ch | 0x20);
             if (c >= 'a' && c <= 'z')
@@ -295,24 +295,24 @@ int parseRequestLine(Request *r)
 
             /* fall through */
 
-        case State::sw_host_end:
+        case RequestState::sw_host_end:
 
             r->host_end = p;
 
             switch (ch)
             {
             case ':':
-                state = State::sw_port;
+                state = RequestState::sw_port;
                 break;
             case '/':
                 r->uri_start = p;
-                state = State::sw_after_slash_in_uri;
+                state = RequestState::sw_after_slash_in_uri;
                 break;
             case '?':
                 r->uri_start = p;
                 r->args_start = p + 1;
                 r->empty_path_in_uri = 1;
-                state = State::sw_uri;
+                state = RequestState::sw_uri;
                 break;
             case ' ':
                 /*
@@ -321,14 +321,14 @@ int parseRequestLine(Request *r)
                  */
                 r->uri_start = r->schema_end + 1;
                 r->uri_end = r->schema_end + 2;
-                state = State::sw_http_09;
+                state = RequestState::sw_http_09;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        case State::sw_host_ip_literal:
+        case RequestState::sw_host_ip_literal:
 
             if (ch >= '0' && ch <= '9')
             {
@@ -346,7 +346,7 @@ int parseRequestLine(Request *r)
             case ':':
                 break;
             case ']':
-                state = State::sw_host_end;
+                state = RequestState::sw_host_end;
                 break;
             case '-':
             case '.':
@@ -372,7 +372,7 @@ int parseRequestLine(Request *r)
             }
             break;
 
-        case State::sw_port:
+        case RequestState::sw_port:
             if (ch >= '0' && ch <= '9')
             {
                 break;
@@ -383,14 +383,14 @@ int parseRequestLine(Request *r)
             case '/':
                 r->port_end = p;
                 r->uri_start = p;
-                state = State::sw_after_slash_in_uri;
+                state = RequestState::sw_after_slash_in_uri;
                 break;
             case '?':
                 r->port_end = p;
                 r->uri_start = p;
                 r->args_start = p + 1;
                 r->empty_path_in_uri = 1;
-                state = State::sw_uri;
+                state = RequestState::sw_uri;
                 break;
             case ' ':
                 r->port_end = p;
@@ -400,7 +400,7 @@ int parseRequestLine(Request *r)
                  */
                 r->uri_start = r->schema_end + 1;
                 r->uri_end = r->schema_end + 2;
-                state = State::sw_http_09;
+                state = RequestState::sw_http_09;
                 break;
             default:
                 return ERROR;
@@ -408,11 +408,11 @@ int parseRequestLine(Request *r)
             break;
 
         /* check "/.", "//", "%", and "\" (Win32) in URI */
-        case State::sw_after_slash_in_uri:
+        case RequestState::sw_after_slash_in_uri:
 
             if (usual[ch >> 5] & (1U << (ch & 0x1f)))
             {
-                state = State::sw_check_uri;
+                state = RequestState::sw_check_uri;
                 break;
             }
 
@@ -420,12 +420,12 @@ int parseRequestLine(Request *r)
             {
             case ' ':
                 r->uri_end = p;
-                state = State::sw_http_09;
+                state = RequestState::sw_http_09;
                 break;
             case CR:
                 r->uri_end = p;
                 r->http_minor = 9;
-                state = State::sw_almost_done;
+                state = RequestState::sw_almost_done;
                 break;
             case LF:
                 r->uri_end = p;
@@ -433,23 +433,23 @@ int parseRequestLine(Request *r)
                 goto done;
             case '.':
                 r->complex_uri = 1;
-                state = State::sw_uri;
+                state = RequestState::sw_uri;
                 break;
             case '%':
                 r->quoted_uri = 1;
-                state = State::sw_uri;
+                state = RequestState::sw_uri;
                 break;
             case '/':
                 r->complex_uri = 1;
-                state = State::sw_uri;
+                state = RequestState::sw_uri;
                 break;
             case '?':
                 r->args_start = p + 1;
-                state = State::sw_uri;
+                state = RequestState::sw_uri;
                 break;
             case '#':
                 r->complex_uri = 1;
-                state = State::sw_uri;
+                state = RequestState::sw_uri;
                 break;
             case '+':
                 r->plus_in_uri = 1;
@@ -459,13 +459,13 @@ int parseRequestLine(Request *r)
                 {
                     return ERROR;
                 }
-                state = State::sw_check_uri;
+                state = RequestState::sw_check_uri;
                 break;
             }
             break;
 
         /* check "/", "%" and "\" (Win32) in URI */
-        case State::sw_check_uri:
+        case RequestState::sw_check_uri:
 
             if (usual[ch >> 5] & (1U << (ch & 0x1f)))
             {
@@ -476,19 +476,19 @@ int parseRequestLine(Request *r)
             {
             case '/':
                 r->uri_ext = NULL;
-                state = State::sw_after_slash_in_uri;
+                state = RequestState::sw_after_slash_in_uri;
                 break;
             case '.':
                 r->uri_ext = p + 1;
                 break;
             case ' ':
                 r->uri_end = p;
-                state = State::sw_http_09;
+                state = RequestState::sw_http_09;
                 break;
             case CR:
                 r->uri_end = p;
                 r->http_minor = 9;
-                state = State::sw_almost_done;
+                state = RequestState::sw_almost_done;
                 break;
             case LF:
                 r->uri_end = p;
@@ -496,15 +496,15 @@ int parseRequestLine(Request *r)
                 goto done;
             case '%':
                 r->quoted_uri = 1;
-                state = State::sw_uri;
+                state = RequestState::sw_uri;
                 break;
             case '?':
                 r->args_start = p + 1;
-                state = State::sw_uri;
+                state = RequestState::sw_uri;
                 break;
             case '#':
                 r->complex_uri = 1;
-                state = State::sw_uri;
+                state = RequestState::sw_uri;
                 break;
             case '+':
                 r->plus_in_uri = 1;
@@ -519,7 +519,7 @@ int parseRequestLine(Request *r)
             break;
 
         /* URI */
-        case State::sw_uri:
+        case RequestState::sw_uri:
 
             if (usual[ch >> 5] & (1U << (ch & 0x1f)))
             {
@@ -530,12 +530,12 @@ int parseRequestLine(Request *r)
             {
             case ' ':
                 r->uri_end = p;
-                state = State::sw_http_09;
+                state = RequestState::sw_http_09;
                 break;
             case CR:
                 r->uri_end = p;
                 r->http_minor = 9;
-                state = State::sw_almost_done;
+                state = RequestState::sw_almost_done;
                 break;
             case LF:
                 r->uri_end = p;
@@ -554,65 +554,65 @@ int parseRequestLine(Request *r)
             break;
 
         /* space+ after URI */
-        case State::sw_http_09:
+        case RequestState::sw_http_09:
             switch (ch)
             {
             case ' ':
                 break;
             case CR:
                 r->http_minor = 9;
-                state = State::sw_almost_done;
+                state = RequestState::sw_almost_done;
                 break;
             case LF:
                 r->http_minor = 9;
                 goto done;
             case 'H':
                 r->http_protocol.data = p;
-                state = State::sw_http_H;
+                state = RequestState::sw_http_H;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        case State::sw_http_H:
+        case RequestState::sw_http_H:
             switch (ch)
             {
             case 'T':
-                state = State::sw_http_HT;
+                state = RequestState::sw_http_HT;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        case State::sw_http_HT:
+        case RequestState::sw_http_HT:
             switch (ch)
             {
             case 'T':
-                state = State::sw_http_HTT;
+                state = RequestState::sw_http_HTT;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        case State::sw_http_HTT:
+        case RequestState::sw_http_HTT:
             switch (ch)
             {
             case 'P':
-                state = State::sw_http_HTTP;
+                state = RequestState::sw_http_HTTP;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        case State::sw_http_HTTP:
+        case RequestState::sw_http_HTTP:
             switch (ch)
             {
             case '/':
-                state = State::sw_first_major_digit;
+                state = RequestState::sw_first_major_digit;
                 break;
             default:
                 return ERROR;
@@ -620,7 +620,7 @@ int parseRequestLine(Request *r)
             break;
 
         /* first digit of major HTTP version */
-        case State::sw_first_major_digit:
+        case RequestState::sw_first_major_digit:
             if (ch < '1' || ch > '9')
             {
                 return ERROR;
@@ -633,14 +633,14 @@ int parseRequestLine(Request *r)
                 return ERROR;
             }
 
-            state = State::sw_major_digit;
+            state = RequestState::sw_major_digit;
             break;
 
         /* major HTTP version or dot */
-        case State::sw_major_digit:
+        case RequestState::sw_major_digit:
             if (ch == '.')
             {
-                state = State::sw_first_minor_digit;
+                state = RequestState::sw_first_minor_digit;
                 break;
             }
 
@@ -659,21 +659,21 @@ int parseRequestLine(Request *r)
             break;
 
         /* first digit of minor HTTP version */
-        case State::sw_first_minor_digit:
+        case RequestState::sw_first_minor_digit:
             if (ch < '0' || ch > '9')
             {
                 return ERROR;
             }
 
             r->http_minor = ch - '0';
-            state = State::sw_minor_digit;
+            state = RequestState::sw_minor_digit;
             break;
 
         /* minor HTTP version or end of request line */
-        case State::sw_minor_digit:
+        case RequestState::sw_minor_digit:
             if (ch == CR)
             {
-                state = State::sw_almost_done;
+                state = RequestState::sw_almost_done;
                 break;
             }
 
@@ -684,7 +684,7 @@ int parseRequestLine(Request *r)
 
             if (ch == ' ')
             {
-                state = State::sw_spaces_after_digit;
+                state = RequestState::sw_spaces_after_digit;
                 break;
             }
 
@@ -701,13 +701,13 @@ int parseRequestLine(Request *r)
             r->http_minor = r->http_minor * 10 + (ch - '0');
             break;
 
-        case State::sw_spaces_after_digit:
+        case RequestState::sw_spaces_after_digit:
             switch (ch)
             {
             case ' ':
                 break;
             case CR:
-                state = State::sw_almost_done;
+                state = RequestState::sw_almost_done;
                 break;
             case LF:
                 goto done;
@@ -717,7 +717,7 @@ int parseRequestLine(Request *r)
             break;
 
         /* end of request line */
-        case State::sw_almost_done:
+        case RequestState::sw_almost_done:
             r->request_end = p - 1;
             switch (ch)
             {
@@ -742,7 +742,7 @@ done:
     }
 
     r->http_version = r->http_major * 1000 + r->http_minor;
-    r->state = State::sw_start;
+    r->requestState = RequestState::sw_start;
 
     if (r->http_version == 9 && r->method != Method::GET)
     {
@@ -1402,22 +1402,26 @@ header_done:
 int parseChunked(Request *r)
 {
     u_char *pos, ch, c;
-    auto &ctx = r->request_body.chunkedInfo;
-
     int rc;
 
-    auto &state = ctx.state;
+    ChunkedInfo *ctx = &r->request_body.chunkedInfo;
 
-    if (state == ChunkedState::sw_chunk_data && ctx.size == 0)
+    if (ctx->pos == NULL)
+    {
+        ctx->pos = (u_char *)r->c->readBuffer_.peek();
+    }
+
+    auto &state = ctx->state;
+
+    if (state == ChunkedState::sw_chunk_data && ctx->size == 0)
     {
         state = ChunkedState::sw_after_data;
     }
 
     rc = AGAIN;
 
-    for (pos = (u_char *)r->c->readBuffer_.peek(); pos < (u_char *)r->c->readBuffer_.beginWrite(); pos++)
+    for (pos = ctx->pos; pos < (u_char *)r->c->readBuffer_.beginWrite(); pos++)
     {
-
         ch = *pos;
 
         switch (state)
@@ -1427,7 +1431,7 @@ int parseChunked(Request *r)
             if (ch >= '0' && ch <= '9')
             {
                 state = ChunkedState::sw_chunk_size;
-                ctx.size = ch - '0';
+                ctx->size = ch - '0';
                 break;
             }
 
@@ -1436,21 +1440,21 @@ int parseChunked(Request *r)
             if (c >= 'a' && c <= 'f')
             {
                 state = ChunkedState::sw_chunk_size;
-                ctx.size = c - 'a' + 10;
+                ctx->size = c - 'a' + 10;
                 break;
             }
 
             goto invalid;
 
         case ChunkedState::sw_chunk_size:
-            if (ctx.size > MAX_OFF_T_VALUE / 16)
+            if (ctx->size > MAX_OFF_T_VALUE / 16)
             {
                 goto invalid;
             }
 
             if (ch >= '0' && ch <= '9')
             {
-                ctx.size = ctx.size * 16 + (ch - '0');
+                ctx->size = ctx->size * 16 + (ch - '0');
                 break;
             }
 
@@ -1458,11 +1462,11 @@ int parseChunked(Request *r)
 
             if (c >= 'a' && c <= 'f')
             {
-                ctx.size = ctx.size * 16 + (c - 'a' + 10);
+                ctx->size = ctx->size * 16 + (c - 'a' + 10);
                 break;
             }
 
-            if (ctx.size == 0)
+            if (ctx->size == 0)
             {
 
                 switch (ch)
@@ -1611,61 +1615,287 @@ int parseChunked(Request *r)
 
 data:
 
-    r->request_body.body.len += ((char *)pos - r->c->readBuffer_.peek());
+    r->request_body.body.len += (char *)(pos)-r->c->readBuffer_.peek();
+    ctx->pos = pos + ctx->size;
     r->c->readBuffer_.retrieveUntil((char *)(pos));
 
-    if (ctx.size > MAX_OFF_T_VALUE - 5)
+    if (ctx->size > MAX_OFF_T_VALUE - 5)
     {
         goto invalid;
     }
 
     switch (state)
     {
-
     case ChunkedState::sw_chunk_start:
-        ctx.length = 3 /* "0" LF LF */;
+        ctx->length = 3 /* "0" LF LF */;
         break;
     case ChunkedState::sw_chunk_size:
-        ctx.length = 1                          /* LF */
-                     + (ctx.size ? ctx.size + 4 /* LF "0" LF LF */
-                                 : 1 /* LF */);
+        ctx->length = 1                            /* LF */
+                      + (ctx->size ? ctx->size + 4 /* LF "0" LF LF */
+                                   : 1 /* LF */);
         break;
     case ChunkedState::sw_chunk_extension:
     case ChunkedState::sw_chunk_extension_almost_done:
-        ctx.length = 1 /* LF */ + ctx.size + 4 /* LF "0" LF LF */;
+        ctx->length = 1 /* LF */ + ctx->size + 4 /* LF "0" LF LF */;
         break;
     case ChunkedState::sw_chunk_data:
-        ctx.length = ctx.size + 4 /* LF "0" LF LF */;
+        ctx->length = ctx->size + 4 /* LF "0" LF LF */;
         break;
     case ChunkedState::sw_after_data:
     case ChunkedState::sw_after_data_almost_done:
-        ctx.length = 4 /* LF "0" LF LF */;
+        ctx->length = 4 /* LF "0" LF LF */;
         break;
     case ChunkedState::sw_last_chunk_extension:
     case ChunkedState::sw_last_chunk_extension_almost_done:
-        ctx.length = 2 /* LF LF */;
+        ctx->length = 2 /* LF LF */;
         break;
     case ChunkedState::sw_trailer:
     case ChunkedState::sw_trailer_almost_done:
-        ctx.length = 1 /* LF */;
+        ctx->length = 1 /* LF */;
         break;
     case ChunkedState::sw_trailer_header:
     case ChunkedState::sw_trailer_header_almost_done:
-        ctx.length = 2 /* LF LF */;
+        ctx->length = 2 /* LF LF */;
         break;
     }
+
+    ctx->size = 0;
 
     return rc;
 
 done:
 
-    ctx.state = ChunkedState::sw_chunk_start;
-    r->request_body.body.len += ((char *)(pos + 1) - r->c->readBuffer_.peek());
+    ctx->state = ChunkedState::sw_chunk_start;
+
+    r->request_body.body.len += (char *)(pos + 1) - r->c->readBuffer_.peek();
+    ctx->pos = pos + 1 + ctx->size;
     r->c->readBuffer_.retrieveUntil((char *)(pos + 1));
 
+    ctx->size = 0;
     return DONE;
 
 invalid:
 
     return ERROR;
+}
+
+int parseStatusLine(Request *r, Status *status)
+{
+    u_char ch;
+    u_char *p;
+
+    auto &state = r->responseState;
+
+    for (p = (u_char *)r->c->readBuffer_.peek(); p < (u_char *)r->c->readBuffer_.beginWrite(); p++)
+    {
+        ch = *p;
+
+        switch (state)
+        {
+
+        /* "HTTP/" */
+        case ResponseState::sw_start:
+            switch (ch)
+            {
+            case 'H':
+                state = ResponseState::sw_H;
+                break;
+            default:
+                return ERROR;
+            }
+            break;
+
+        case ResponseState::sw_H:
+            switch (ch)
+            {
+            case 'T':
+                state = ResponseState::sw_HT;
+                break;
+            default:
+                return ERROR;
+            }
+            break;
+
+        case ResponseState::sw_HT:
+            switch (ch)
+            {
+            case 'T':
+                state = ResponseState::sw_HTT;
+                break;
+            default:
+                return ERROR;
+            }
+            break;
+
+        case ResponseState::sw_HTT:
+            switch (ch)
+            {
+            case 'P':
+                state = ResponseState::sw_HTTP;
+                break;
+            default:
+                return ERROR;
+            }
+            break;
+
+        case ResponseState::sw_HTTP:
+            switch (ch)
+            {
+            case '/':
+                state = ResponseState::sw_first_major_digit;
+                break;
+            default:
+                return ERROR;
+            }
+            break;
+
+        /* the first digit of major HTTP version */
+        case ResponseState::sw_first_major_digit:
+            if (ch < '1' || ch > '9')
+            {
+                return ERROR;
+            }
+
+            r->http_major = ch - '0';
+            state = ResponseState::sw_major_digit;
+            break;
+
+        /* the major HTTP version or dot */
+        case ResponseState::sw_major_digit:
+            if (ch == '.')
+            {
+                state = ResponseState::sw_first_minor_digit;
+                break;
+            }
+
+            if (ch < '0' || ch > '9')
+            {
+                return ERROR;
+            }
+
+            if (r->http_major > 99)
+            {
+                return ERROR;
+            }
+
+            r->http_major = r->http_major * 10 + (ch - '0');
+            break;
+
+        /* the first digit of minor HTTP version */
+        case ResponseState::sw_first_minor_digit:
+            if (ch < '0' || ch > '9')
+            {
+                return ERROR;
+            }
+
+            r->http_minor = ch - '0';
+            state = ResponseState::sw_minor_digit;
+            break;
+
+        /* the minor HTTP version or the end of the request line */
+        case ResponseState::sw_minor_digit:
+            if (ch == ' ')
+            {
+                state = ResponseState::sw_status;
+                break;
+            }
+
+            if (ch < '0' || ch > '9')
+            {
+                return ERROR;
+            }
+
+            if (r->http_minor > 99)
+            {
+                return ERROR;
+            }
+
+            r->http_minor = r->http_minor * 10 + (ch - '0');
+            break;
+
+        /* HTTP status code */
+        case ResponseState::sw_status:
+            if (ch == ' ')
+            {
+                break;
+            }
+
+            if (ch < '0' || ch > '9')
+            {
+                return ERROR;
+            }
+
+            // status->code = status->code * 10 + (ch - '0');
+
+            if (++status->count == 3)
+            {
+                state = ResponseState::sw_space_after_status;
+                status->start = p - 2;
+            }
+
+            break;
+
+        /* space or end of line */
+        case ResponseState::sw_space_after_status:
+            switch (ch)
+            {
+            case ' ':
+                state = ResponseState::sw_status_text;
+                break;
+            case '.': /* IIS may send 403.1, 403.2, etc */
+                state = ResponseState::sw_status_text;
+                break;
+            case CR:
+                state = ResponseState::sw_almost_done;
+                break;
+            case LF:
+                goto done;
+            default:
+                return ERROR;
+            }
+            break;
+
+        /* any text until end of line */
+        case ResponseState::sw_status_text:
+            switch (ch)
+            {
+            case CR:
+                state = ResponseState::sw_almost_done;
+
+                break;
+            case LF:
+                goto done;
+            }
+            break;
+
+        /* end of status line */
+        case ResponseState::sw_almost_done:
+            status->end = p - 1;
+            switch (ch)
+            {
+            case LF:
+                goto done;
+            default:
+                return ERROR;
+            }
+        }
+    }
+
+    r->c->readBuffer_.retrieveUntil((char *)(p));
+
+    return AGAIN;
+
+done:
+
+    r->c->readBuffer_.retrieveUntil((char *)(p + 1));
+
+    if (status->end == NULL)
+    {
+        status->end = p;
+    }
+
+    status->http_version = r->http_major * 1000 + r->http_minor;
+    state = ResponseState::sw_start;
+
+    return OK;
 }
