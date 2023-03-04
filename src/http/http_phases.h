@@ -44,4 +44,8 @@ int appendResponseBody(Request *r);
 
 int doResponse(Request *r);
 
+int initUpstream(Request *r);
+int send2upstream(Event *upc_ev);
+int upstreamRecv(Event *upc_ev);
+
 #endif

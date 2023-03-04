@@ -22,6 +22,7 @@ RequestBody::RequestBody()
     body.data = NULL;
     body.len = 0;
     rest = -1;
+    post_handler = NULL;
 }
 
 void Request::init()
@@ -31,6 +32,8 @@ void Request::init()
     c = NULL;
     http_version = 0;
 
+    request_body.rest = -1;
+    request_body.post_handler = NULL;
     request_body.body.data = NULL;
     request_body.body.len = 0;
     request_body.chunkedInfo.state = ChunkedState::sw_chunk_start;

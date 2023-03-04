@@ -283,7 +283,7 @@ int proxyPassHandler(Request *r)
     }
     r->now_proxy_pass = 0;
 
-    int ret = readRequestBody(r);
+    int ret = readRequestBody(r, initUpstream);
     LOG_INFO << "readRequestBody:" << ret;
     if (ret != OK)
     {
@@ -291,45 +291,77 @@ int proxyPassHandler(Request *r)
         return PHASE_ERR;
     }
 
+    return OK;
+}
+
+int initUpstream(Request *r)
+{
+    // setup upstream server
     auto &server = cyclePtr->servers_[r->c->server_idx_];
     std::string addr = server.proxy_pass.to;
     std::string ip = getIp(addr);
     int port = getPort(addr);
     std::string newUri = getNewUri(addr);
 
-    Connection *upc = initUpstream();
-
+    // setup connection
+    Connection *upc = cyclePtr->pool_->getNewConnection();
+    assert(upc != NULL);
+    upc->data = r;
+    upc->fd_ = socket(AF_INET, SOCK_STREAM, 0);
+    assert(upc->fd_.getFd() >= 0);
     upc->addr_.sin_family = AF_INET;
     inet_pton(AF_INET, ip.c_str(), &upc->addr_.sin_addr);
     upc->addr_.sin_port = htons(port);
-
     if (connect(upc->fd_.getFd(), (struct sockaddr *)&upc->addr_, sizeof(upc->addr_)) < 0)
     {
-        LOG_INFO << "PHASE ERR";
-        return PHASE_ERR;
+        LOG_INFO << "CONNECT ERR, FINALIZE CONNECTION";
+        finalizeConnection(upc);
+        finalizeRequest(r);
+        return ERROR;
     }
     setnonblocking(upc->fd_.getFd());
 
-    // printf("%s\n", std::string(r->request_start, r->request_start + r->request_length).c_str());
-
+    // setup send content
     auto &wb = upc->writeBuffer_;
     wb.append("GET " + newUri + " HTTP/1.1\r\n");
     auto &in = r->headers_in;
     for (auto &x : in.headers)
     {
-        if (x.name == "Accept-Encoding")
-        {
-            continue;
-        }
         std::string thisHeader = x.name + ": " + x.value + "\r\n";
         wb.append(thisHeader);
     }
     wb.append("\r\n");
+    wb.append(r->request_body.body.toString());
 
-    printf("%s\n", wb.allToStr().c_str());
+    // set epoller
+    epoller.addFd(upc->fd_.getFd(), EPOLLIN | EPOLLET, upc);
+    upc->read_.handler = upstreamRecv;
 
-    upc->writeBuffer_.sendFd(upc->fd_.getFd(), &errno, 0);
+    // send
+    int ret = upc->writeBuffer_.sendFd(upc->fd_.getFd(), &errno, 0);
+    if ((ret < 0 && errno == EAGAIN) || upc->writeBuffer_.readableBytes())
+    {
+        epoller.modFd(upc->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, upc);
+        upc->write_.handler = send2upstream;
+    }
+    else if (ret < 0 && errno != EAGAIN)
+    {
+        LOG_INFO << "SEND ERR, FINALIZE CONNECTION";
+        finalizeConnection(upc);
+        finalizeRequest(r);
+        return ERROR;
+    }
 
+    // all has been sent
+    upstreamRecv(&upc->read_);
+
+    return OK;
+}
+
+int upstreamRecv(Event *upc_ev)
+{
+    Connection *upc = upc_ev->c;
+    Request *cr = (Request *)upc->data;
     int n;
     while (1)
     {
@@ -345,13 +377,40 @@ int proxyPassHandler(Request *r)
         break;
     }
 
-    for (auto x : upc->readBuffer_.allToStr())
+    // printf("%s\n", upc->readBuffer_.allToStr().c_str());
+
+    upc->readBuffer_.sendFd(cr->c->fd_.getFd(), &errno, 0);
+
+    finalizeConnection(upc);
+    if (cr->headers_in.connection_type == CONNECTION_KEEP_ALIVE)
     {
-        printf("%c", x);
+        keepAliveRequest(cr);
     }
-    Fd fd = open("tmp", O_CREAT | O_RDWR, 0666);
-    write(fd.getFd(), upc->readBuffer_.peek(), upc->readBuffer_.readableBytes());
-    return testPhaseHandler(r);
+    else
+    {
+        finalizeRequest(cr);
+    }
+}
+
+int send2upstream(Event *upc_ev)
+{
+    Connection *upc = upc_ev->c;
+    Request *cr = (Request *)upc->data;
+
+    int ret = upc->writeBuffer_.sendFd(upc->fd_.getFd(), &errno, 0);
+
+    if (ret < 0 && errno != EAGAIN)
+    {
+        LOG_INFO << "SEND ERR, FINALIZE CONNECTION";
+        finalizeConnection(upc);
+        finalizeRequest(cr);
+        return ERROR;
+    }
+
+    if (upc->writeBuffer_.readableBytes())
+    {
+        return AGAIN;
+    }
 }
 
 int staticContentHandler(Request *r)

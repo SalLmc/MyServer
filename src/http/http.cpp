@@ -727,6 +727,13 @@ int blockReading(Event *ev)
     return OK;
 }
 
+int blockWriting(Event *ev)
+{
+    LOG_INFO << "Block writing triggered";
+    return OK;
+}
+
+// @return OK DONE AGAIN ERROR
 int processRequestBody(Request *r)
 {
     if (r->headers_in.chunked)
@@ -738,6 +745,8 @@ int processRequestBody(Request *r)
         return requestBodyLength(r);
     }
 }
+
+// @return OK ERROR
 int requestBodyLength(Request *r)
 {
     auto &buffer = r->c->readBuffer_;
@@ -768,6 +777,8 @@ int requestBodyLength(Request *r)
 
     return OK;
 }
+
+// @return OK DONE AGAIN ERROR
 int requestBodyChunked(Request *r)
 {
     auto &buffer = r->c->readBuffer_;
@@ -815,23 +826,27 @@ int requestBodyChunked(Request *r)
     return ret;
 }
 
-int readRequestBody(Request *r)
+// @return OK AGAIN ERROR
+int readRequestBody(Request *r, std::function<int(Request *)> post_handler)
 {
     int ret = 0;
+    int preRead = 0;
     auto &buffer = r->c->readBuffer_;
 
     // no content-length && not chunked
-    if (r->headers_in.content_length <= 0 && !r->headers_in.chunked)
+    if (r->headers_in.content_length == 0 && !r->headers_in.chunked)
     {
-        return OK;
+        ret = OK;
+        goto done;
     }
 
     r->request_body.rest = -1;
+    r->request_body.post_handler = post_handler;
 
-    int preRead = buffer.readableBytes();
+    preRead = buffer.readableBytes();
 
     ret = processRequestBody(r);
-    if (ret != OK)
+    if (ret != OK && ret != DONE)
     {
         goto done;
     }
@@ -839,16 +854,20 @@ int readRequestBody(Request *r)
     r->request_length += preRead;
 
     r->c->read_.handler = readRequestBodyInner;
+    epoller.modFd(r->c->fd_.getFd(), EPOLLIN | EPOLLET, r->c);
+    r->c->write_.handler = blockWriting;
     ret = readRequestBodyInner(&r->c->read_);
 
 done:
-    if (ret == OK || ret == AGAIN)
+    if (ret == OK)
     {
         r->c->read_.handler = blockReading;
+        post_handler(r);
     }
     return ret;
 }
 
+// @return OK AGAIN ERROR
 int readRequestBodyInner(Event *ev)
 {
     Connection *c = ev->c;
@@ -877,7 +896,7 @@ int readRequestBodyInner(Event *ev)
             if (errno == EAGAIN)
             {
                 LOG_INFO << "EAGAIN";
-                continue;
+                return EAGAIN;
             }
             else
             {
@@ -890,7 +909,7 @@ int readRequestBodyInner(Event *ev)
             r->request_length += ret;
             ret = processRequestBody(r);
 
-            if (ret != OK)
+            if (ret != OK && ret != DONE)
             {
                 return ret;
             }
@@ -898,18 +917,8 @@ int readRequestBodyInner(Event *ev)
     }
 
     r->c->read_.handler = blockReading;
+    rb.post_handler(r);
     return OK;
-}
-
-Connection *initUpstream()
-{
-    Connection *upc = cyclePtr->pool_->getNewConnection();
-    assert(upc != NULL);
-
-    upc->fd_ = socket(AF_INET, SOCK_STREAM, 0);
-    assert(upc->fd_.getFd() >= 0);
-    
-    return upc;
 }
 
 int keepAliveRequest(Request *r)

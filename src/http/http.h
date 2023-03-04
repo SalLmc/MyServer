@@ -15,11 +15,10 @@ int finalizeRequest(Request *r);
 int readRequestHeader(Request *r);
 int processRequestHeader(Request *r);
 int processRequest(Request *r);
-int readRequestBody(Request *r);
+int readRequestBody(Request *r, std::function<int(Request *)> post_handler);
 int processRequestBody(Request *r);
 int requestBodyLength(Request *r);
 int requestBodyChunked(Request *r);
-Connection *initUpstream();
 
 // event handler
 int newConnection(Event *ev);
@@ -28,6 +27,7 @@ int keepAlive(Event *ev);
 int processRequestLine(Event *ev);
 int processRequestHeaders(Event *ev);
 int blockReading(Event *ev);
+int blockWriting(Event *ev);
 int runPhases(Event *ev);
 int writeResponse(Event *ev);
 int readRequestBodyInner(Event *ev);
@@ -192,6 +192,7 @@ class RequestBody
     off_t rest;
     ChunkedInfo chunkedInfo;
     str_t body;
+    std::function<int(Request *)> post_handler;
 };
 
 extern Cycle *cyclePtr;
