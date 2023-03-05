@@ -239,7 +239,7 @@ int waitRequest(Event *ev)
     Connection *c = ev->c;
     int len = c->readBuffer_.recvFd(c->fd_.getFd(), &errno, 0);
 
-    LOG_INFO << "waitRequest recv from fd:" << c->fd_.getFd();
+    LOG_INFO << "waitRequest recv from FD:" << c->fd_.getFd();
 
     if (len == 0)
     {
@@ -285,7 +285,7 @@ int keepAlive(Event *ev)
     Connection *c = ev->c;
     int len = c->readBuffer_.recvFd(c->fd_.getFd(), &errno, 0);
 
-    LOG_INFO << "keepAlive recv from fd:" << c->fd_.getFd();
+    LOG_INFO << "keepAlive recv from FD:" << c->fd_.getFd();
 
     if (len == 0)
     {
@@ -817,20 +817,18 @@ int writeResponse(Event *ev)
 
         return OK;
     }
-
-    LOG_INFO << "ERROR";
     return OK;
 }
 
 int blockReading(Event *ev)
 {
-    LOG_INFO << "Block reading triggered";
+    LOG_INFO << "Block reading triggered, FD:" << ev->c->fd_.getFd();
     return OK;
 }
 
 int blockWriting(Event *ev)
 {
-    LOG_INFO << "Block writing triggered";
+    LOG_INFO << "Block writing triggered, FD:" << ev->c->fd_.getFd();
     return OK;
 }
 
@@ -1045,6 +1043,8 @@ int sendfileEvent(Event *ev)
         return AGAIN;
     }
 
+    epoller.modFd(r->c->fd_.getFd(), EPOLLIN | EPOLLET, r->c);
+    r->c->write_.handler = blockWriting;
     close(filebody.filefd.getFd());
 
     LOG_INFO << "SENDFILE RESPONSED";

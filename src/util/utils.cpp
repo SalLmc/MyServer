@@ -104,15 +104,15 @@ std::string byte2properstr(off_t bytes)
     }
     else if (bytes < M)
     {
-        return std::to_string(bytes / K + bytes % K != 0) + "K";
+        return std::to_string(bytes / K + (bytes % K != 0)) + "K";
     }
     else if (bytes < G)
     {
-        return std::to_string(bytes / M + bytes % M != 0) + "M";
+        return std::to_string(bytes / M + (bytes % M != 0)) + "M";
     }
     else
     {
-        return std::to_string(bytes / G + bytes % G != 0) + "G";
+        return std::to_string(bytes / G + (bytes % G != 0)) + "G";
     }
 }
 
@@ -142,7 +142,7 @@ int getPort(std::string addr)
 std::string getNewUri(std::string addr)
 {
     auto first = addr.find_first_of('/', 8);
-    return addr.substr(first,addr.length() - first);
+    return addr.substr(first, addr.length() - first);
 }
 
 unsigned char ToHex(unsigned char x)
