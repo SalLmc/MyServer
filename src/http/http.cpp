@@ -933,8 +933,12 @@ int readRequestBody(Request *r, std::function<int(Request *)> post_handler)
     // no content-length && not chunked
     if (r->headers_in.content_length == 0 && !r->headers_in.chunked)
     {
-        ret = OK;
-        goto done;
+        r->c->read_.handler = blockReading;
+        if (post_handler)
+        {
+            post_handler(r);
+        }
+        return OK;
     }
 
     r->request_body.rest = -1;
@@ -945,25 +949,18 @@ int readRequestBody(Request *r, std::function<int(Request *)> post_handler)
     ret = processRequestBody(r);
     if (ret != OK && ret != DONE)
     {
-        goto done;
+        return ret;
     }
 
     r->request_length += preRead;
 
     r->c->read_.handler = readRequestBodyInner;
     epoller.modFd(r->c->fd_.getFd(), EPOLLIN | EPOLLET, r->c);
+
     r->c->write_.handler = blockWriting;
+
     ret = readRequestBodyInner(&r->c->read_);
 
-done:
-    if (ret == OK)
-    {
-        r->c->read_.handler = blockReading;
-        if (post_handler)
-        {
-            post_handler(r);
-        }
-    }
     return ret;
 }
 

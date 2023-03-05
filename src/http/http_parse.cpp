@@ -1615,7 +1615,8 @@ int parseChunked(Request *r)
 
 data:
 
-    r->request_body.body.len += r->request_body.chunkedInfo.size;
+    r->request_body.body.len += pos - ctx->pos + 1;
+    r->request_body.body.len += ctx->size;
     ctx->pos = pos + ctx->size;
 
     if (ctx->size > MAX_OFF_T_VALUE - 5)
@@ -1666,7 +1667,8 @@ done:
 
     ctx->state = ChunkedState::sw_chunk_start;
 
-    r->request_body.body.len += r->request_body.chunkedInfo.size;
+    r->request_body.body.len += pos - ctx->pos + 1;
+    r->request_body.body.len += ctx->size;
     ctx->pos = pos + 1 + ctx->size;
 
     ctx->size = 0;

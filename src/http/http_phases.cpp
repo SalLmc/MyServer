@@ -329,7 +329,7 @@ int initUpstream(Request *r)
     }
     setnonblocking(upc->fd_.getFd());
 
-    LOG_INFO << "Upstream to: " << ip << ":" << port << newUri;
+    LOG_INFO << "Upstream to: " << ip << ":" << port << newUri << " with FD:" << upc->fd_.getFd();
 
     // setup upstream
     Upstream *ups = heap.hNew<Upstream>();
@@ -410,6 +410,8 @@ int upstreamRecv(Event *upc_ev)
         }
     }
 
+    LOG_INFO << "Upstream recv done";
+
     upsr->c->writeBuffer_.append("HTTP/1.1 " + std::string(ups->ctx.status.start, ups->ctx.status.end) + "\r\n");
     for (auto &x : upsr->headers_in.headers)
     {
@@ -417,6 +419,8 @@ int upstreamRecv(Event *upc_ev)
     }
     upsr->c->writeBuffer_.append("\r\n");
     upsr->c->writeBuffer_.append(upsr->request_body.body.toString());
+
+    // printf("%s\n", upc->writeBuffer_.allToStr().c_str());
 
     return upsResponse2Client(&upc->write_);
 }
@@ -651,6 +655,7 @@ int upsResponse2Client(Event *upc_ev)
     Request *upsr = (Request *)upc->data_;
 
     int ret = upc->writeBuffer_.sendFd(c->fd_.getFd(), &errno, 0);
+    LOG_INFO << "Write to client, FD:" << c->fd_.getFd();
 
     if (ret < 0)
     {
@@ -662,6 +667,8 @@ int upsResponse2Client(Event *upc_ev)
         }
         else
         {
+            printf("%s\n", strerror(errno));
+            printf("%d\n", c->fd_.getFd());
             LOG_INFO << "SEND ERR, FINALIZE CONNECTION";
             finalizeRequest((Request *)upsr);
             finalizeRequest((Request *)cr);
@@ -687,7 +694,7 @@ int upsResponse2Client(Event *upc_ev)
 
     LOG_INFO << "PROXYPASS RESPONSED";
 
-    finalizeRequest((Request *)upc->data_);
+    finalizeRequest(upsr);
     if (cr->headers_in.connection_type == CONNECTION_KEEP_ALIVE)
     {
         keepAliveRequest(cr);

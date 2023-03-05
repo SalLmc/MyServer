@@ -176,7 +176,7 @@ void Buffer::makeSpace(size_t len)
 {
     if (writableBytes() + prependableBytes() < len) // space is not enough
     {
-        buffer_.resize(write_pos_ + len + 1);
+        buffer_.resize(write_pos_ + len + 1, 0);
     }
     else // move readable to prependable
     {
