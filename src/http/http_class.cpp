@@ -40,6 +40,7 @@ void Request::init()
     request_body.chunkedInfo.state = ChunkedState::sw_chunk_start;
     request_body.chunkedInfo.size = 0;
     request_body.chunkedInfo.length = 0;
+    request_body.chunkedInfo.pos = NULL;
 
     headerState = HeaderState::sw_start;
     requestState = RequestState::sw_start;

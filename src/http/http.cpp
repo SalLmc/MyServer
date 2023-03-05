@@ -252,7 +252,7 @@ int waitRequest(Event *ev)
     {
         if (errno != EAGAIN)
         {
-            LOG_INFO << "Read error";
+            LOG_INFO << "Read error: " << strerror(errno);
             finalizeConnection(c);
             return -1;
         }
@@ -298,7 +298,7 @@ int keepAlive(Event *ev)
     {
         if (errno != EAGAIN)
         {
-            LOG_INFO << "Read error";
+            LOG_INFO << "Read error: " << strerror(errno);
             finalizeConnection(c);
             return -1;
         }
@@ -497,7 +497,7 @@ int readRequestHeader(Request *r)
     Connection *c = r->c;
     assert(c != NULL);
 
-    int n = c->readBuffer_.beginWrite() - c->readBuffer_.peek();
+    int n = c->readBuffer_.readableBytes();
     if (n > 0)
     {
         return n;
@@ -509,7 +509,7 @@ int readRequestHeader(Request *r)
     {
         if (errno != EAGAIN)
         {
-            LOG_INFO << "Read error";
+            LOG_INFO << "Read error: " << strerror(errno);
             finalizeRequest(r);
             return ERROR;
         }
@@ -779,7 +779,8 @@ int writeResponse(Event *ev)
     if (buffer.readableBytes() > 0)
     {
         int len = buffer.sendFd(ev->c->fd_.getFd(), &errno, 0);
-        if (len < 0)
+
+        if (len < 0 && errno != EAGAIN)
         {
             LOG_CRIT << "write response failed";
             return ERROR;
@@ -1027,7 +1028,19 @@ int sendfileEvent(Event *ev)
     Request *r = (Request *)ev->c->data_;
     auto &filebody = r->headers_out.file_body;
 
-    sendfile(r->c->fd_.getFd(), filebody.filefd.getFd(), &filebody.offset, filebody.file_size - filebody.offset);
+    int len =
+        sendfile(r->c->fd_.getFd(), filebody.filefd.getFd(), &filebody.offset, filebody.file_size - filebody.offset);
+
+    if (len < 0 && errno != EAGAIN)
+    {
+        LOG_INFO << "Sendfile error: " << strerror(errno);
+        return ERROR;
+    }
+    else if (len == 0)
+    {
+        LOG_INFO << "Client close Connection";
+        return ERROR;
+    }
 
     if (filebody.file_size - filebody.offset > 0)
     {
