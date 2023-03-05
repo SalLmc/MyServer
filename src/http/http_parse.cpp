@@ -1615,9 +1615,8 @@ int parseChunked(Request *r)
 
 data:
 
-    r->request_body.body.len += (char *)(pos)-r->c->readBuffer_.peek();
+    r->request_body.body.len += r->request_body.chunkedInfo.size;
     ctx->pos = pos + ctx->size;
-    r->c->readBuffer_.retrieveUntil((char *)(pos));
 
     if (ctx->size > MAX_OFF_T_VALUE - 5)
     {
@@ -1667,11 +1666,12 @@ done:
 
     ctx->state = ChunkedState::sw_chunk_start;
 
-    r->request_body.body.len += (char *)(pos + 1) - r->c->readBuffer_.peek();
+    r->request_body.body.len += r->request_body.chunkedInfo.size;
     ctx->pos = pos + 1 + ctx->size;
-    r->c->readBuffer_.retrieveUntil((char *)(pos + 1));
 
     ctx->size = 0;
+    r->c->readBuffer_.retrieveUntil(r->c->readBuffer_.beginWrite());
+
     return DONE;
 
 invalid:

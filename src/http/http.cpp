@@ -716,11 +716,6 @@ int processBody(Request *upsr)
 
     upsr->request_body.rest = -1;
 
-    // for (auto &x : upsr->c->readBuffer_.allToStr())
-    // {
-    //     printf("%c", x);
-    // }
-
     ret = processRequestBody(upsr);
 
     if (upsr->headers_in.chunked)
@@ -905,8 +900,6 @@ int requestBodyChunked(Request *r)
         if (ret == OK)
         {
             // a chunk has been parse successfully
-            r->request_body.body.len += r->request_body.chunkedInfo.size;
-            r->c->readBuffer_.retrieve(r->request_body.chunkedInfo.size);
             continue;
         }
 

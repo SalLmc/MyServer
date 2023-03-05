@@ -309,9 +309,8 @@ int initUpstream(Request *r)
     int port = getPort(addr);
 
     // replace uri
-    std::string uri = r->uri.toString();
-    std::string tmpUri = "/" + uri + ((uri.back() == '/') ? "" : "/");
-    std::string newUri = tmpUri.replace(1, server.proxy_pass.from.length(), "");
+    std::string fullUri = std::string(r->uri_start, r->uri_end);
+    std::string newUri = ("/" + fullUri).replace(1, server.proxy_pass.from.length(), "");
 
     // setup connection
     Connection *upc = cyclePtr->pool_->getNewConnection();
@@ -341,7 +340,7 @@ int initUpstream(Request *r)
 
     // setup send content
     auto &wb = upc->writeBuffer_;
-    wb.append("GET " + newUri + " HTTP/1.1\r\n");
+    wb.append(r->method_name.toString() + " " + newUri + " HTTP/1.1\r\n");
     auto &in = r->headers_in;
     for (auto &x : in.headers)
     {
@@ -356,22 +355,7 @@ int initUpstream(Request *r)
     upc->read_.handler = upstreamRecv;
 
     // send
-    int ret = send2upstream(&upc->write_);
-    if (ret != OK)
-    {
-        return ret;
-    }
-
-    // all has been sent
-    ups->process_handler = processStatusLine;
-    Request *upsr = (Request *)heap.hNew<Request>();
-    upsr->c = ups->c4upstream;
-    ups->c4upstream->data_ = upsr;
-
-    // recv response
-    upstreamRecv(&upc->read_);
-
-    return OK;
+    return send2upstream(&upc->write_);
 }
 
 int upstreamRecv(Event *upc_ev)
@@ -434,11 +418,6 @@ int upstreamRecv(Event *upc_ev)
     upsr->c->writeBuffer_.append("\r\n");
     upsr->c->writeBuffer_.append(upsr->request_body.body.toString());
 
-    // for (auto &x : upsr->request_body.body.toString())
-    // {
-    //     printf("%c", x);
-    // }
-
     return upsResponse2Client(&upc->write_);
 }
 
@@ -491,9 +470,7 @@ int send2upstream(Event *upc_ev)
     upsr->c = ups->c4upstream;
     ups->c4upstream->data_ = upsr;
 
-    upstreamRecv(&upc->read_);
-
-    return OK;
+    return upstreamRecv(&upc->read_);
 }
 
 int staticContentHandler(Request *r)
