@@ -34,6 +34,7 @@ int blockWriting(Event *ev);
 int runPhases(Event *ev);
 int writeResponse(Event *ev);
 int readRequestBodyInner(Event *ev);
+int sendfileEvent(Event *ev);
 
 #define PARSE_HEADER_DONE 1
 
@@ -192,6 +193,7 @@ class Headers_out
       public:
         Fd filefd;
         off_t file_size;
+        off_t offset;
     } file_body;
     int restype = RES_EMPTY;
 };

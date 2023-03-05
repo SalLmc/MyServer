@@ -60,6 +60,7 @@ void Request::init()
     headers_out.str_body.clear();
     headers_out.file_body.filefd = -1;
     headers_out.file_body.file_size = 0;
+    headers_out.file_body.offset = 0;
     headers_out.restype = RES_EMPTY;
 
     http_protocol.data = NULL;

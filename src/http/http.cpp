@@ -795,25 +795,30 @@ int writeResponse(Event *ev)
         }
     }
 
+    r->c->write_.handler = blockWriting;
+    epoller.modFd(r->c->fd_.getFd(), EPOLLIN | EPOLLET, r->c);
+
     if (r->headers_out.restype == RES_FILE)
     {
-        auto &filebody = r->headers_out.file_body;
-        sendfile(r->c->fd_.getFd(), filebody.filefd.getFd(), NULL, filebody.file_size);
-        close(filebody.filefd.getFd());
-    }
-
-    LOG_INFO << "RESPONSED";
-
-    if (r->headers_in.connection_type == CONNECTION_KEEP_ALIVE)
-    {
-        keepAliveRequest(r);
+        sendfileEvent(&r->c->write_);
     }
     else
     {
-        finalizeRequest(r);
+        LOG_INFO << "RESPONSED";
+
+        if (r->headers_in.connection_type == CONNECTION_KEEP_ALIVE)
+        {
+            keepAliveRequest(r);
+        }
+        else
+        {
+            finalizeRequest(r);
+        }
+
+        return OK;
     }
 
-    // finalizeRequest(r);
+    LOG_INFO << "ERROR";
     return OK;
 }
 
@@ -1021,6 +1026,36 @@ int readRequestBodyInner(Event *ev)
     if (rb.post_handler)
     {
         rb.post_handler(r);
+    }
+
+    return OK;
+}
+
+int sendfileEvent(Event *ev)
+{
+    Request *r = (Request *)ev->c->data_;
+    auto &filebody = r->headers_out.file_body;
+
+    sendfile(r->c->fd_.getFd(), filebody.filefd.getFd(), &filebody.offset, filebody.file_size - filebody.offset);
+
+    if (filebody.file_size - filebody.offset > 0)
+    {
+        r->c->write_.handler = sendfileEvent;
+        epoller.modFd(r->c->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, r->c);
+        return AGAIN;
+    }
+
+    close(filebody.filefd.getFd());
+
+    LOG_INFO << "SENDFILE RESPONSED";
+
+    if (r->headers_in.connection_type == CONNECTION_KEEP_ALIVE)
+    {
+        keepAliveRequest(r);
+    }
+    else
+    {
+        finalizeRequest(r);
     }
 
     return OK;
