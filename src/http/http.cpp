@@ -912,7 +912,6 @@ int requestBodyChunked(Request *r)
 
         if (ret == AGAIN)
         {
-            rb.rest = rb.chunkedInfo.length;
             break;
         }
 
@@ -948,6 +947,7 @@ int readRequestBody(Request *r, std::function<int(Request *)> post_handler)
     preRead = buffer.readableBytes();
 
     ret = processRequestBody(r);
+
     if (ret != OK && ret != DONE)
     {
         return ret;
@@ -981,7 +981,7 @@ int readRequestBodyInner(Event *ev)
             break;
         }
 
-        int ret = buffer.recvFd(c->fd_.getFd(), &errno, 0, rb.rest);
+        int ret = buffer.recvFd(c->fd_.getFd(), &errno, 0);
 
         if (ret == 0)
         {
@@ -1011,6 +1011,7 @@ int readRequestBodyInner(Event *ev)
             {
                 return ret;
             }
+            // OK | DONE continue
         }
     }
 

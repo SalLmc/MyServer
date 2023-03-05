@@ -1615,48 +1615,14 @@ int parseChunked(Request *r)
 
 data:
 
-    r->request_body.body.len += pos - ctx->pos + 1;
+    // if "goto data" then *pos supposed to be the first byte of data
+    r->request_body.body.len += pos - ctx->pos;
     r->request_body.body.len += ctx->size;
-    ctx->pos = pos + ctx->size;
+    ctx->pos = pos + ctx->size; // ctx->pos points to the \r after data
 
     if (ctx->size > MAX_OFF_T_VALUE - 5)
     {
         goto invalid;
-    }
-
-    switch (state)
-    {
-    case ChunkedState::sw_chunk_start:
-        ctx->length = 3 /* "0" LF LF */;
-        break;
-    case ChunkedState::sw_chunk_size:
-        ctx->length = 1                            /* LF */
-                      + (ctx->size ? ctx->size + 4 /* LF "0" LF LF */
-                                   : 1 /* LF */);
-        break;
-    case ChunkedState::sw_chunk_extension:
-    case ChunkedState::sw_chunk_extension_almost_done:
-        ctx->length = 1 /* LF */ + ctx->size + 4 /* LF "0" LF LF */;
-        break;
-    case ChunkedState::sw_chunk_data:
-        ctx->length = ctx->size + 4 /* LF "0" LF LF */;
-        break;
-    case ChunkedState::sw_after_data:
-    case ChunkedState::sw_after_data_almost_done:
-        ctx->length = 4 /* LF "0" LF LF */;
-        break;
-    case ChunkedState::sw_last_chunk_extension:
-    case ChunkedState::sw_last_chunk_extension_almost_done:
-        ctx->length = 2 /* LF LF */;
-        break;
-    case ChunkedState::sw_trailer:
-    case ChunkedState::sw_trailer_almost_done:
-        ctx->length = 1 /* LF */;
-        break;
-    case ChunkedState::sw_trailer_header:
-    case ChunkedState::sw_trailer_header_almost_done:
-        ctx->length = 2 /* LF LF */;
-        break;
     }
 
     ctx->size = 0;
@@ -1665,13 +1631,15 @@ data:
 
 done:
 
-    ctx->state = ChunkedState::sw_chunk_start;
-
+    // *pos is the last \n
+    // "data:" sets ctx->pos to the \r after data
+    // +=\r\n0\r\n
     r->request_body.body.len += pos - ctx->pos + 1;
-    r->request_body.body.len += ctx->size;
-    ctx->pos = pos + 1 + ctx->size;
 
+    // prepare for the next time
+    ctx->state = ChunkedState::sw_chunk_start;
     ctx->size = 0;
+    ctx->pos = NULL;
     r->c->readBuffer_.retrieveUntil(r->c->readBuffer_.beginWrite());
 
     return DONE;

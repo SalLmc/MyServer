@@ -166,24 +166,27 @@ ssize_t Buffer::sendFd(int fd, int *saveErrno, int flags)
 }
 char *Buffer::beginPtr()
 {
-    return &*buffer_.begin();
+    return buffer_.data();
+    // return &*buffer_.begin();
 }
 const char *Buffer::beginPtr() const
 {
-    return &*buffer_.begin();
+    return buffer_.data();
+    // return &*buffer_.begin();
 }
 void Buffer::makeSpace(size_t len)
 {
-    if (writableBytes() + prependableBytes() < len) // space is not enough
-    {
-        buffer_.resize(write_pos_ + len + 1, 0);
-    }
-    else // move readable to prependable
-    {
-        size_t readable = readableBytes();
-        std::copy(beginPtr() + read_pos_, beginPtr() + write_pos_, beginPtr());
-        read_pos_ = 0;
-        write_pos_ = read_pos_ + readable;
-        assert(readable == readableBytes());
-    }
+    // if (writableBytes() + prependableBytes() < len) // space is not enough
+    // {
+    //     buffer_.resize(write_pos_ + len + 1, 0);
+    // }
+    // else // move readable to prependable
+    // {
+    //     size_t readable = readableBytes();
+    //     std::copy(beginPtr() + read_pos_, beginPtr() + write_pos_, beginPtr());
+    //     read_pos_ = 0;
+    //     write_pos_ = read_pos_ + readable;
+    //     assert(readable == readableBytes());
+    // }
+    buffer_.resize(write_pos_ + len + 1);
 }

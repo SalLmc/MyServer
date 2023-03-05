@@ -8,7 +8,7 @@
 class Buffer
 {
   public:
-    Buffer(int buff_size = 1024);
+    Buffer(int buff_size = 2048);
     ~Buffer() = default;
 
     size_t writableBytes() const;
@@ -40,9 +40,10 @@ class Buffer
     ssize_t recvFd(int fd, int *saveErrno, int flags, int n = 65535);
     ssize_t sendFd(int fd, int *saveErrno, int flags);
 
-  private:
     char *beginPtr();
     const char *beginPtr() const;
+
+  private:
     void makeSpace(size_t len);
 
     std::vector<char> buffer_;

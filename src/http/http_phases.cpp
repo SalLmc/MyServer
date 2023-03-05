@@ -302,6 +302,10 @@ int proxyPassHandler(Request *r)
 
 int initUpstream(Request *r)
 {
+    LOG_INFO << "Initing upstream";
+
+    // printf("%s\n", std::string(r->request_start, r->request_start + r->request_length).c_str());
+
     // setup upstream server
     auto &server = cyclePtr->servers_[r->c->server_idx_];
     std::string addr = server.proxy_pass.to;
