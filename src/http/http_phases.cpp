@@ -281,12 +281,13 @@ autoindex:
 
 int proxyPassHandler(Request *r)
 {
-    LOG_INFO << "Proxy pass handler";
     if (r->now_proxy_pass != 1)
     {
         return PHASE_CONTINUE;
     }
     r->now_proxy_pass = 0;
+
+    LOG_INFO << "Proxy pass handler";
 
     int ret = readRequestBody(r, initUpstream);
     LOG_INFO << "readRequestBody:" << ret;

@@ -53,7 +53,7 @@ Connection::Connection() : read_(this), write_(this), idx_(-1), server_idx_(-1),
 {
 }
 
-ConnectionPool::ConnectionPool() : flags(0)
+ConnectionPool::ConnectionPool()
 {
     cPool_ = (Connection **)malloc(POOLSIZE * sizeof(Connection *));
     for (int i = 0; i < POOLSIZE; i++)
@@ -75,9 +75,8 @@ Connection *ConnectionPool::getNewConnection()
 {
     for (int i = 0; i < POOLSIZE; i++)
     {
-        if (!(flags >> i))
+        if (cPool_[i]->idx_ == -1)
         {
-            flags |= (1 << i);
             cPool_[i]->idx_ = i;
             return cPool_[i];
         }
@@ -93,9 +92,6 @@ void ConnectionPool::recoverConnection(Connection *c)
     {
         return;
     }
-    
-    uint8_t recover = ~(1 << c->idx_);
-    flags &= recover;
 
 #ifdef RE_ALLOC
     cPool_[c->idx_] = new Connection;
@@ -182,10 +178,14 @@ FileInfo::FileInfo(std::string &&namee, unsigned char typee, off_t size_bytee, t
 
 bool FileInfo::operator<(FileInfo &other)
 {
+    if (type != other.type)
+    {
+        return type < other.type;
+    }
     int ret = name.compare(other.name);
     if (ret != 0)
     {
-        return ret;
+        return ret < 0;
     }
     if (size_byte != other.size_byte)
     {

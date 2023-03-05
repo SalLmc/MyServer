@@ -86,10 +86,9 @@ class ConnectionPool
 {
   private:
     Connection **cPool_;
-    uint8_t flags;
 
   public:
-    const static int POOLSIZE = 32;
+    const static int POOLSIZE = 256;
     ConnectionPool();
     ~ConnectionPool();
     Connection *getNewConnection();

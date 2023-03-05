@@ -140,7 +140,7 @@ int acceptexTryLock(Cycle *cycle)
         {
             if (epoller.addFd(listen->fd_.getFd(), EPOLLIN | EPOLLET, listen) == 0)
             {
-                LOG_CRIT << "accept mutex addfd failed, errno:" << errno << " " << acceptMutexHeld;
+                LOG_CRIT << "Addfd failed, " << strerror(errno) << " " << acceptMutexHeld;
                 shmtxUnlock(&acceptMutex);
                 return -1;
             }
