@@ -91,6 +91,7 @@ int passPhaseHandler(Request *r)
 
 int contentAccessHandler(Request *r)
 {
+    LOG_INFO << "Content access handler";
     auto &server = cyclePtr->servers_[r->c->server_idx_];
     std::string uri = std::string(r->uri.data, r->uri.data + r->uri.len);
     std::string path;
@@ -280,6 +281,7 @@ autoindex:
 
 int proxyPassHandler(Request *r)
 {
+    LOG_INFO << "Proxy pass handler";
     if (r->now_proxy_pass != 1)
     {
         return PHASE_CONTINUE;
@@ -483,6 +485,7 @@ int send2upstream(Event *upc_ev)
 
 int staticContentHandler(Request *r)
 {
+    LOG_INFO << "Static content handler";
     if (r->headers_out.restype == RES_FILE)
     {
         r->headers_out.content_length = r->headers_out.file_body.file_size;
@@ -519,6 +522,7 @@ int staticContentHandler(Request *r)
 
 int autoIndexHandler(Request *r)
 {
+    LOG_INFO << "Auto index handler";
     if (r->headers_out.restype != RES_AUTO_INDEX)
     {
         return PHASE_NEXT;
