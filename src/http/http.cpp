@@ -694,7 +694,7 @@ int processHeaders(Request *upsr)
 
         if (ret == PARSE_HEADER_DONE)
         {
-            LOG_INFO << "upstream header done";
+            LOG_INFO << "Upstream header done";
             processRequestHeader(upsr, 0);
 
             ups->process_handler = processBody;
@@ -710,6 +710,7 @@ int processBody(Request *upsr)
     // no content-length && not chunked
     if (upsr->headers_in.content_length == 0 && !upsr->headers_in.chunked)
     {
+        LOG_INFO << "Upstream process body done";
         return OK;
     }
 
@@ -731,6 +732,7 @@ int processBody(Request *upsr)
         if (ret == DONE)
         {
             upsr->c->read_.handler = blockReading;
+            LOG_INFO << "Upstream process body done";
             return OK;
         }
         if (ret == ERROR)
@@ -743,6 +745,7 @@ int processBody(Request *upsr)
         if (ret == OK)
         {
             upsr->c->read_.handler = blockReading;
+            LOG_INFO << "Upstream process body done";
         }
 
         return ret;

@@ -307,7 +307,11 @@ int initUpstream(Request *r)
     std::string addr = server.proxy_pass.to;
     std::string ip = getIp(addr);
     int port = getPort(addr);
-    std::string newUri = getNewUri(addr);
+
+    // replace uri
+    std::string uri = r->uri.toString();
+    std::string tmpUri = "/" + uri + ((uri.back() == '/') ? "" : "/");
+    std::string newUri = tmpUri.replace(1, server.proxy_pass.from.length(), "");
 
     // setup connection
     Connection *upc = cyclePtr->pool_->getNewConnection();
@@ -325,6 +329,8 @@ int initUpstream(Request *r)
         return ERROR;
     }
     setnonblocking(upc->fd_.getFd());
+
+    LOG_INFO << "Upstream to: " << ip << ":" << port << newUri;
 
     // setup upstream
     Upstream *ups = heap.hNew<Upstream>();
@@ -439,6 +445,7 @@ int upstreamRecv(Event *upc_ev)
 int send2upstream(Event *upc_ev)
 {
     Connection *upc = upc_ev->c;
+    Upstream *ups = upc->ups_;
     Request *cr = (Request *)upc->ups_->c4client->data_;
 
     int ret = upc->writeBuffer_.sendFd(upc->fd_.getFd(), &errno, 0);
@@ -478,6 +485,11 @@ int send2upstream(Event *upc_ev)
 
     epoller.modFd(upc->fd_.getFd(), EPOLLIN | EPOLLET, upc);
     upc->write_.handler = blockWriting;
+
+    ups->process_handler = processStatusLine;
+    Request *upsr = (Request *)heap.hNew<Request>();
+    upsr->c = ups->c4upstream;
+    ups->c4upstream->data_ = upsr;
 
     upstreamRecv(&upc->read_);
 
