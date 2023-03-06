@@ -27,8 +27,9 @@ int parseRequestLine(Request *r)
     u_char c, ch, *p, *m;
 
     auto &state = r->requestState;
+    auto &buffer = r->c->readBuffer_;
 
-    for (p = (u_char *)r->c->readBuffer_.peek(); p < (u_char *)r->c->readBuffer_.beginWrite(); p++)
+    for (p = buffer.now->start + buffer.now->pos; p < buffer.now->start + buffer.now->len; p++)
     {
         ch = *p;
 
@@ -729,12 +730,14 @@ int parseRequestLine(Request *r)
         }
     }
 
-    r->c->readBuffer_.retrieveUntil((const char *)(p));
+    buffer.now->pos = p - buffer.now->start;
+    // r->c->readBuffer_.retrieveUntil((const char *)(p));
     return AGAIN;
 
 done:
 
-    r->c->readBuffer_.retrieveUntil((const char *)(p + 1));
+    buffer.now->pos = p + 1 - buffer.now->start;
+    // r->c->readBuffer_.retrieveUntil((const char *)(p + 1));
 
     if (r->request_end == NULL)
     {
@@ -1134,8 +1137,9 @@ int parseHeaderLine(Request *r, int allow_underscores)
     HeaderState &state = r->headerState;
     // hash = r->header_hash;
     i = r->lowcase_index;
+    auto &buffer = r->c->readBuffer_;
 
-    for (p = (u_char *)r->c->readBuffer_.peek(); p < (u_char *)r->c->readBuffer_.beginWrite(); p++)
+    for (p = buffer.now->start + buffer.now->pos; p < buffer.now->start + buffer.now->len; p++)
     {
         ch = *p;
 
@@ -1374,7 +1378,8 @@ int parseHeaderLine(Request *r, int allow_underscores)
         }
     }
 
-    r->c->readBuffer_.retrieveUntil((char *)p);
+    buffer.now->pos = p - buffer.now->start;
+    // r->c->readBuffer_.retrieveUntil((char *)p);
     // r->header_hash = hash;
     r->lowcase_index = i;
 
@@ -1382,7 +1387,8 @@ int parseHeaderLine(Request *r, int allow_underscores)
 
 done:
 
-    r->c->readBuffer_.retrieveUntil((char *)(p + 1));
+    buffer.now->pos = p + 1 - buffer.now->start;
+    // r->c->readBuffer_.retrieveUntil((char *)(p + 1));
     r->headerState = HeaderState::sw_start;
     // r->header_hash = hash;
     r->lowcase_index = i;
@@ -1391,7 +1397,8 @@ done:
 
 header_done:
 
-    r->c->readBuffer_.retrieveUntil((char *)(p + 1));
+    buffer.now->pos = p + 1 - buffer.now->start;
+    // r->c->readBuffer_.retrieveUntil((char *)(p + 1));
     r->headerState = HeaderState::sw_start;
 
     return PARSE_HEADER_DONE;
@@ -1405,11 +1412,12 @@ int parseChunked(Request *r)
     int rc;
 
     ChunkedInfo *ctx = &r->request_body.chunkedInfo;
+    auto &buffer = r->c->readBuffer_;
 
-    if (ctx->pos == NULL)
-    {
-        ctx->pos = (u_char *)r->c->readBuffer_.peek();
-    }
+    // if (ctx->pos == NULL)
+    // {
+    //     ctx->pos = buffer.now->start + buffer.now->pos;
+    // }
 
     auto &state = ctx->state;
 
@@ -1420,7 +1428,7 @@ int parseChunked(Request *r)
 
     rc = AGAIN;
 
-    for (pos = ctx->pos; pos < (u_char *)r->c->readBuffer_.beginWrite(); pos++)
+    for (pos = buffer.now->start + buffer.now->pos + ctx->data_offset; pos < buffer.now->start + buffer.now->len; pos++)
     {
         ch = *pos;
 
@@ -1615,10 +1623,30 @@ int parseChunked(Request *r)
 
 data:
 
-    // if "goto data" then *pos supposed to be the first byte of data
-    r->request_body.body.len += pos - ctx->pos;
-    r->request_body.body.len += ctx->size;
-    ctx->pos = pos + ctx->size; // ctx->pos points to the \r after data
+    // // if "goto data" then *pos supposed to be the first byte of data
+    // r->request_body.body.len += pos - ctx->pos;
+    // r->request_body.body.len += ctx->size;
+    // ctx->pos = pos + ctx->size; // ctx->pos points to the \r after data
+
+    ctx->data_offset = ctx->size;
+
+    r->request_body.lbody.emplace_back(buffer.now->start + buffer.now->pos, pos - buffer.now->start - buffer.now->pos);
+    buffer.now->pos = pos - buffer.now->start;
+    if (buffer.now->pos < buffer.now->len) // there is data in this buf
+    {
+        if (ctx->size <= buffer.now->len - buffer.now->pos) // all the data
+        {
+            r->request_body.lbody.emplace_back(buffer.now->start + buffer.now->pos, ctx->size);
+            buffer.now->pos += ctx->size;
+            ctx->data_offset = 0;
+        }
+        else // part of data
+        {
+            r->request_body.lbody.emplace_back(buffer.now->start + buffer.now->pos, ctx->size);
+            buffer.now->pos = buffer.now->len;
+            ctx->data_offset -= buffer.now->len - buffer.now->pos;
+        }
+    }
 
     if (ctx->size > MAX_OFF_T_VALUE - 5)
     {
@@ -1631,16 +1659,21 @@ data:
 
 done:
 
-    // *pos is the last \n
-    // "data:" sets ctx->pos to the \r after data
-    // +=\r\n0\r\n
-    r->request_body.body.len += pos - ctx->pos + 1;
+    // // *pos is the last \n
+    // // "data:" sets ctx->pos to the \r after data
+    // // +=\r\n0\r\n
+    // r->request_body.body.len += pos - ctx->pos + 1;
+
+    r->request_body.lbody.emplace_back(buffer.now->start + buffer.now->pos,
+                                       pos + 1 - buffer.now->start - buffer.now->pos);
 
     // prepare for the next time
     ctx->state = ChunkedState::sw_chunk_start;
     ctx->size = 0;
-    ctx->pos = NULL;
-    r->c->readBuffer_.retrieveUntil(r->c->readBuffer_.beginWrite());
+    ctx->data_offset = 0;
+
+    buffer.retrieve(buffer.now->len - buffer.now->pos);
+    // r->c->readBuffer_.retrieveUntil(r->c->readBuffer_.beginWrite());
 
     return DONE;
 
@@ -1655,8 +1688,9 @@ int parseStatusLine(Request *r, Status *status)
     u_char *p;
 
     auto &state = r->responseState;
+    auto &buffer = r->c->readBuffer_;
 
-    for (p = (u_char *)r->c->readBuffer_.peek(); p < (u_char *)r->c->readBuffer_.beginWrite(); p++)
+    for (p = buffer.now->start + buffer.now->pos; p < buffer.now->start + buffer.now->len; p++)
     {
         ch = *p;
 
@@ -1851,13 +1885,15 @@ int parseStatusLine(Request *r, Status *status)
         }
     }
 
-    r->c->readBuffer_.retrieveUntil((char *)(p));
+    buffer.now->pos = p - buffer.now->start;
+    // r->c->readBuffer_.retrieveUntil((char *)(p));
 
     return AGAIN;
 
 done:
 
-    r->c->readBuffer_.retrieveUntil((char *)(p + 1));
+    buffer.now->pos = p + 1 - buffer.now->start;
+    // r->c->readBuffer_.retrieveUntil((char *)(p + 1));
 
     if (status->end == NULL)
     {

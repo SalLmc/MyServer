@@ -152,8 +152,11 @@ class sharedMemory
     size_t size_;
 };
 
-struct str_t
+class str_t
 {
+  public:
+    str_t() = default;
+    str_t(u_char *dt, size_t l);
     std::string toString();
     u_char *data;
     size_t len;

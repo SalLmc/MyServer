@@ -203,9 +203,9 @@ class ChunkedInfo
   public:
     ChunkedInfo();
     ChunkedState state;
-    off_t size;
-    off_t length;
-    u_char *pos;
+    size_t size;
+    size_t length;
+    size_t data_offset;
 };
 
 class RequestBody
@@ -214,8 +214,8 @@ class RequestBody
     RequestBody();
     off_t rest;
     ChunkedInfo chunkedInfo;
-    str_t body;
-    LinkedBuffer bbody;
+    // str_t body;
+    std::list<str_t> lbody;
     std::function<int(Request *)> post_handler;
 };
 

@@ -108,8 +108,8 @@ void ConnectionPool::recoverConnection(Connection *c)
     c->read_.handler = c->write_.handler = NULL;
     c->read_.timeout = c->write_.timeout = NOT_TIMEOUT;
 
-    c->readBuffer_.retrieveAll();
-    c->writeBuffer_.retrieveAll();
+    c->readBuffer_.init();
+    c->writeBuffer_.init();
 
     c->data_ = NULL;
     c->ups_ = NULL;
@@ -244,6 +244,10 @@ int Dir::getInfos(std::string root)
     }
     std::sort(infos.begin(), infos.end());
     return OK;
+}
+
+str_t::str_t(u_char *dt, size_t l) : data(dt), len(l)
+{
 }
 
 std::string str_t::toString()

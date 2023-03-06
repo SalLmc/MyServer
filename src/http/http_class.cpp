@@ -15,13 +15,11 @@ ChunkedInfo::ChunkedInfo()
     state = ChunkedState::sw_chunk_start;
     size = 0;
     length = 0;
-    pos = NULL;
+    data_offset = 0;
 }
 
 RequestBody::RequestBody()
 {
-    body.data = NULL;
-    body.len = 0;
     rest = -1;
     post_handler = NULL;
 }
@@ -35,12 +33,11 @@ void Request::init()
 
     request_body.rest = -1;
     request_body.post_handler = NULL;
-    request_body.body.data = NULL;
-    request_body.body.len = 0;
+    request_body.lbody.clear();
     request_body.chunkedInfo.state = ChunkedState::sw_chunk_start;
     request_body.chunkedInfo.size = 0;
     request_body.chunkedInfo.length = 0;
-    request_body.chunkedInfo.pos = NULL;
+    request_body.chunkedInfo.data_offset = 0;
 
     headerState = HeaderState::sw_start;
     requestState = RequestState::sw_start;

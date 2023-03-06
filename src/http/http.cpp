@@ -325,9 +325,9 @@ int processRequestLine(Event *ev)
         if (ret == AGAIN)
         {
             int rett = readRequestHeader(r);
-            if (rett == AGAIN || rett == ERROR)
+            if (rett == ERROR)
             {
-                LOG_INFO << "readRequestHeader AGAIN or ERROR, rett:" << rett;
+                LOG_INFO << "readRequestHeader ERROR";
                 break;
             }
         }
@@ -340,7 +340,7 @@ int processRequestLine(Event *ev)
 
             r->request_line.len = r->request_end - r->request_start;
             r->request_line.data = r->request_start;
-            r->request_length = r->c->readBuffer_.peek() - (char *)r->request_start;
+            r->request_length = r->c->readBuffer_.now->start + r->c->readBuffer_.now->pos - r->request_start;
 
             LOG_INFO << "request line:"
                      << std::string(r->request_line.data, r->request_line.data + r->request_line.len);
@@ -382,6 +382,12 @@ int processRequestLine(Event *ev)
             finalizeRequest(r);
             break;
         }
+
+        if (r->c->readBuffer_.now->pos == r->c->readBuffer_.now->len)
+        {
+            r->c->readBuffer_.nodes.emplace_back();
+            r->c->readBuffer_.now = &r->c->readBuffer_.nodes.back();
+        }
     }
     return OK;
 }
@@ -403,6 +409,12 @@ int processRequestHeaders(Event *ev)
     {
         if (rc == AGAIN)
         {
+            if (r->c->readBuffer_.now->pos == r->c->readBuffer_.now->len)
+            {
+                r->c->readBuffer_.nodes.emplace_back();
+                r->c->readBuffer_.now = &r->c->readBuffer_.nodes.back();
+            }
+
             int ret = readRequestHeader(r);
             if (ret == AGAIN || ret == ERROR)
             {
@@ -415,7 +427,7 @@ int processRequestHeaders(Event *ev)
         if (rc == OK)
         {
 
-            r->request_length += (u_char *)r->c->readBuffer_.peek() - r->header_name_start;
+            r->request_length += r->c->readBuffer_.now->start + r->c->readBuffer_.now->pos - r->header_name_start;
 
             if (r->invalid_header)
             {
@@ -453,7 +465,7 @@ int processRequestHeaders(Event *ev)
 
             LOG_INFO << "http header done";
 
-            r->request_length += (u_char *)r->c->readBuffer_.peek() - r->header_name_start;
+            r->request_length += r->c->readBuffer_.now->start + r->c->readBuffer_.now->pos - r->header_name_start;
 
             r->http_state = HttpState::PROCESS_REQUEST_STATE;
 
@@ -497,7 +509,7 @@ int readRequestHeader(Request *r)
     Connection *c = r->c;
     assert(c != NULL);
 
-    int n = c->readBuffer_.readableBytes();
+    int n = c->readBuffer_.now->pos;
     if (n > 0)
     {
         return n;
@@ -776,7 +788,7 @@ int writeResponse(Event *ev)
     Request *r = (Request *)ev->c->data_;
     auto &buffer = ev->c->writeBuffer_;
 
-    if (buffer.readableBytes() > 0)
+    if (buffer.allread != 1)
     {
         int len = buffer.sendFd(ev->c->fd_.getFd(), &errno, 0);
 
@@ -786,7 +798,7 @@ int writeResponse(Event *ev)
             return ERROR;
         }
 
-        if (buffer.readableBytes() > 0)
+        if (buffer.allread != 1)
         {
             r->c->write_.handler = writeResponse;
             epoller.modFd(ev->c->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, ev->c);
@@ -850,27 +862,37 @@ int requestBodyLength(Request *r)
     auto &buffer = r->c->readBuffer_;
     auto &rb = r->request_body;
 
-    if (rb.body.data == NULL)
-    {
-        rb.body.data = (u_char *)buffer.peek();
-    }
-
     if (rb.rest == -1)
     {
         rb.rest = r->headers_in.content_length;
     }
 
-    int rlen = buffer.readableBytes();
-    if (rlen <= rb.rest)
+    while (buffer.allread != 1)
     {
-        rb.rest -= rlen;
-        rb.body.len += rlen;
-        buffer.retrieve(rlen);
-    }
-    else
-    {
-        LOG_INFO << "ERROR";
-        return ERROR;
+        int rlen = buffer.now->len - buffer.now->pos;
+        if (rlen <= rb.rest)
+        {
+            rb.rest -= rlen;
+            rb.lbody.emplace_back(buffer.now->start + buffer.now->pos, rlen);
+            buffer.retrieve(rlen);
+        }
+        else
+        {
+            LOG_INFO << "ERROR";
+            return ERROR;
+        }
+
+        if (buffer.now->pos == buffer.now->len)
+        {
+            if (buffer.now->next != NULL)
+            {
+                buffer.now = buffer.now->next;
+            }
+            else
+            {
+                buffer.allread = 1;
+            }
+        }
     }
 
     return OK;
@@ -881,11 +903,6 @@ int requestBodyChunked(Request *r)
 {
     auto &buffer = r->c->readBuffer_;
     auto &rb = r->request_body;
-
-    if (rb.body.data == NULL)
-    {
-        rb.body.data = (u_char *)buffer.peek();
-    }
 
     if (rb.rest == -1)
     {
@@ -912,7 +929,19 @@ int requestBodyChunked(Request *r)
 
         if (ret == AGAIN)
         {
-            break;
+            if (buffer.now->pos == buffer.now->len)
+            {
+                if (buffer.now->next != NULL)
+                {
+                    buffer.now = buffer.now->next;
+                    continue;
+                }
+                else
+                {
+                    buffer.allread = 1;
+                    break;
+                }
+            }
         }
 
         // invalid
@@ -944,7 +973,7 @@ int readRequestBody(Request *r, std::function<int(Request *)> post_handler)
     r->request_body.rest = -1;
     r->request_body.post_handler = post_handler;
 
-    preRead = buffer.readableBytes();
+    preRead = buffer.now->pos;
 
     ret = processRequestBody(r);
 
@@ -1083,8 +1112,8 @@ int keepAliveRequest(Request *r)
     c->read_.handler = keepAlive;
     c->write_.handler = NULL;
 
-    c->readBuffer_.retrieveAll();
-    c->writeBuffer_.retrieveAll();
+    c->readBuffer_.init();
+    c->writeBuffer_.init();
 
     cyclePtr->timer_.Add(c->fd_.getFd(), getTickMs() + 60000, setEventTimeout, (void *)&c->read_);
 

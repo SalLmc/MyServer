@@ -240,21 +240,22 @@ void LinkedBuffer::init()
 
 ssize_t LinkedBuffer::recvFd(int fd, int *saveErrno, int flags)
 {
-    auto &now = nodes.back();
+    allread = 0;
+    auto &nowr = nodes.back();
 
-    int n = recv(fd, now.start + now.len, NODE_SIZE - now.len, flags);
+    int n = recv(fd, nowr.start + nowr.len, NODE_SIZE - nowr.len, flags);
     if (n < 0)
     {
         *saveErrno = errno;
     }
     else if (n > 0)
     {
-        now.len += n;
-        if (now.len == NODE_SIZE)
+        nowr.len += n;
+        if (nowr.len == NODE_SIZE)
         {
             auto newNode = LinkedBufferNode();
-            now.next = &newNode;
-            newNode.prev = &now;
+            nowr.next = &newNode;
+            newNode.prev = &nowr;
             nodes.push_back(newNode);
         }
     }
@@ -263,11 +264,6 @@ ssize_t LinkedBuffer::recvFd(int fd, int *saveErrno, int flags)
 
 ssize_t LinkedBuffer::sendFd(int fd, int *saveErrno, int flags)
 {
-    if (now == NULL)
-    {
-        allread = 1;
-        return 1;
-    }
     int n = send(fd, now->start + now->pos, now->len - now->pos, flags);
     if (n < 0)
     {
@@ -278,7 +274,14 @@ ssize_t LinkedBuffer::sendFd(int fd, int *saveErrno, int flags)
         now->pos += n;
         if (now->pos == now->len)
         {
-            now = now->next;
+            if (now->next == NULL)
+            {
+                allread = 1;
+            }
+            else
+            {
+                now = now->next;
+            }
         }
     }
     return n;
@@ -286,6 +289,7 @@ ssize_t LinkedBuffer::sendFd(int fd, int *saveErrno, int flags)
 
 void LinkedBuffer::append(u_char *data, size_t len)
 {
+    allread = 0;
     size_t copied = 0;
     auto now = &nodes.back();
 
@@ -293,7 +297,7 @@ void LinkedBuffer::append(u_char *data, size_t len)
     {
         if (len - copied > NODE_SIZE - now->len)
         {
-            std::copy(data + copied, data + copied + NODE_SIZE - now->len, now->start + len);
+            std::copy(data + copied, data + copied + NODE_SIZE - now->len, now->start + now->len);
             copied += NODE_SIZE - now->len;
             now->len += NODE_SIZE - now->len;
             if (now->len == NODE_SIZE)
@@ -308,9 +312,75 @@ void LinkedBuffer::append(u_char *data, size_t len)
         }
         else
         {
-            std::copy(data + copied, data + len, now->start + len);
+            std::copy(data + copied, data + len, now->start + now->len);
             now->len += len;
             return;
+        }
+    }
+    return;
+}
+
+void LinkedBuffer::append(const char *data, size_t len)
+{
+    allread = 0;
+    size_t copied = 0;
+    auto now = &nodes.back();
+
+    while (len - copied > 0)
+    {
+        if (len - copied > NODE_SIZE - now->len)
+        {
+            std::copy(data + copied, data + copied + NODE_SIZE - now->len, now->start + now->len);
+            copied += NODE_SIZE - now->len;
+            now->len += NODE_SIZE - now->len;
+            if (now->len == NODE_SIZE)
+            {
+                auto newNode = LinkedBufferNode();
+                now->next = &newNode;
+                newNode.prev = now;
+                nodes.push_back(newNode);
+
+                now = now->next;
+            }
+        }
+        else
+        {
+            std::copy(data + copied, data + len, now->start + now->len);
+            now->len += len;
+            return;
+        }
+    }
+    return;
+}
+
+void LinkedBuffer::append(const std::string &str)
+{
+    allread = 0;
+    append(str.c_str(), str.length());
+    return;
+}
+
+void LinkedBuffer::retrieve(size_t len)
+{
+    while (len > 0 && allread != 1)
+    {
+        if (len <= now->len - now->pos) // last node
+        {
+            now->pos += len;
+            len = 0;
+        }
+        else
+        {
+            now->pos = now->len;
+            len -= now->len - now->pos;
+            if (now->next == NULL)
+            {
+                allread = 1;
+            }
+            else
+            {
+                now = now->next;
+            }
         }
     }
     return;

@@ -38,7 +38,7 @@ class Buffer
 
     ssize_t readFd(int fd, int *saveErrno);
     ssize_t writeFd(int fd, int *saveErrno);
-    ssize_t recvFd(int fd, int *saveErrno, int flags, int n = 65535);
+    ssize_t recvFd(int fd, int *saveErrno, int flags, int n = 65536);
     ssize_t sendFd(int fd, int *saveErrno, int flags);
 
     char *beginPtr();
@@ -85,6 +85,9 @@ class LinkedBuffer
     ssize_t recvFd(int fd, int *saveErrno, int flags);
     ssize_t sendFd(int fd, int *saveErrno, int flags);
     void append(u_char *data, size_t len);
+    void append(const char *data, size_t len);
+    void append(const std::string &str);
+    void retrieve(size_t len);
 };
 
 #endif // BUFFER_H

@@ -16,27 +16,27 @@ extern Cycle *cyclePtr;
 
 u_char exten_save[16];
 
-int testPhaseHandler(Request *r)
-{
-    readRequestBody(r, NULL);
-    printf("%s\n", r->request_body.body.toString().c_str());
+// int testPhaseHandler(Request *r)
+// {
+//     readRequestBody(r, NULL);
+//     printf("%s\n", r->request_body.body.toString().c_str());
 
-    r->headers_out.status = HTTP_OK;
-    r->headers_out.status_line = "HTTP/1.1 200 OK\r\n";
-    r->headers_out.restype = RES_STR;
-    auto &str = r->headers_out.str_body;
-    str.append("<html>\n<head>\n\t<title>404 Not Found</title>\n</head>\n");
-    str.append("<body>\n\t<center>\n\t\t<h1>404 Not "
-               "Found</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
+//     r->headers_out.status = HTTP_OK;
+//     r->headers_out.status_line = "HTTP/1.1 200 OK\r\n";
+//     r->headers_out.restype = RES_STR;
+//     auto &str = r->headers_out.str_body;
+//     str.append("<html>\n<head>\n\t<title>404 Not Found</title>\n</head>\n");
+//     str.append("<body>\n\t<center>\n\t\t<h1>404 Not "
+//                "Found</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
 
-    r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));
-    r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
-    // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=40");
-    doResponse(r);
+//     r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));
+//     r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
+//     // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=40");
+//     doResponse(r);
 
-    // LOG_INFO << "PHASE_ERR";
-    return PHASE_ERR;
-}
+//     // LOG_INFO << "PHASE_ERR";
+//     return PHASE_ERR;
+// }
 
 std::vector<PhaseHandler> phases{{genericPhaseChecker, {passPhaseHandler}},
                                  {genericPhaseChecker, {passPhaseHandler}},
@@ -352,7 +352,10 @@ int initUpstream(Request *r)
         wb.append(thisHeader);
     }
     wb.append("\r\n");
-    wb.append(r->request_body.body.toString());
+    for (auto &x : r->request_body.lbody)
+    {
+        wb.append(x.toString());
+    }
 
     // set epoller
     epoller.addFd(upc->fd_.getFd(), EPOLLIN | EPOLLET, upc);
@@ -422,7 +425,10 @@ int upstreamRecv(Event *upc_ev)
         upsr->c->writeBuffer_.append(x.name + ": " + x.value + "\r\n");
     }
     upsr->c->writeBuffer_.append("\r\n");
-    upsr->c->writeBuffer_.append(upsr->request_body.body.toString());
+    for (auto &x : upsr->request_body.lbody)
+    {
+        upsr->c->writeBuffer_.append(x.toString());
+    }
 
     // printf("%s\n", upc->writeBuffer_.allToStr().c_str());
 
@@ -464,7 +470,7 @@ int send2upstream(Event *upc_ev)
     }
     else
     {
-        if (upc->writeBuffer_.readableBytes())
+        if (upc->writeBuffer_.allread != 1)
         {
             return AGAIN;
         }
@@ -597,6 +603,7 @@ int appendResponseLine(Request *r)
     auto &out = r->headers_out;
 
     writebuffer.append(out.status_line);
+
     return OK;
 }
 int appendResponseHeader(Request *r)
@@ -690,7 +697,7 @@ int upsResponse2Client(Event *upc_ev)
     }
     else
     {
-        if (upc->writeBuffer_.readableBytes())
+        if (upc->writeBuffer_.allread != 1)
         {
             return AGAIN;
         }
