@@ -440,39 +440,40 @@ int send2upstream(Event *upc_ev)
     Connection *upc = upc_ev->c;
     Upstream *ups = upc->ups_;
     Request *cr = (Request *)upc->ups_->c4client->data_;
+    int ret = 0;
 
-    int ret = upc->writeBuffer_.sendFd(upc->fd_.getFd(), &errno, 0);
-
-    if (ret < 0)
+    for (; upc->writeBuffer_.allread != 1;)
     {
-        if (errno == EAGAIN)
+        ret = upc->writeBuffer_.sendFd(upc->fd_.getFd(), &errno, 0);
+
+        if (ret < 0)
         {
-            epoller.modFd(upc->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, upc);
-            upc->write_.handler = send2upstream;
-            return AGAIN;
+            if (errno == EAGAIN)
+            {
+                epoller.modFd(upc->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, upc);
+                upc->write_.handler = send2upstream;
+                return AGAIN;
+            }
+            else
+            {
+                LOG_INFO << "SEND ERR, FINALIZE CONNECTION";
+                finalizeConnection(upc);
+                finalizeRequest(cr);
+                heap.hDelete(upc->ups_);
+                return ERROR;
+            }
         }
-        else
+        else if (ret == 0)
         {
-            LOG_INFO << "SEND ERR, FINALIZE CONNECTION";
+            LOG_INFO << "Upstream close connection, FINALIZE CONNECTION";
             finalizeConnection(upc);
             finalizeRequest(cr);
             heap.hDelete(upc->ups_);
             return ERROR;
         }
-    }
-    else if (ret == 0)
-    {
-        LOG_INFO << "Upstream close connection, FINALIZE CONNECTION";
-        finalizeConnection(upc);
-        finalizeRequest(cr);
-        heap.hDelete(upc->ups_);
-        return ERROR;
-    }
-    else
-    {
-        if (upc->writeBuffer_.allread != 1)
+        else
         {
-            return AGAIN;
+            continue;
         }
     }
 
@@ -484,6 +485,7 @@ int send2upstream(Event *upc_ev)
     upsr->c = ups->c4upstream;
     ups->c4upstream->data_ = upsr;
 
+    LOG_INFO << "Send client data to upstream complete";
     return upstreamRecv(&upc->read_);
 }
 
@@ -664,42 +666,49 @@ int upsResponse2Client(Event *upc_ev)
     Connection *c = ups->c4client;
     Request *cr = (Request *)c->data_;
     Request *upsr = (Request *)upc->data_;
+    int ret = 0;
 
-    int ret = upc->writeBuffer_.sendFd(c->fd_.getFd(), &errno, 0);
     LOG_INFO << "Write to client, FD:" << c->fd_.getFd();
 
-    if (ret < 0)
+    // for (auto &x : upc->writeBuffer_.nodes)
+    // {
+    //     printf("%s", std::string(x.start + x.pos, x.start + x.len).c_str());
+    // }
+
+    for (; upc->writeBuffer_.allread != 1;)
     {
-        if (errno == EAGAIN)
+        ret = upc->writeBuffer_.sendFd(c->fd_.getFd(), &errno, 0);
+
+        if (ret < 0)
         {
-            epoller.modFd(upc->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, upc);
-            upc->write_.handler = upsResponse2Client;
-            return AGAIN;
+            if (errno == EAGAIN)
+            {
+                epoller.modFd(upc->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, upc);
+                upc->write_.handler = upsResponse2Client;
+                return AGAIN;
+            }
+            else
+            {
+                printf("%s\n", strerror(errno));
+                printf("%d\n", c->fd_.getFd());
+                LOG_INFO << "SEND ERR, FINALIZE CONNECTION";
+                finalizeRequest((Request *)upsr);
+                finalizeRequest((Request *)cr);
+                heap.hDelete(upc->ups_);
+                return ERROR;
+            }
         }
-        else
+        else if (ret == 0)
         {
-            printf("%s\n", strerror(errno));
-            printf("%d\n", c->fd_.getFd());
-            LOG_INFO << "SEND ERR, FINALIZE CONNECTION";
+            LOG_INFO << "Upstream close connection, FINALIZE CONNECTION";
             finalizeRequest((Request *)upsr);
             finalizeRequest((Request *)cr);
             heap.hDelete(upc->ups_);
             return ERROR;
         }
-    }
-    else if (ret == 0)
-    {
-        LOG_INFO << "Upstream close connection, FINALIZE CONNECTION";
-        finalizeRequest((Request *)upsr);
-        finalizeRequest((Request *)cr);
-        heap.hDelete(upc->ups_);
-        return ERROR;
-    }
-    else
-    {
-        if (upc->writeBuffer_.allread != 1)
+        else
         {
-            return AGAIN;
+            continue;
         }
     }
 

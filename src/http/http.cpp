@@ -751,8 +751,15 @@ int processBody(Request *upsr)
     {
         if (ret == OK)
         {
-            upsr->c->read_.handler = blockReading;
-            LOG_INFO << "Upstream process body done";
+            if (upsr->request_body.rest == 0)
+            {
+                upsr->c->read_.handler = blockReading;
+                LOG_INFO << "Upstream process body done";
+            }
+            else
+            {
+                return AGAIN;
+            }
         }
 
         return ret;
@@ -965,6 +972,7 @@ int readRequestBody(Request *r, std::function<int(Request *)> post_handler)
         r->c->read_.handler = blockReading;
         if (post_handler)
         {
+            LOG_INFO << "To post_handler";
             post_handler(r);
         }
         return OK;
@@ -1047,6 +1055,7 @@ int readRequestBodyInner(Event *ev)
     r->c->read_.handler = blockReading;
     if (rb.post_handler)
     {
+        LOG_INFO << "To post_handler";
         rb.post_handler(r);
     }
 

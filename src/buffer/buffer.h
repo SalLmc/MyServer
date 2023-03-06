@@ -52,8 +52,8 @@ class Buffer
     std::atomic<std::size_t> write_pos_;
 };
 
-// 64K
-#define NODE_SIZE 65536
+// 5K
+#define NODE_SIZE 5120
 
 class LinkedBufferNode
 {
@@ -79,9 +79,11 @@ class LinkedBuffer
   public:
     LinkedBuffer();
     void init();
+
     std::list<LinkedBufferNode> nodes;
     LinkedBufferNode *now;
     bool allread;
+
     ssize_t recvFd(int fd, int *saveErrno, int flags);
     ssize_t sendFd(int fd, int *saveErrno, int flags);
     void append(u_char *data, size_t len);
