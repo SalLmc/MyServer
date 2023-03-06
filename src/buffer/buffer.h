@@ -2,13 +2,14 @@
 #define BUFFER_H
 
 #include <atomic>
+#include <list>
 #include <string>
 #include <vector> //readv
 
 class Buffer
 {
   public:
-    Buffer(int buff_size = 2048);
+    Buffer(int buff_size = 5120);
     ~Buffer() = default;
 
     size_t writableBytes() const;
@@ -49,6 +50,41 @@ class Buffer
     std::vector<char> buffer_;
     std::atomic<std::size_t> read_pos_;
     std::atomic<std::size_t> write_pos_;
+};
+
+// 64K
+#define NODE_SIZE 65536
+
+class LinkedBufferNode
+{
+  public:
+    LinkedBufferNode();
+    ~LinkedBufferNode();
+
+    void init();
+    std::string toString();
+
+    u_char *start;
+    u_char *end;
+
+    size_t pos; // read begins at pos
+    size_t len;
+
+    LinkedBufferNode *prev;
+    LinkedBufferNode *next;
+};
+
+class LinkedBuffer
+{
+  public:
+    LinkedBuffer();
+    void init();
+    std::list<LinkedBufferNode> nodes;
+    LinkedBufferNode *now;
+    bool allread;
+    ssize_t recvFd(int fd, int *saveErrno, int flags);
+    ssize_t sendFd(int fd, int *saveErrno, int flags);
+    void append(u_char *data, size_t len);
 };
 
 #endif // BUFFER_H

@@ -74,8 +74,10 @@ class Connection
     Event write_;
     Fd fd_;
     sockaddr_in addr_;
-    Buffer readBuffer_;
-    Buffer writeBuffer_;
+    // Buffer readBuffer_;
+    // Buffer writeBuffer_;
+    LinkedBuffer readBuffer_;
+    LinkedBuffer writeBuffer_;
     int idx_;
     int server_idx_;
     void *data_;

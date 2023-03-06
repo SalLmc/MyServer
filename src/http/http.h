@@ -215,6 +215,7 @@ class RequestBody
     off_t rest;
     ChunkedInfo chunkedInfo;
     str_t body;
+    LinkedBuffer bbody;
     std::function<int(Request *)> post_handler;
 };
 

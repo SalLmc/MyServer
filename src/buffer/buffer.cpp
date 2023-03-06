@@ -190,3 +190,128 @@ void Buffer::makeSpace(size_t len)
     // }
     buffer_.resize(write_pos_ + len + 1);
 }
+
+LinkedBufferNode::LinkedBufferNode()
+{
+    start = (u_char *)malloc(NODE_SIZE);
+    end = start + NODE_SIZE;
+    pos = 0;
+    len = 0;
+    prev = NULL;
+    next = NULL;
+}
+
+void LinkedBufferNode::init()
+{
+    free(start);
+    start = (u_char *)malloc(NODE_SIZE);
+    end = start + NODE_SIZE;
+    pos = 0;
+    len = 0;
+    prev = NULL;
+    next = NULL;
+}
+
+std::string LinkedBufferNode::toString()
+{
+    return std::string(start + pos, start + pos + len);
+}
+
+LinkedBufferNode::~LinkedBufferNode()
+{
+    free(start);
+    len = 0;
+}
+
+LinkedBuffer::LinkedBuffer()
+{
+    nodes.emplace_back();
+    now = &nodes.front();
+    allread = 0;
+}
+
+void LinkedBuffer::init()
+{
+    nodes.clear();
+    nodes.emplace_back();
+    now = &nodes.front();
+    allread = 0;
+}
+
+ssize_t LinkedBuffer::recvFd(int fd, int *saveErrno, int flags)
+{
+    auto &now = nodes.back();
+
+    int n = recv(fd, now.start + now.len, NODE_SIZE - now.len, flags);
+    if (n < 0)
+    {
+        *saveErrno = errno;
+    }
+    else if (n > 0)
+    {
+        now.len += n;
+        if (now.len == NODE_SIZE)
+        {
+            auto newNode = LinkedBufferNode();
+            now.next = &newNode;
+            newNode.prev = &now;
+            nodes.push_back(newNode);
+        }
+    }
+    return n;
+}
+
+ssize_t LinkedBuffer::sendFd(int fd, int *saveErrno, int flags)
+{
+    if (now == NULL)
+    {
+        allread = 1;
+        return 1;
+    }
+    int n = send(fd, now->start + now->pos, now->len - now->pos, flags);
+    if (n < 0)
+    {
+        *saveErrno = errno;
+    }
+    else if (n > 0)
+    {
+        now->pos += n;
+        if (now->pos == now->len)
+        {
+            now = now->next;
+        }
+    }
+    return n;
+}
+
+void LinkedBuffer::append(u_char *data, size_t len)
+{
+    size_t copied = 0;
+    auto now = &nodes.back();
+
+    while (len - copied > 0)
+    {
+        if (len - copied > NODE_SIZE - now->len)
+        {
+            std::copy(data + copied, data + copied + NODE_SIZE - now->len, now->start + len);
+            copied += NODE_SIZE - now->len;
+            now->len += NODE_SIZE - now->len;
+            if (now->len == NODE_SIZE)
+            {
+                auto newNode = LinkedBufferNode();
+                now->next = &newNode;
+                newNode.prev = now;
+                nodes.push_back(newNode);
+
+                now = now->next;
+            }
+        }
+        else
+        {
+            std::copy(data + copied, data + len, now->start + len);
+            now->len += len;
+            return;
+        }
+    }
+    return;
+}
