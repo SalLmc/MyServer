@@ -82,8 +82,9 @@ class LinkedBuffer
 
     std::list<LinkedBufferNode> nodes;
     LinkedBufferNode *now;
-    bool allread;
+    // bool allread;
 
+    bool allRead();
     ssize_t recvFd(int fd, int *saveErrno, int flags);
     ssize_t sendFd(int fd, int *saveErrno, int flags);
     void append(u_char *data, size_t len);

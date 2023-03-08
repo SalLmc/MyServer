@@ -442,7 +442,7 @@ int send2upstream(Event *upc_ev)
     Request *cr = (Request *)upc->ups_->c4client->data_;
     int ret = 0;
 
-    for (; upc->writeBuffer_.allread != 1;)
+    for (; upc->writeBuffer_.allRead() != 1;)
     {
         ret = upc->writeBuffer_.sendFd(upc->fd_.getFd(), &errno, 0);
 
@@ -675,7 +675,7 @@ int upsResponse2Client(Event *upc_ev)
     //     printf("%s", std::string(x.start + x.pos, x.start + x.len).c_str());
     // }
 
-    for (; upc->writeBuffer_.allread != 1;)
+    for (; upc->writeBuffer_.allRead() != 1;)
     {
         ret = upc->writeBuffer_.sendFd(c->fd_.getFd(), &errno, 0);
 

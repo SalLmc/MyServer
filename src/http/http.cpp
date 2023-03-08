@@ -202,16 +202,21 @@ Connection *addListen(Cycle *cycle, int port)
 int newConnection(Event *ev)
 {
     Connection *newc = cPool.getNewConnection();
-    assert(newc != NULL);
+    if (newc == NULL)
+    {
+        LOG_WARN << "Get new connection failed, listenfd:" << ev->c->fd_.getFd();
+        return 0;
+    }
 
     sockaddr_in *addr = &newc->addr_;
     socklen_t len = sizeof(*addr);
 
     newc->fd_ = accept(ev->c->fd_.getFd(), (sockaddr *)addr, &len);
-
-    assert(newc->fd_.getFd() >= 0);
-
-    LOG_INFO << "NEW CONNECTION FROM FD:" << ev->c->fd_.getFd() << ", WITH FD:" << newc->fd_.getFd();
+    if (newc->fd_.getFd() < 0)
+    {
+        LOG_WARN << "Accept from FD:" << ev->c->fd_.getFd() << " failed, recover connection";
+        cPool.recoverConnection(newc);
+    }
 
     newc->server_idx_ = ev->c->server_idx_;
 
@@ -222,6 +227,9 @@ int newConnection(Event *ev)
     epoller.addFd(newc->fd_.getFd(), EPOLLIN | EPOLLET, newc);
 
     cyclePtr->timer_.Add(newc->fd_.getFd(), getTickMs() + 60000, setEventTimeout, (void *)&newc->read_);
+
+    LOG_INFO << "NEW CONNECTION FROM FD:" << ev->c->fd_.getFd() << ", WITH FD:" << newc->fd_.getFd();
+
     return 0;
 }
 
@@ -795,7 +803,7 @@ int writeResponse(Event *ev)
     Request *r = (Request *)ev->c->data_;
     auto &buffer = ev->c->writeBuffer_;
 
-    if (buffer.allread != 1)
+    if (buffer.allRead() != 1)
     {
         int len = buffer.sendFd(ev->c->fd_.getFd(), &errno, 0);
 
@@ -805,7 +813,7 @@ int writeResponse(Event *ev)
             return ERROR;
         }
 
-        if (buffer.allread != 1)
+        if (buffer.allRead() != 1)
         {
             r->c->write_.handler = writeResponse;
             epoller.modFd(ev->c->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, ev->c);
@@ -874,7 +882,7 @@ int requestBodyLength(Request *r)
         rb.rest = r->headers_in.content_length;
     }
 
-    while (buffer.allread != 1)
+    while (buffer.allRead() != 1)
     {
         int rlen = buffer.now->len - buffer.now->pos;
         if (rlen <= rb.rest)
@@ -895,10 +903,10 @@ int requestBodyLength(Request *r)
             {
                 buffer.now = buffer.now->next;
             }
-            else
-            {
-                buffer.allread = 1;
-            }
+            // else
+            // {
+            //     buffer.allread = 1;
+            // }
         }
     }
 
@@ -943,11 +951,11 @@ int requestBodyChunked(Request *r)
                     buffer.now = buffer.now->next;
                     continue;
                 }
-                else
-                {
-                    buffer.allread = 1;
-                    break;
-                }
+                // else
+                // {
+                //     buffer.allread = 1;
+                //     break;
+                // }
             }
         }
 

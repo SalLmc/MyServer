@@ -227,7 +227,7 @@ LinkedBuffer::LinkedBuffer()
 {
     nodes.emplace_back();
     now = &nodes.front();
-    allread = 0;
+    // allread = 0;
 }
 
 void LinkedBuffer::init()
@@ -235,7 +235,14 @@ void LinkedBuffer::init()
     nodes.clear();
     nodes.emplace_back();
     now = &nodes.front();
-    allread = 0;
+    // allread = 0;
+}
+
+bool LinkedBuffer::allRead()
+{
+    auto &back = nodes.back();
+    assert(back.pos <= back.len);
+    return back.pos == back.len;
 }
 
 // only send once
@@ -250,7 +257,7 @@ ssize_t LinkedBuffer::recvFd(int fd, int *saveErrno, int flags)
     }
     else if (n > 0)
     {
-        allread = 0;
+        // allread = 0;
         nowr.len += n;
         if (nowr.len == NODE_SIZE)
         {
@@ -278,7 +285,7 @@ ssize_t LinkedBuffer::sendFd(int fd, int *saveErrno, int flags)
         {
             if (now->next == NULL)
             {
-                allread = 1;
+                // allread = 1;
             }
             else
             {
@@ -291,10 +298,10 @@ ssize_t LinkedBuffer::sendFd(int fd, int *saveErrno, int flags)
 
 void LinkedBuffer::append(u_char *data, size_t len)
 {
-    if (len > 0)
-    {
-        allread = 0;
-    }
+    // if (len > 0)
+    // {
+    //     allread = 0;
+    // }
     size_t copied = 0;
     auto now = &nodes.back();
 
@@ -327,10 +334,10 @@ void LinkedBuffer::append(u_char *data, size_t len)
 
 void LinkedBuffer::append(const char *data, size_t len)
 {
-    if (len > 0)
-    {
-        allread = 0;
-    }
+    // if (len > 0)
+    // {
+    //     allread = 0;
+    // }
     size_t copied = 0;
     auto now = &nodes.back();
 
@@ -369,7 +376,7 @@ void LinkedBuffer::append(const std::string &str)
 
 void LinkedBuffer::retrieve(size_t len)
 {
-    while (len > 0 && allread != 1)
+    while (len > 0 && allRead() != 1)
     {
         if (len <= now->len - now->pos) // last node
         {
@@ -382,7 +389,7 @@ void LinkedBuffer::retrieve(size_t len)
             len -= now->len - now->pos;
             if (now->next == NULL)
             {
-                allread = 1;
+                // allread = 1;
             }
             else
             {
