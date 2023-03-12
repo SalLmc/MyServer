@@ -35,20 +35,20 @@ class LogLine
     LogLine &operator<<(std::string &&arg);
     LogLine &operator<<(const char *arg);
 
-    char const *file_;
-    char const *function_;
+    // char const *file_;
+    // char const *function_;
 
-    unsigned int line_;
-    char cLine_[16];
+    // unsigned int line_;
+    // char cLine_[16];
 
-    Level level_;
-    char const *cLevel_;
+    // Level level_;
+    // char const *cLevel_;
 
-    char ctimeStamp_[32];
-    unsigned long long timeStamp_;
+    // char ctimeStamp_[32];
+    // unsigned long long timeStamp_;
 
-    char cPid_[16];
-    pid_t pid_;
+    // char cPid_[16];
+    // pid_t pid_;
 
     char buffer_[1024];
     int pos = 0;
