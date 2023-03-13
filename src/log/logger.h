@@ -35,23 +35,32 @@ class LogLine
     LogLine &operator<<(std::string &&arg);
     LogLine &operator<<(const char *arg);
 
-    // char const *file_;
-    // char const *function_;
-
-    // unsigned int line_;
-    // char cLine_[16];
-
-    // Level level_;
-    // char const *cLevel_;
-
-    // char ctimeStamp_[32];
-    // unsigned long long timeStamp_;
-
-    // char cPid_[16];
-    // pid_t pid_;
-
     char buffer_[1024];
     int pos = 0;
+};
+
+class AtomicSpinlock
+{
+    std::atomic_flag mutex_;
+
+  public:
+    AtomicSpinlock() : mutex_(0)
+    {
+    }
+
+    void lock()
+    {
+        while (mutex_.test_and_set(std::memory_order_acquire))
+            ;
+    }
+
+    void unlock()
+    {
+        mutex_.clear(std::memory_order_release);
+    }
+
+    AtomicSpinlock(const AtomicSpinlock &) = delete;
+    AtomicSpinlock &operator=(const AtomicSpinlock &) = delete;
 };
 
 class Logger
@@ -82,6 +91,8 @@ class Logger
     int cnt;
 
     std::atomic<State> state;
+
+    // AtomicSpinlock spLock;
 
     std::mutex mutex_;
     std::condition_variable cond_;

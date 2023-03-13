@@ -27,7 +27,6 @@ int main(int argc, char *argv[])
     {
     case 0:
         cycle.logger_ = new Logger("log/", "child", 10);
-        // lg.reset(new Logger("log/", "child", 10));
         for (int i = 0; i < 10; i++)
             LOG_INFO_BY(*cycle.logger_) << "child";
         printf("CHILD END\n");
@@ -35,7 +34,6 @@ int main(int argc, char *argv[])
 
     default:
         cycle.logger_ = new Logger("log/", "father", 10);
-        // lg.reset(new Logger("log/", "father", 10));
         for (int i = 0; i < 10; i++)
             LOG_INFO_BY(*cycle.logger_) << "father";
         printf("FATHER END\n");

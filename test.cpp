@@ -1,5 +1,6 @@
 #include <arpa/inet.h>
 #include <assert.h>
+#include <atomic>
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <poll.h>
@@ -11,13 +12,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <unordered_map>
+#include "logger.h"
+
+Logger logger("log/","test",1);
 
 int main(int argc, char *argv[])
 {
-    char a[5]={'1','2','3','4','5'};
-    char b[]="i am str b";
-
-    int x=strlen(a);
-    int y=strlen(b);
-    printf("%s %d\n",a,x);
+    LOG_INFO_BY(logger)<<"TEST";
 }

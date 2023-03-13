@@ -125,63 +125,6 @@ LogLine &LogLine::operator<<(const char *arg)
     return *this;
 }
 
-// // @param buffer output
-// // @param n maxsize
-// // save string to buffer.
-// // if length > n do nothing and return -1, return real length for success.
-// int LogLine::stringify(char *buffer, int n)
-// {
-//     char tmp[2048];
-//     memset(tmp, 0, sizeof(tmp));
-//     int pos = 0;
-
-//     // level
-//     tmp[pos++] = '[';
-//     strcpy(tmp + pos, cLevel_);
-//     pos += strlen(tmp + pos);
-//     tmp[pos++] = ']';
-//     tmp[pos++] = ' ';
-
-//     // time
-//     tmp[pos++] = '[';
-//     strcpy(tmp + pos, ctimeStamp_);
-//     pos += strlen(tmp + pos);
-//     tmp[pos++] = ']';
-//     tmp[pos++] = ' ';
-
-//     // pid
-//     tmp[pos++] = '<';
-//     strcpy(tmp + pos, cPid_);
-//     pos += strlen(tmp + pos);
-//     tmp[pos++] = '>';
-//     tmp[pos++] = ' ';
-
-//     // file function line
-//     strcpy(tmp + pos, file_);
-//     pos += strlen(tmp + pos);
-//     tmp[pos++] = ':';
-//     strcpy(tmp + pos, function_);
-//     pos += strlen(tmp + pos);
-//     tmp[pos++] = ':';
-//     strcpy(tmp + pos, cLine_);
-//     pos += strlen(tmp + pos);
-//     tmp[pos++] = ' ';
-
-//     // content
-//     strcpy(tmp + pos, buffer_);
-//     pos += strlen(tmp + pos);
-
-//     if (pos <= n)
-//     {
-//         strcpy(buffer, tmp);
-//         return pos;
-//     }
-//     else
-//     {
-//         return -1;
-//     }
-// }
-
 Logger::Logger(const char *path, const char *name, unsigned long long size)
     : filePath_(path), fileName_(name), maxFileSize_(size), cnt(1), state(State::INIT),
       writeThread(&Logger::write2File, this)
@@ -213,6 +156,11 @@ Logger &Logger::operator+=(LogLine &line)
         ls_.push_back(std::move(line));
     }
     cond_.notify_one();
+
+    // spLock.lock();
+    // ls_.push_back(std::move(line));
+    // spLock.unlock();
+
     return *this;
 }
 
@@ -231,6 +179,13 @@ void Logger::write2File()
             cond_.wait(ulock);
         }
         write2FileInner();
+
+        // spLock.lock();
+        // if (!ls_.empty())
+        // {
+        //     write2FileInner();
+        // }
+        // spLock.unlock();
     }
 
     write2FileInner();
