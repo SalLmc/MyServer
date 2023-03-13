@@ -47,16 +47,14 @@ class AtomicSpinlock
     AtomicSpinlock() : mutex_(0)
     {
     }
-
     void lock()
     {
-        while (mutex_.test_and_set(std::memory_order_acquire))
+        while (mutex_.test_and_set())
             ;
     }
-
     void unlock()
     {
-        mutex_.clear(std::memory_order_release);
+        mutex_.clear();
     }
 
     AtomicSpinlock(const AtomicSpinlock &) = delete;
@@ -92,10 +90,12 @@ class Logger
 
     std::atomic<State> state;
 
-    // AtomicSpinlock spLock;
-
+#ifndef USE_ATOMIC_LOCK
     std::mutex mutex_;
     std::condition_variable cond_;
+#elif
+    AtomicSpinlock spLock;
+#endif
 
     std::thread writeThread;
 };

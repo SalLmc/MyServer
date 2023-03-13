@@ -134,15 +134,17 @@ Logger::Logger(const char *path, const char *name, unsigned long long size)
     sprintf(loc, "%s%s_%d.txt", filePath_, fileName_, cnt++);
     fd_ = open(loc, O_RDWR | O_CREAT | O_TRUNC, 0666);
     assert(fd_ >= 0);
-    state.store(State::ACTIVE, std::memory_order_release);
+    state.store(State::ACTIVE);
 }
 Logger::~Logger()
 {
     state.store(State::SHUTDOWN);
+#ifndef USE_ATOMIC_LOCK
     {
         std::unique_lock<std::mutex> ulock(mutex_);
         cond_.notify_all();
     }
+#endif
     writeThread.join();
     if (fd_ != -1)
     {
@@ -151,41 +153,46 @@ Logger::~Logger()
 }
 Logger &Logger::operator+=(LogLine &line)
 {
+#ifndef USE_ATOMIC_LOCK
     {
         std::unique_lock<std::mutex> ulock(mutex_);
         ls_.push_back(std::move(line));
     }
     cond_.notify_one();
-
-    // spLock.lock();
-    // ls_.push_back(std::move(line));
-    // spLock.unlock();
-
+#elif
+    spLock.lock();
+    ls_.push_back(std::move(line));
+    spLock.unlock();
+#endif
     return *this;
 }
 
 void Logger::write2File()
 {
-    while (state.load(std::memory_order_acquire) == State::INIT)
+    while (state.load() == State::INIT)
     {
         asm_pause();
     }
 
     while (state.load() == State::ACTIVE)
     {
+#ifndef USE_ATOMIC_LOCK
         std::unique_lock<std::mutex> ulock(mutex_);
         while (ls_.empty() && state.load() == State::ACTIVE)
         {
             cond_.wait(ulock);
         }
         write2FileInner();
-
-        // spLock.lock();
-        // if (!ls_.empty())
-        // {
-        //     write2FileInner();
-        // }
-        // spLock.unlock();
+#elif
+        spLock.lock();
+        int isEmpty = ls_.empty();
+        if (!isEmpty)
+        {
+            write2FileInner();
+        }
+        spLock.unlock();
+        usleep(50);
+#endif
     }
 
     write2FileInner();
