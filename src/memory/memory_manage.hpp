@@ -8,12 +8,13 @@
 #include <unordered_map>
 
 class Request;
+class Test;
 
 enum class Type
 {
-    PV,
-    P4REQUEST,
-    P4UPSTREAM
+    VOID,
+    REQUEST,
+    UPSTREAM,
 };
 
 extern std::unordered_map<std::type_index, Type> typeMap;
@@ -46,10 +47,10 @@ class HeapMemory
             {
                 switch (typeMap[front.type])
                 {
-                case Type::P4REQUEST:
+                case Type::REQUEST:
                     delete (Request *)front.addr;
                     break;
-                case Type::P4UPSTREAM:
+                case Type::UPSTREAM:
                     delete (Upstream *)front.addr;
                     break;
                 default:
@@ -73,12 +74,15 @@ class HeapMemory
         free(ptr);
         ptrs_.remove(AnyPtr(ptr));
     }
-    template <typename T, typename... Args> T *hNew(Args... args)
+
+    template <typename T, typename... Args> T *hNew(Args &&...args)
     {
-        T *ptr = new T(args...);
+        printf("HERE\n");
+        T *ptr = new T(std::forward<Args>(args)...);
         ptrs_.emplace_back(ptr);
         return ptr;
     }
+    
     template <typename T> void hDelete(T *ptr)
     {
         delete ptr;

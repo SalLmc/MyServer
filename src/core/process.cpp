@@ -231,7 +231,7 @@ int recoverRequests(void *arg)
 {
     for (auto i = heap.ptrs_.begin(); i != heap.ptrs_.end();)
     {
-        if (typeMap[i->type] == Type::P4REQUEST)
+        if (typeMap[i->type] == Type::REQUEST)
         {
             Request *r = (Request *)i->addr;
             if (r->quit == 1)
