@@ -84,8 +84,6 @@ Connection *ConnectionPool::getNewConnection()
     return NULL;
 }
 
-// #define RE_ALLOC
-
 void ConnectionPool::recoverConnection(Connection *c)
 {
     if (c->idx_ == -1)

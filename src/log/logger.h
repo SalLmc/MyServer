@@ -10,6 +10,8 @@
 #include <thread>
 #include <unistd.h>
 
+#include "../global.h"
+
 enum class Level
 {
     INFO,
@@ -60,8 +62,6 @@ class AtomicSpinlock
     AtomicSpinlock(const AtomicSpinlock &) = delete;
     AtomicSpinlock &operator=(const AtomicSpinlock &) = delete;
 };
-
-#define USE_ATOMIC_LOCK
 
 class Logger
 {

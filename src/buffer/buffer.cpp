@@ -191,21 +191,21 @@ void Buffer::makeSpace(size_t len)
     buffer_.resize(write_pos_ + len + 1);
 }
 
-LinkedBufferNode::LinkedBufferNode()
+LinkedBufferNode::LinkedBufferNode(size_t size)
 {
-    start = (u_char *)calloc(NODE_SIZE, 1);
-    end = start + NODE_SIZE;
+    start = (u_char *)calloc(size, 1);
+    end = start + size;
     pos = 0;
     len = 0;
     prev = NULL;
     next = NULL;
 }
 
-void LinkedBufferNode::init()
+void LinkedBufferNode::init(size_t size)
 {
     free(start);
-    start = (u_char *)calloc(NODE_SIZE, 1);
-    end = start + NODE_SIZE;
+    start = (u_char *)calloc(size, 1);
+    end = start + size;
     pos = 0;
     len = 0;
     prev = NULL;

@@ -50,7 +50,6 @@ bool HeapTimer::SiftDown(size_t index, size_t n)
 
 void HeapTimer::Add(int id, unsigned long long timeoutstamp_ms, const TimeoutCallBack &cb, void *arg)
 {
-    assert(id >= 0);
     size_t i;
     if (ref_.count(id) == 0) // new node
     {

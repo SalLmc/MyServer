@@ -58,10 +58,10 @@ class Buffer
 class LinkedBufferNode
 {
   public:
-    LinkedBufferNode();
+    LinkedBufferNode(size_t size = NODE_SIZE);
     ~LinkedBufferNode();
 
-    void init();
+    void init(size_t size = NODE_SIZE);
     std::string toString();
 
     u_char *start;
@@ -82,7 +82,6 @@ class LinkedBuffer
 
     std::list<LinkedBufferNode> nodes;
     LinkedBufferNode *now;
-    // bool allread;
 
     bool allRead();
     ssize_t recvFd(int fd, int *saveErrno, int flags);

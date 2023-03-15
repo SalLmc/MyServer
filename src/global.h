@@ -3,6 +3,9 @@
 
 #define MAX_PROCESS_N 16
 
+// #define USE_ATOMIC_LOCK
+// #define RE_ALLOC
+
 extern bool isChild;
 extern bool quit;
 extern bool restart;
