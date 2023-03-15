@@ -10,26 +10,25 @@
 class Test
 {
   public:
-    Test()
+    Test(std::string &&str):val(str)
     {
     }
     Test &operator=(const Test &) = delete;
     // Test(const Test &) = delete;
-    Test(Test &other):val(other.val)
-    {
-        printf("copy ctor without const\n");
-    }
-    Test(Test &&other) : val(std::move(other.val))
-    {
-        printf("move ctor\n");
-    }
+    // Test(Test &other):val(other.val)
+    // {
+    //     printf("copy ctor without const\n");
+    // }
+    // Test(Test &&other) : val(std::move(other.val))
+    // {
+    //     printf("move ctor\n");
+    // }
     std::string val;
 };
 
 int main()
 {
-    Test t;
-    t.val = "sdf";
+    const Test t("SDF");
 
     Test tt(t);
 

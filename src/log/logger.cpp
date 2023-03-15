@@ -159,7 +159,7 @@ Logger &Logger::operator+=(LogLine &line)
         ls_.push_back(std::move(line));
     }
     cond_.notify_one();
-#elif
+#else
     spLock.lock();
     ls_.push_back(std::move(line));
     spLock.unlock();
@@ -183,15 +183,13 @@ void Logger::write2File()
             cond_.wait(ulock);
         }
         write2FileInner();
-#elif
+#else
         spLock.lock();
-        int isEmpty = ls_.empty();
-        if (!isEmpty)
+        if (!ls_.empty())
         {
             write2FileInner();
         }
         spLock.unlock();
-        usleep(50);
 #endif
     }
 

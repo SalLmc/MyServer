@@ -61,6 +61,8 @@ class AtomicSpinlock
     AtomicSpinlock &operator=(const AtomicSpinlock &) = delete;
 };
 
+#define USE_ATOMIC_LOCK
+
 class Logger
 {
   public:
@@ -93,7 +95,7 @@ class Logger
 #ifndef USE_ATOMIC_LOCK
     std::mutex mutex_;
     std::condition_variable cond_;
-#elif
+#else
     AtomicSpinlock spLock;
 #endif
 

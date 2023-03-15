@@ -8,7 +8,7 @@
 #include <unordered_map>
 
 class Request;
-class Test;
+class Upstream;
 
 enum class Type
 {
@@ -77,7 +77,6 @@ class HeapMemory
 
     template <typename T, typename... Args> T *hNew(Args &&...args)
     {
-        printf("HERE\n");
         T *ptr = new T(std::forward<Args>(args)...);
         ptrs_.emplace_back(ptr);
         return ptr;

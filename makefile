@@ -1,4 +1,4 @@
-PROGS = libmy.so main signal_test log_test timer_test memory_test
+PROGS = libmy.so main signal_test log_test timer_test memory_test test
 
 SRCDIRS = src/buffer src/core src/event src/http src/log src/memory src/timer src/util src
 
