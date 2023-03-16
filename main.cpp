@@ -88,6 +88,11 @@ int main(int argc, char *argv[])
             LOG_CRIT << "create shm for acceptmutex failed";
             return 1;
         }
+
+        ProcessMutexShare *share = (ProcessMutexShare *)shmForAMtx.getAddr();
+        share->lock = 0;
+        share->wait = 0;
+
         if (shmtxCreate(&acceptMutex, (ProcessMutexShare *)shmForAMtx.getAddr()) == ERROR)
         {
             LOG_CRIT << "create acceptmutex failed";

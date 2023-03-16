@@ -129,11 +129,11 @@ Logger::Logger(const char *path, const char *name, unsigned long long size)
     : filePath_(path), fileName_(name), maxFileSize_(size), cnt(1), state(State::INIT),
       writeThread(&Logger::write2File, this)
 {
-    if(access(path,0)!=0)
+    if (access(path, 0) != 0)
     {
-        mkdir(path,0744);
+        mkdir(path, 0744);
     }
-    
+
     char loc[100];
     memset(loc, 0, sizeof(loc));
     sprintf(loc, "%s%s_%d.txt", filePath_, fileName_, cnt++);
@@ -189,13 +189,18 @@ void Logger::write2File()
         }
         write2FileInner();
 #else
-        spLock.lock();
-        if (!ls_.empty())
+        if (spLock.tryLock())
         {
-            write2FileInner();
+            if (!ls_.empty())
+            {
+                write2FileInner();
+            }
+            spLock.unlock();
         }
-        spLock.unlock();
-        asm_pause();
+        else
+        {
+            asm_pause();
+        }
 #endif
     }
 

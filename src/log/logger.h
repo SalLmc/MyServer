@@ -58,6 +58,11 @@ class AtomicSpinlock
     {
         mutex_.clear();
     }
+    // @return 1 for success, 0 for failure
+    bool tryLock()
+    {
+        return !mutex_.test_and_set();
+    }
 
     AtomicSpinlock(const AtomicSpinlock &) = delete;
     AtomicSpinlock &operator=(const AtomicSpinlock &) = delete;
