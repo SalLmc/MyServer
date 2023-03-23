@@ -1,0 +1,2 @@
+main: src/http/http.cpp:165: Connection* addListen(Cycle*, int): Assertion `bind(listenC->fd_.getFd(), (sockaddr *)&listenC->addr_, sizeof(listenC->addr_)) == 0' failed.
+main: src/http/http.cpp:165: Connection* addListen(Cycle*, int): Assertion `bind(listenC->fd_.getFd(), (sockaddr *)&listenC->addr_, sizeof(listenC->addr_)) == 0' failed.

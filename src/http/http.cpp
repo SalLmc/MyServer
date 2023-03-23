@@ -980,7 +980,7 @@ int readRequestBody(Request *r, std::function<int(Request *)> post_handler)
         r->c->read_.handler = blockReading;
         if (post_handler)
         {
-            LOG_INFO << "To post_handler";
+            LOG_INFO << "to post_handler";
             post_handler(r);
         }
         return OK;

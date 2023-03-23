@@ -229,7 +229,7 @@ void processEventsAndTimers(Cycle *cycle)
 
 int recoverRequests(void *arg)
 {
-    LOG_INFO << "Recover requests";
+    // LOG_INFO << "Recover requests";
     for (auto i = heap.ptrs_.begin(); i != heap.ptrs_.end();)
     {
         if (typeMap[i->type] == Type::REQUEST)
