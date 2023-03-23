@@ -19,8 +19,8 @@ libcolib.so: $(COLIB_OBJS)
 # test: test.o
 # 	$(BUILDEXE)
 
-test1: test1.o $(COLIB_OBJS)
-	$(BUILDWITHOUTLIB)
+test1: test1.o
+	$(BUILDEXE)
 
 retest1:
 	rm -f test1.o && make
