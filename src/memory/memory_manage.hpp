@@ -9,12 +9,14 @@
 
 class Request;
 class Upstream;
+class Connection;
 
 enum class Type
 {
     VOID,
     REQUEST,
     UPSTREAM,
+    CONNECTION
 };
 
 extern std::unordered_map<std::type_index, Type> typeMap;
@@ -53,6 +55,9 @@ class HeapMemory
                 case Type::UPSTREAM:
                     delete (Upstream *)front.addr;
                     break;
+                case Type::CONNECTION:
+                    delete (Connection *)front.addr;
+                    break;
                 default:
                     free(front.addr);
                     break;
@@ -81,7 +86,7 @@ class HeapMemory
         ptrs_.emplace_back(ptr);
         return ptr;
     }
-    
+
     template <typename T> void hDelete(T *ptr)
     {
         delete ptr;
