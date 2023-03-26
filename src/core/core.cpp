@@ -1,7 +1,10 @@
 #include "core.h"
 
+#include "../memory/memory_manage.hpp"
+
 Cycle *cyclePtr;
 ConnectionPool cPool;
+extern HeapMemory heap;
 
 Fd::Fd() : fd_(-1)
 {
@@ -81,7 +84,10 @@ Connection *ConnectionPool::getNewConnection()
             return cPool_[i];
         }
     }
-    return NULL;
+
+    auto c = heap.hNew<Connection>();
+    c->idx_ = -2;
+    return c;
 }
 
 void ConnectionPool::recoverConnection(Connection *c)
@@ -89,6 +95,11 @@ void ConnectionPool::recoverConnection(Connection *c)
     if (c->idx_ == -1)
     {
         return;
+    }
+
+    if (c->idx_ == -2)
+    {
+        heap.hDelete(c);
     }
 
 #ifdef RE_ALLOC
