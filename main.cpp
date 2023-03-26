@@ -101,5 +101,5 @@ int main(int argc, char *argv[])
         }
     }
 
-    masterProcessCycle(cycle.get());
+    masterProcessCycle(cyclePtr);
 }

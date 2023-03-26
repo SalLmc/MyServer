@@ -125,8 +125,8 @@ LogLine &LogLine::operator<<(const char *arg)
     return *this;
 }
 
-Logger::Logger(const char *path, const char *name, unsigned long long size)
-    : filePath_(path), fileName_(name), maxFileSize_(size), cnt(1), state(State::INIT),
+Logger::Logger(const char *path, const char *name, unsigned int size_mb)
+    : filePath_(path), fileName_(name), maxFileSize_(size_mb), cnt(1), state(State::INIT),
       writeThread(&Logger::write2File, this)
 {
     if (access(path, 0) != 0)
@@ -217,8 +217,8 @@ void Logger::write2FileInner()
         write(fd_, line.buffer_, line.pos);
 
         struct stat st;
-        fstat(fd_, &st);
-        if ((unsigned long long)st.st_size >= maxFileSize_ * 1048576)
+        int ret = fstat(fd_, &st);
+        if (ret == 0 && st.st_size >= maxFileSize_ * 1048576)
         {
             char loc[100];
             memset(loc, 0, sizeof(loc));

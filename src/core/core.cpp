@@ -100,6 +100,7 @@ void ConnectionPool::recoverConnection(Connection *c)
     if (c->idx_ == -2)
     {
         heap.hDelete(c);
+        return;
     }
 
 #ifdef RE_ALLOC

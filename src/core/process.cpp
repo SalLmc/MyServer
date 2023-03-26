@@ -43,7 +43,7 @@ void masterProcessCycle(Cycle *cycle)
 
     // start processes
     isChild = 0;
-    startWorkerProcesses(cycle, 2);
+    startWorkerProcesses(cycle, 10);
     if (isChild)
     {
         return;
@@ -72,7 +72,7 @@ void masterProcessCycle(Cycle *cycle)
 
 void startWorkerProcesses(Cycle *cycle, int n)
 {
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < n && !isChild; i++)
     {
         spawnProcesses(cycle, workerProcessCycle);
     }
@@ -112,7 +112,7 @@ pid_t spawnProcesses(Cycle *cycle, std::function<void(Cycle *)> proc)
         break;
 
     case -1:
-        assert(1 == 0);
+        assert(0);
         break;
 
     default: // master
