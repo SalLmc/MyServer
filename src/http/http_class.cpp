@@ -44,7 +44,7 @@ void Request::init()
     responseState = ResponseState::sw_start;
 
     headers_in.chunked = 0;
-    headers_in.connection_type = 0;
+    headers_in.connection_type = CONNECTION_CLOSE;
     headers_in.content_length = 0;
     headers_in.header_name_value_map.clear();
     headers_in.headers.clear();

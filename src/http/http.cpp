@@ -665,7 +665,7 @@ int processRequest(Request *r)
     Connection *c = r->c;
     c->read_.handler = blockReading;
 
-    // // haven't register EPOLLOUT, so runPhases won't be triggered
+    // register EPOLLOUT
     epoller.modFd(c->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, c);
     c->write_.handler = runPhases;
 

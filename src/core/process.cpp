@@ -43,7 +43,7 @@ void masterProcessCycle(Cycle *cycle)
 
     // start processes
     isChild = 0;
-    startWorkerProcesses(cycle, 10);
+    startWorkerProcesses(cycle, 8);
     if (isChild)
     {
         return;
