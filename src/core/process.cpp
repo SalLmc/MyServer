@@ -80,12 +80,6 @@ void startWorkerProcesses(Cycle *cycle, int n)
 
 pid_t spawnProcesses(Cycle *cycle, std::function<void(Cycle *)> proc)
 {
-    if (processes[slot].status == ACTIVE)
-    {
-        slot = (slot + 1) % MAX_PROCESS_N;
-        return -1;
-    }
-
     // fd[0] holds by master process, fd[1] hold by worker process
     int fd[2];
     assert(socketpair(AF_UNIX, SOCK_STREAM, 0, fd) != -1);
@@ -178,7 +172,7 @@ void workerProcessCycle(Cycle *cycle)
     }
 
     // timer
-    cyclePtr->timer_.Add(-1, getTickMs() + 60000, recoverRequests, NULL);
+    cyclePtr->timer_.Add(-1, getTickMs() + 15000, recoverRequests, NULL);
 
     LOG_INFO << "Worker Looping";
     for (;;)
@@ -250,6 +244,6 @@ int recoverRequests(void *arg)
             i++;
         }
     }
-    cyclePtr->timer_.Again(-1, getTickMs() + 60000);
+    cyclePtr->timer_.Again(-1, getTickMs() + 15000);
     return OK;
 }

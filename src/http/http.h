@@ -35,6 +35,7 @@ int runPhases(Event *ev);
 int writeResponse(Event *ev);
 int readRequestBodyInner(Event *ev);
 int sendfileEvent(Event *ev);
+int sendStrEvent(Event *ev);
 
 #define PARSE_HEADER_DONE 1
 
@@ -174,6 +175,7 @@ class Headers_in
 #define RES_FILE 0
 #define RES_STR 1
 #define RES_EMPTY 2
+
 #define RES_AUTO_INDEX 3
 
 class Headers_out

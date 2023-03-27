@@ -7,9 +7,7 @@
 #include <typeinfo>
 #include <unordered_map>
 
-class Request;
-class Upstream;
-class Connection;
+#include "../http/http.h"
 
 enum class Type
 {

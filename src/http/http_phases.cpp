@@ -638,7 +638,8 @@ int appendResponseBody(Request *r)
     }
     else if (out.restype == RES_STR)
     {
-        writebuffer.append(out.str_body);
+        // avoid copy, send str_body in writeResponse
+        // writebuffer.append(out.str_body);
     }
     return OK;
 }

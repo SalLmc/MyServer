@@ -828,7 +828,11 @@ int writeResponse(Event *ev)
     {
         sendfileEvent(&r->c->write_);
     }
-    else
+    else if (r->headers_out.restype == RES_STR)
+    {
+        sendStrEvent(&r->c->write_);
+    }
+    else // RES_EMPTY
     {
         LOG_INFO << "RESPONSED";
 
@@ -1101,6 +1105,53 @@ int sendfileEvent(Event *ev)
     close(filebody.filefd.getFd());
 
     LOG_INFO << "SENDFILE RESPONSED";
+
+    if (r->headers_in.connection_type == CONNECTION_KEEP_ALIVE)
+    {
+        keepAliveRequest(r);
+    }
+    else
+    {
+        finalizeRequest(r);
+    }
+
+    return OK;
+}
+
+int sendStrEvent(Event *ev)
+{
+    Request *r = (Request *)ev->c->data_;
+    auto &strbody = r->headers_out.str_body;
+
+    static int offset = 0;
+    int bodysize = strbody.size();
+
+    int len = send(r->c->fd_.getFd(), strbody.c_str() + offset, bodysize - offset, 0);
+
+    if (len < 0 && errno != EAGAIN)
+    {
+        LOG_INFO << "Send error: " << strerror(errno);
+        return ERROR;
+    }
+    else if (len == 0)
+    {
+        LOG_INFO << "Client close Connection";
+        return ERROR;
+    }
+
+    offset += len;
+    if (bodysize - offset > 0)
+    {
+        r->c->write_.handler = sendStrEvent;
+        epoller.modFd(r->c->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, r->c);
+        return AGAIN;
+    }
+
+    offset = 0;
+    epoller.modFd(r->c->fd_.getFd(), EPOLLIN | EPOLLET, r->c);
+    r->c->write_.handler = blockWriting;
+
+    LOG_INFO << "SENDSTR RESPONSED";
 
     if (r->headers_in.connection_type == CONNECTION_KEEP_ALIVE)
     {
