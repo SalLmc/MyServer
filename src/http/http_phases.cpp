@@ -376,7 +376,7 @@ int upstreamRecv(Event *upc_ev)
 
     while (1)
     {
-        n = upc->readBuffer_.recvFd(upc->fd_.getFd(), &errno, 0);
+        n = upc->readBuffer_.cRecvFd(upc->fd_.getFd(), &errno, 0);
         if (n < 0 && errno == EAGAIN)
         {
             return AGAIN;
@@ -624,7 +624,7 @@ int appendResponseHeader(Request *r)
 }
 int appendResponseBody(Request *r)
 {
-    auto &writebuffer = r->c->writeBuffer_;
+    // auto &writebuffer = r->c->writeBuffer_;
     auto &out = r->headers_out;
 
     if (out.restype == RES_EMPTY)

@@ -85,6 +85,7 @@ class LinkedBuffer
 
     bool allRead();
     ssize_t recvFd(int fd, int *saveErrno, int flags);
+    ssize_t cRecvFd(int fd, int *saveErrno, int flags);
     ssize_t sendFd(int fd, int *saveErrno, int flags);
     void append(u_char *data, size_t len);
     void append(const char *data, size_t len);

@@ -56,7 +56,7 @@ void Request::init()
     headers_out.status = 0;
     headers_out.status_line.clear();
     headers_out.str_body.clear();
-    headers_out.file_body.filefd = -1;
+    headers_out.file_body.filefd.closeFd();
     headers_out.file_body.file_size = 0;
     headers_out.file_body.offset = 0;
     headers_out.restype = RES_EMPTY;

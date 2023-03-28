@@ -201,11 +201,12 @@ Connection *addListen(Cycle *cycle, int port)
 
 int newConnection(Event *ev)
 {
+
     Connection *newc = cPool.getNewConnection();
     if (newc == NULL)
     {
         LOG_WARN << "Get new connection failed, listenfd:" << ev->c->fd_.getFd();
-        return 0;
+        return 1;
     }
 
     sockaddr_in *addr = &newc->addr_;
@@ -216,6 +217,7 @@ int newConnection(Event *ev)
     {
         LOG_WARN << "Accept from FD:" << ev->c->fd_.getFd() << " failed, recover connection";
         cPool.recoverConnection(newc);
+        return 1;
     }
 
     newc->server_idx_ = ev->c->server_idx_;
@@ -245,7 +247,7 @@ int waitRequest(Event *ev)
     cyclePtr->timer_.Remove(ev->c->fd_.getFd());
 
     Connection *c = ev->c;
-    int len = c->readBuffer_.recvFd(c->fd_.getFd(), &errno, 0);
+    int len = c->readBuffer_.cRecvFd(c->fd_.getFd(), &errno, 0);
 
     LOG_INFO << "waitRequest recv from FD:" << c->fd_.getFd();
 
@@ -291,14 +293,14 @@ int keepAlive(Event *ev)
     cyclePtr->timer_.Remove(ev->c->fd_.getFd());
 
     Connection *c = ev->c;
-    int len = c->readBuffer_.recvFd(c->fd_.getFd(), &errno, 0);
+    int len = c->readBuffer_.cRecvFd(c->fd_.getFd(), &errno, 0);
 
     LOG_INFO << "keepAlive recv from FD:" << c->fd_.getFd();
 
     if (len == 0)
     {
         LOG_INFO << "Client close connection";
-        finalizeConnection(c);
+        finalizeRequest((Request *)ev->c->data_);
         return -1;
     }
 
@@ -307,7 +309,7 @@ int keepAlive(Event *ev)
         if (errno != EAGAIN)
         {
             LOG_INFO << "Read error: " << strerror(errno);
-            finalizeConnection(c);
+            finalizeRequest((Request *)ev->c->data_);
             return -1;
         }
         else
@@ -523,7 +525,7 @@ int readRequestHeader(Request *r)
         return n;
     }
 
-    n = c->readBuffer_.recvFd(c->fd_.getFd(), &errno, 0);
+    n = c->readBuffer_.cRecvFd(c->fd_.getFd(), &errno, 0);
 
     if (n < 0)
     {
@@ -649,12 +651,16 @@ int processRequestHeader(Request *r, int need_host)
     if (mp.count("Connection"))
     {
         auto &type = mp["Connection"].value;
-        r->headers_in.connection_type =
-            (0 == strcmp("keep-alive", type.c_str()) ? CONNECTION_KEEP_ALIVE : CONNECTION_CLOSE);
+        bool alive = (!strcmp("keep-alive", type.c_str())) || (!strcmp("Keep-Alive", type.c_str()));
+        r->headers_in.connection_type = alive ? CONNECTION_KEEP_ALIVE : CONNECTION_CLOSE;
+    }
+    else if (r->http_version > 1000)
+    {
+        r->headers_in.connection_type = CONNECTION_KEEP_ALIVE;
     }
     else
     {
-        r->headers_in.connection_type = CONNECTION_KEEP_ALIVE;
+        r->headers_in.connection_type = CONNECTION_CLOSE;
     }
 
     return OK;
@@ -778,6 +784,14 @@ int processBody(Request *upsr)
 
 int runPhases(Event *ev)
 {
+    // auto &buffer = ev->c->readBuffer_;
+    // for (auto &x : buffer.nodes)
+    // {
+    //     if (x.len == 0)
+    //         break;
+    //     printf("%s", std::string(x.start, x.start + x.len).c_str());
+    // }
+
     int ret = 0;
     Request *r = (Request *)ev->c->data_;
 
@@ -1030,7 +1044,7 @@ int readRequestBodyInner(Event *ev)
             break;
         }
 
-        int ret = buffer.recvFd(c->fd_.getFd(), &errno, 0);
+        int ret = buffer.cRecvFd(c->fd_.getFd(), &errno, 0);
 
         if (ret == 0)
         {
@@ -1047,6 +1061,7 @@ int readRequestBodyInner(Event *ev)
             }
             else
             {
+                finalizeRequest(r);
                 LOG_INFO << "Recv body error";
                 return ERROR;
             }
@@ -1085,11 +1100,13 @@ int sendfileEvent(Event *ev)
     if (len < 0 && errno != EAGAIN)
     {
         LOG_INFO << "Sendfile error: " << strerror(errno);
+        finalizeRequest(r);
         return ERROR;
     }
     else if (len == 0)
     {
         LOG_INFO << "Client close Connection";
+        finalizeRequest(r);
         return ERROR;
     }
 
@@ -1102,7 +1119,7 @@ int sendfileEvent(Event *ev)
 
     epoller.modFd(r->c->fd_.getFd(), EPOLLIN | EPOLLET, r->c);
     r->c->write_.handler = blockWriting;
-    close(filebody.filefd.getFd());
+    filebody.filefd.closeFd();
 
     LOG_INFO << "SENDFILE RESPONSED";
 
@@ -1131,11 +1148,13 @@ int sendStrEvent(Event *ev)
     if (len < 0 && errno != EAGAIN)
     {
         LOG_INFO << "Send error: " << strerror(errno);
+        finalizeRequest(r);
         return ERROR;
     }
     else if (len == 0)
     {
         LOG_INFO << "Client close Connection";
+        finalizeRequest(r);
         return ERROR;
     }
 

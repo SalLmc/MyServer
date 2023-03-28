@@ -107,12 +107,16 @@ class Logger
     std::thread writeThread;
 };
 
-#define LOG_INFO (*cyclePtr->logger_) += LogLine(Level::INFO, __FILE__, __func__, __LINE__)
-#define LOG_WARN (*cyclePtr->logger_) += LogLine(Level::WARN, __FILE__, __func__, __LINE__)
-#define LOG_CRIT (*cyclePtr->logger_) += LogLine(Level::CRIT, __FILE__, __func__, __LINE__)
+#define LOG_INFO __LOG_INFO
+#define LOG_WARN __LOG_WARN
+#define LOG_CRIT __LOG_CRIT
 
-#define LOG_INFO_BY(logger) (logger) += LogLine(Level::INFO, __FILE__, __func__, __LINE__)
-#define LOG_WARN_BY(logger) (logger) += LogLine(Level::WARN, __FILE__, __func__, __LINE__)
-#define LOG_CRIT_BY(logger) (logger) += LogLine(Level::CRIT, __FILE__, __func__, __LINE__)
+#define __LOG_INFO __LOG_INFO_INNER(*cyclePtr->logger_)
+#define __LOG_WARN __LOG_WARN_INNER(*cyclePtr->logger_)
+#define __LOG_CRIT __LOG_CRIT_INNER(*cyclePtr->logger_)
+
+#define __LOG_INFO_INNER(logger) (logger) += LogLine(Level::INFO, __FILE__, __func__, __LINE__)
+#define __LOG_WARN_INNER(logger) (logger) += LogLine(Level::WARN, __FILE__, __func__, __LINE__)
+#define __LOG_CRIT_INNER(logger) (logger) += LogLine(Level::CRIT, __FILE__, __func__, __LINE__)
 
 #endif

@@ -100,7 +100,7 @@ pid_t spawnProcesses(Cycle *cycle, std::function<void(Cycle *)> proc)
 
         // processes[slot].channel[1].read_.c = &processes[slot].channel[1];
         // processes[slot].channel[1].read_.c->read_.handler = recvFromMaster;
-        // epoller.addFd(processes[slot].channel[1].fd_.getFd(), EPOLLIN, &processes[slot].channel[1]);
+        // epoller.addFd(processes[slot].channel[1].fd_.getFd(), EPOLLIN | EPOLLET, &processes[slot].channel[1]);
 
         proc(cycle);
         break;

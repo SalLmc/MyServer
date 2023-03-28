@@ -27,6 +27,15 @@ int Fd::getFd()
     return fd_;
 }
 
+void Fd::closeFd()
+{
+    if (fd_ != -1)
+    {
+        close(fd_);
+    }
+    fd_ = -1;
+}
+
 bool Fd::operator==(int fd)
 {
     return fd == fd_;

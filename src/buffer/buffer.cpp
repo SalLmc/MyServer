@@ -270,6 +270,40 @@ ssize_t LinkedBuffer::recvFd(int fd, int *saveErrno, int flags)
     return n;
 }
 
+ssize_t LinkedBuffer::cRecvFd(int fd, int *saveErrno, int flags)
+{
+    ssize_t len = 0;
+    int n = 0;
+    while (1)
+    {
+        auto &nowr = nodes.back();
+        n = recv(fd, nowr.start + nowr.len, NODE_SIZE - nowr.len, flags);
+        if (n < 0)
+        {
+            *saveErrno = errno;
+            break;
+        }
+        else if (n == 0)
+        {
+            break;
+        }
+        else
+        {
+            len += n;
+            nowr.len += n;
+            if (nowr.len == NODE_SIZE)
+            {
+                nodes.emplace_back();
+                auto newNode = &nodes.back();
+                nowr.next = newNode;
+                newNode->prev = &nowr;
+            }
+        }
+    }
+
+    return len > 0 ? len : n;
+}
+
 // only send once. check allread to know whether data left
 ssize_t LinkedBuffer::sendFd(int fd, int *saveErrno, int flags)
 {
