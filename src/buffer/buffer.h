@@ -1,10 +1,7 @@
 #ifndef BUFFER_H
 #define BUFFER_H
 
-#include <atomic>
-#include <list>
-#include <string>
-#include <vector> //readv
+#include "../headers.h"
 
 class Buffer
 {

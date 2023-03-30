@@ -1,9 +1,7 @@
+#include "../headers.h"
+
 #include "logger.h"
 #include "../util/utils_declaration.h"
-#include <assert.h>
-#include <fcntl.h>
-#include <stdlib.h>
-#include <string.h>
 
 LogLine::LogLine()
 {

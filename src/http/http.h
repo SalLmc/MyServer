@@ -1,9 +1,9 @@
 #ifndef HTTP_H
 #define HTTP_H
 
+#include "../headers.h"
+
 #include "../core/core.h"
-#include <list>
-#include <unordered_map>
 
 class Request;
 

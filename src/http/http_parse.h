@@ -1,7 +1,7 @@
 #ifndef HTTP_PARSE_H
 #define HTTP_PARSE_H
 
-#include <stdint.h>
+#include "../headers.h"
 
 class Request;
 class Status;

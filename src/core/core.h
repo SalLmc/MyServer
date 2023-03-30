@@ -1,18 +1,7 @@
 #ifndef CORE_H
 #define CORE_H
 
-#include <assert.h>
-#include <dirent.h>
-#include <fcntl.h>
-#include <functional>
-#include <memory>
-#include <netinet/in.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/mman.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <vector>
+#include "../headers.h"
 
 #include "../buffer/buffer.h"
 #include "../log/logger.h"

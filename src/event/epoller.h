@@ -1,13 +1,7 @@
 #ifndef EPOLLER_H
 #define EPOLLER_H
 
-#include <assert.h> // close()
-#include <errno.h>
-#include <fcntl.h> // fcntl()
-#include <list>
-#include <sys/epoll.h> //epoll_ctl()
-#include <unistd.h>    // close()
-#include <vector>
+#include "../headers.h"
 
 #define POST_EVENTS 1
 

@@ -1,13 +1,7 @@
 #ifndef TIMER_H
 #define TIMER_H
 
-#include <algorithm>
-#include <arpa/inet.h>
-#include <chrono>
-#include <functional>
-#include <queue>
-#include <time.h>
-#include <unordered_map>
+#include "../headers.h"
 
 typedef std::function<int(void *)> TimeoutCallBack;
 typedef unsigned long long TimeStamp;

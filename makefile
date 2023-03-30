@@ -1,4 +1,5 @@
 PROGS = libmy.so main signal_test log_test timer_test memory_test test
+PRE_HEADER = src/headers.h.gch
 
 SRCDIRS = src/buffer src/core src/event src/http src/log src/memory src/timer src/util src
 
@@ -9,12 +10,15 @@ ARSTATICLIB = ar rcs $@ $^
 CPPSHARELIB = g++ -fPIC -shared $^ -o $@
 
 LINK = -pthread
-FLAGS = -Wall -g
+FLAGS = -Wall -fPIC
 
 BUILDEXEWITHLIB = g++ $(FLAGS) $^ ./libmy.so -o $@ $(LINK)
 BUILDEXE = g++ $(FLAGS) $^ -o $@ $(LINK)
 
-all: $(PROGS)
+all: $(PRE_HEADER) $(PROGS)
+
+src/headers.h.gch: src/headers.h
+	g++ $(FLAGS) src/headers.h
 
 libmy.so: $(CPP_OBJECTS)
 	$(CPPSHARELIB)
@@ -40,8 +44,11 @@ test: test.o
 clean:
 	rm -f $(PROGS) $(CPP_OBJECTS) *.o log/* pid_file
 
+cleanall:
+	rm -f $(PROGS) $(CPP_OBJECTS) *.o log/* pid_file src/headers.h.gch
+
 cleanlog:
 	rm -f log/*
 
 %.o: %.cpp
-	g++ $(FLAGS) -fPIC -c $< -o $@
+	g++ $(FLAGS) -c $< -o $@

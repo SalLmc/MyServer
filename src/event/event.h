@@ -1,9 +1,7 @@
 #ifndef EVENT_H
 #define EVENT_H
 
-#include <assert.h>
-#include <semaphore.h>
-#include <string.h>
+#include "../headers.h"
 
 class Cycle;
 

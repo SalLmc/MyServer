@@ -5,12 +5,12 @@
 
 // extern HeapMemory heap;
 
-#include <string>
+#include "src/headers.h"
 
 class Test
 {
   public:
-    Test(std::string &&str):val(str)
+    Test(std::string &&str) : val(str)
     {
     }
     Test &operator=(const Test &) = delete;
@@ -32,7 +32,7 @@ int main()
 
     Test tt(t);
 
-    printf("%s\n",tt.val.data());
+    printf("%s\n", tt.val.data());
 
     // Test *a=heap.hNew<Test>(std::move(t));
 

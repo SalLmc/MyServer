@@ -1,3 +1,5 @@
+#include "../headers.h"
+
 #include "http.h"
 #include "../event/epoller.h"
 #include "../event/event.h"
@@ -7,10 +9,6 @@
 #include "http_phases.h"
 
 #include "../memory/memory_manage.hpp"
-
-#include <string>
-#include <sys/sendfile.h>
-#include <unordered_map>
 
 extern ConnectionPool cPool;
 extern Epoller epoller;

@@ -1,8 +1,7 @@
+#include "../headers.h"
+
 #include "timer.h"
 #include "../util/utils_declaration.h"
-#include <assert.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 void HeapTimer::SwapNode(size_t i, size_t j)
 {

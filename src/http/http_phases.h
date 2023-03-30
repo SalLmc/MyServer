@@ -1,8 +1,9 @@
 #ifndef HTTP_PHASES_H
 #define HTTP_PHASES_H
 
+#include "../headers.h"
+
 #include "http.h"
-#include <functional>
 
 class PhaseHandler
 {

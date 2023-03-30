@@ -1,11 +1,9 @@
-#include "http_phases.h"
+#include "../headers.h"
+
 #include "../event/epoller.h"
 #include "../util/utils_declaration.h"
 #include "http.h"
-#include <dirent.h>
-#include <list>
-#include <sys/types.h>
-#include <vector>
+#include "http_phases.h"
 
 #include "../memory/memory_manage.hpp"
 

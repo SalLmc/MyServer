@@ -1,8 +1,7 @@
 #ifndef PROCESS_H
 #define PROCESS_H
 
-#include <functional>
-#include <signal.h>
+#include "../headers.h"
 
 class Cycle;
 class Event;

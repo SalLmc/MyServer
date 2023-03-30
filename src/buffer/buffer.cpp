@@ -1,10 +1,6 @@
+#include "../headers.h"
+
 #include "buffer.h"
-#include <assert.h>
-#include <cstring> //perror
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/uio.h> //readv
-#include <unistd.h>  // write
 
 Buffer::Buffer(int buff_size) : buffer_(buff_size), read_pos_(0), write_pos_(0)
 {

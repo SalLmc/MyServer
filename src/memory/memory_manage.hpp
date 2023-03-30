@@ -1,11 +1,7 @@
 #ifndef MEMORY_MANAGE_H
 #define MEMORY_MANAGE_H
 
-#include <list>
-#include <string>
-#include <typeindex>
-#include <typeinfo>
-#include <unordered_map>
+#include "../headers.h"
 
 #include "../http/http.h"
 

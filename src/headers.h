@@ -25,6 +25,7 @@
 #include <string>
 #include <sys/epoll.h>
 #include <sys/mman.h>
+#include <sys/sendfile.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/time.h>

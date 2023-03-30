@@ -1,14 +1,7 @@
 #ifndef LOGGER_H
 #define LOGGER_H
 
-#include <atomic>
-#include <condition_variable>
-#include <list>
-#include <mutex>
-#include <string>
-#include <sys/stat.h>
-#include <thread>
-#include <unistd.h>
+#include "../headers.h"
 
 #include "../global.h"
 
