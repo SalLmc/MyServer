@@ -3,7 +3,8 @@
 
 #include "../headers.h"
 
-#include "http.h"
+class Request;
+class Event;
 
 class PhaseHandler
 {

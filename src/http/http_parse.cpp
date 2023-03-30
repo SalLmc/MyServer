@@ -1,7 +1,7 @@
 #include "../headers.h"
 
-#include "http_parse.h"
 #include "http.h"
+#include "http_parse.h"
 
 extern Cycle *cyclePtr;
 
