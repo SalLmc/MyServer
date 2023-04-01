@@ -1,6 +1,5 @@
 #include "../headers.h"
 
-#include "process.h"
 #include "../core/core.h"
 #include "../event/epoller.h"
 #include "../event/event.h"
@@ -8,6 +7,7 @@
 #include "../http/http.h"
 #include "../log/logger.h"
 #include "../util/utils_declaration.h"
+#include "process.h"
 
 #include "../memory/memory_manage.hpp"
 
@@ -209,7 +209,7 @@ void processEventsAndTimers(Cycle *cycle)
         }
     }
 
-    epoller.processEvents(flags, 0);
+    epoller.processEvents(flags, 1);
 
     process_posted_events(&posted_accept_events);
 

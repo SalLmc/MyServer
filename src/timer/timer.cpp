@@ -164,7 +164,6 @@ void HeapTimer::Clear()
 
 unsigned long long HeapTimer::GetNextTick()
 {
-    Tick();
     unsigned long long res = -1;
     if (!heap_.empty())
     {

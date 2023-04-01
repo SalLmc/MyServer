@@ -200,36 +200,38 @@ Connection *addListen(Cycle *cycle, int port)
 
 int newConnection(Event *ev)
 {
-
-    Connection *newc = cPool.getNewConnection();
-    if (newc == NULL)
+    while (1)
     {
-        LOG_WARN << "Get new connection failed, listenfd:" << ev->c->fd_.getFd();
-        return 1;
+        Connection *newc = cPool.getNewConnection();
+        if (newc == NULL)
+        {
+            LOG_WARN << "Get new connection failed, listenfd:" << ev->c->fd_.getFd();
+            return 1;
+        }
+
+        sockaddr_in *addr = &newc->addr_;
+        socklen_t len = sizeof(*addr);
+
+        newc->fd_ = accept(ev->c->fd_.getFd(), (sockaddr *)addr, &len);
+        if (newc->fd_.getFd() < 0)
+        {
+            LOG_WARN << "Accept from FD:" << ev->c->fd_.getFd() << " failed, recover connection";
+            cPool.recoverConnection(newc);
+            return 1;
+        }
+
+        newc->server_idx_ = ev->c->server_idx_;
+
+        setnonblocking(newc->fd_.getFd());
+
+        newc->read_.handler = waitRequest;
+
+        epoller.addFd(newc->fd_.getFd(), EPOLLIN | EPOLLET, newc);
+
+        cyclePtr->timer_.Add(newc->fd_.getFd(), getTickMs() + 60000, setEventTimeout, (void *)&newc->read_);
+
+        LOG_INFO << "NEW CONNECTION FROM FD:" << ev->c->fd_.getFd() << ", WITH FD:" << newc->fd_.getFd();
     }
-
-    sockaddr_in *addr = &newc->addr_;
-    socklen_t len = sizeof(*addr);
-
-    newc->fd_ = accept(ev->c->fd_.getFd(), (sockaddr *)addr, &len);
-    if (newc->fd_.getFd() < 0)
-    {
-        LOG_WARN << "Accept from FD:" << ev->c->fd_.getFd() << " failed, recover connection";
-        cPool.recoverConnection(newc);
-        return 1;
-    }
-
-    newc->server_idx_ = ev->c->server_idx_;
-
-    setnonblocking(newc->fd_.getFd());
-
-    newc->read_.handler = waitRequest;
-
-    epoller.addFd(newc->fd_.getFd(), EPOLLIN | EPOLLET, newc);
-
-    cyclePtr->timer_.Add(newc->fd_.getFd(), getTickMs() + 60000, setEventTimeout, (void *)&newc->read_);
-
-    LOG_INFO << "NEW CONNECTION FROM FD:" << ev->c->fd_.getFd() << ", WITH FD:" << newc->fd_.getFd();
 
     return 0;
 }
