@@ -138,7 +138,7 @@ int acceptexTryLock(Cycle *cycle)
             return 1;
         }
 
-        for (auto listen : cycle->listening_)
+        for (auto &listen : cycle->listening_)
         {
             if (epoller.addFd(listen->fd_.getFd(), EPOLLIN | EPOLLET, listen) == 0)
             {
@@ -155,7 +155,7 @@ int acceptexTryLock(Cycle *cycle)
 
     if (acceptMutexHeld)
     {
-        for (auto listen : cycle->listening_)
+        for (auto &listen : cycle->listening_)
         {
             if (epoller.delFd(listen->fd_.getFd()) == 0)
             {

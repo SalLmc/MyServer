@@ -215,7 +215,7 @@ int newConnection(Event *ev)
         newc->fd_ = accept(ev->c->fd_.getFd(), (sockaddr *)addr, &len);
         if (newc->fd_.getFd() < 0)
         {
-            LOG_WARN << "Accept from FD:" << ev->c->fd_.getFd() << " failed, recover connection";
+            LOG_WARN << "Accept from FD:" << ev->c->fd_.getFd() << " failed, errno: " << strerror(errno);
             cPool.recoverConnection(newc);
             return 1;
         }
