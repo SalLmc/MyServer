@@ -70,10 +70,10 @@ class Connection
     LinkedBuffer writeBuffer_;
     int idx_;
     int server_idx_;
-    // void *data_;
-    // Upstream *ups_;
-    std::shared_ptr<Request> data_;
-    std::shared_ptr<Upstream> ups;
+    void *data_;
+    Upstream *ups_;
+    // std::shared_ptr<Request> data_;
+    // std::shared_ptr<Upstream> ups;
 };
 
 class ConnectionPool
