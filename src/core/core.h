@@ -19,6 +19,7 @@
 
 class Connection;
 class Upstream;
+class Request;
 
 #define NOT_TIMEOUT 0
 #define TIMEOUT 1
@@ -70,8 +71,10 @@ class Connection
     LinkedBuffer writeBuffer_;
     int idx_;
     int server_idx_;
-    void *data_;
-    Upstream *ups_;
+    // void *data_;
+    // Upstream *ups_;
+    std::shared_ptr<Request> data_;
+    std::shared_ptr<Upstream> ups_;
 };
 
 class ConnectionPool

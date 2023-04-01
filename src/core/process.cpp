@@ -174,7 +174,7 @@ void workerProcessCycle(Cycle *cycle)
     }
 
     // timer
-    cyclePtr->timer_.Add(-1, getTickMs() + 15000, recoverRequests, NULL);
+    // cyclePtr->timer_.Add(-1, getTickMs() + 15000, recoverRequests, NULL);
 
     LOG_INFO << "Worker Looping";
     for (;;)
