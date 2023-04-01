@@ -157,11 +157,11 @@ Logger::~Logger()
 Logger &Logger::operator+=(LogLine &line)
 {
 #ifndef USE_ATOMIC_LOCK
-    {
-        std::unique_lock<std::mutex> ulock(mutex_);
-        ls_.push_back(std::move(line));
-    }
-    cond_.notify_one();
+    // {
+    //     std::unique_lock<std::mutex> ulock(mutex_);
+    //     ls_.push_back(std::move(line));
+    // }
+    // cond_.notify_one();
 #else
     spLock.lock();
     ls_.push_back(std::move(line));

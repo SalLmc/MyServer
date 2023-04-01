@@ -1,8 +1,8 @@
 #include "../headers.h"
 
-#include "epoller.h"
 #include "../core/core.h"
 #include "../global.h"
+#include "epoller.h"
 
 Epoller epoller;
 std::list<Event *> posted_accept_events;
@@ -79,11 +79,19 @@ extern Cycle *cyclePtr;
 int Epoller::processEvents(int flags, int timeout_ms)
 {
     int ret = epoll_wait(epollfd_, &events_[0], static_cast<int>(events_.size()), timeout_ms);
+    if (ret == -1)
+    {
+        return -1;
+    }
     for (int i = 0; i < ret; i++)
     {
         Connection *c = (Connection *)events_[i].data.ptr;
+        if (c == nullptr || c->idx_ == -1)
+        {
+            continue;
+        }
 
-        if (c->idx_ != -1 && (flags & POST_EVENTS))
+        if (flags & POST_EVENTS)
         {
             if (c->read_.type == ACCEPT)
             {
@@ -97,11 +105,11 @@ int Epoller::processEvents(int flags, int timeout_ms)
             continue;
         }
 
-        if ((events_[i].events & EPOLLIN) && c->idx_ != -1 && c->read_.handler)
+        if ((events_[i].events & EPOLLIN) && c->read_.handler)
         {
             c->read_.handler(&c->read_);
         }
-        if ((events_[i].events & EPOLLOUT) && c->idx_ != -1 && c->write_.handler)
+        if ((events_[i].events & EPOLLOUT) && c->write_.handler)
         {
             c->write_.handler(&c->write_);
         }
