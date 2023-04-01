@@ -23,7 +23,7 @@ uint32_t usual[] = {
     0xffffffff  /* 1111 1111 1111 1111  1111 1111 1111 1111 */
 };
 
-int parseRequestLine(Request *r)
+int parseRequestLine(std::shared_ptr<Request> r)
 {
     // LOG_INFO << "parse request line";
     u_char c, ch, *p, *m;
@@ -757,7 +757,7 @@ done:
     return OK;
 }
 
-int parseComplexUri(Request *r, int merge_slashes)
+int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
 {
     u_char c, ch, decoded, *p, *u;
     enum
@@ -1118,7 +1118,7 @@ args:
     return OK;
 }
 
-int parseHeaderLine(Request *r, int allow_underscores)
+int parseHeaderLine(std::shared_ptr<Request> r, int allow_underscores)
 {
     u_char c, ch, *p;
     // unsigned long hash;
@@ -1408,7 +1408,7 @@ header_done:
 
 #define MAX_OFF_T_VALUE 9223372036854775807LL
 
-int parseChunked(Request *r)
+int parseChunked(std::shared_ptr<Request> r)
 {
     u_char *pos, ch, c;
     int rc;
@@ -1684,7 +1684,7 @@ invalid:
     return ERROR;
 }
 
-int parseStatusLine(Request *r, Status *status)
+int parseStatusLine(std::shared_ptr<Request> r, Status *status)
 {
     u_char ch;
     u_char *p;

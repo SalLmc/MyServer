@@ -273,7 +273,7 @@ int waitRequest(Event *ev)
         }
     }
 
-    Request *r = heap.hNew<Request>();
+    std::shared_ptr<Request> r(new Request());
     r->c = c;
     c->data_ = r;
 
@@ -287,7 +287,7 @@ int keepAlive(Event *ev)
     if (ev->timeout == TIMEOUT)
     {
         LOG_INFO << "Client timeout";
-        finalizeRequest((Request *)ev->c->data_);
+        finalizeRequest(ev->c->data_);
         return -1;
     }
 
@@ -301,7 +301,7 @@ int keepAlive(Event *ev)
     if (len == 0)
     {
         LOG_INFO << "Client close connection";
-        finalizeRequest((Request *)ev->c->data_);
+        finalizeRequest(ev->c->data_);
         return -1;
     }
 
@@ -310,7 +310,7 @@ int keepAlive(Event *ev)
         if (errno != EAGAIN)
         {
             LOG_INFO << "Read error: " << strerror(errno);
-            finalizeRequest((Request *)ev->c->data_);
+            finalizeRequest(ev->c->data_);
             return -1;
         }
         else
@@ -328,7 +328,7 @@ int processRequestLine(Event *ev)
 {
     // LOG_INFO << "process request line";
     Connection *c = ev->c;
-    Request *r = (Request *)c->data_;
+    std::shared_ptr<Request> r = c->data_;
 
     int ret = AGAIN;
     for (;;)
@@ -407,10 +407,10 @@ int processRequestHeaders(Event *ev)
 {
     int rc;
     Connection *c;
-    Request *r;
+    std::shared_ptr<Request> r;
 
     c = ev->c;
-    r = (Request *)c->data_;
+    r = c->data_;
 
     // LOG_INFO << "process request headers";
 
@@ -514,7 +514,7 @@ int processRequestHeaders(Event *ev)
     return OK;
 }
 
-int readRequestHeader(Request *r)
+int readRequestHeader(std::shared_ptr<Request> r)
 {
     // LOG_INFO << "read request header";
     Connection *c = r->c;
@@ -550,7 +550,7 @@ int readRequestHeader(Request *r)
     return n;
 }
 
-int processRequestUri(Request *r)
+int processRequestUri(std::shared_ptr<Request> r)
 {
     if (r->args_start)
     {
@@ -617,7 +617,7 @@ int processRequestUri(Request *r)
     return OK;
 }
 
-int processRequestHeader(Request *r, int need_host)
+int processRequestHeader(std::shared_ptr<Request> r, int need_host)
 {
     auto &mp = r->headers_in.header_name_value_map;
 
@@ -667,7 +667,7 @@ int processRequestHeader(Request *r, int need_host)
     return OK;
 }
 
-int processRequest(Request *r)
+int processRequest(std::shared_ptr<Request> r)
 {
     Connection *c = r->c;
     c->read_.handler = blockReading;
@@ -682,9 +682,9 @@ int processRequest(Request *r)
     return OK;
 }
 
-int processStatusLine(Request *upsr)
+int processStatusLine(std::shared_ptr<Request> upsr)
 {
-    Upstream *ups = upsr->c->ups_;
+    std::shared_ptr<Upstream> ups = upsr->c->ups_;
 
     int ret = parseStatusLine(upsr, &ups->ctx.status);
     if (ret != OK)
@@ -696,9 +696,9 @@ int processStatusLine(Request *upsr)
     return processHeaders(upsr);
 }
 
-int processHeaders(Request *upsr)
+int processHeaders(std::shared_ptr<Request> upsr)
 {
-    Upstream *ups = upsr->c->ups_;
+    std::shared_ptr<Upstream> ups = upsr->c->ups_;
     int ret;
 
     while (1)
@@ -730,7 +730,7 @@ int processHeaders(Request *upsr)
     }
 }
 
-int processBody(Request *upsr)
+int processBody(std::shared_ptr<Request> upsr)
 {
     int ret = 0;
 
@@ -794,7 +794,7 @@ int runPhases(Event *ev)
     // }
 
     int ret = 0;
-    Request *r = (Request *)ev->c->data_;
+    std::shared_ptr<Request> r = ev->c->data_;
 
     // OK: keep running phases
     // AGAIN/ERROR: quit phase running
@@ -815,7 +815,7 @@ int runPhases(Event *ev)
 
 int writeResponse(Event *ev)
 {
-    Request *r = (Request *)ev->c->data_;
+    std::shared_ptr<Request> r = ev->c->data_;
     auto &buffer = ev->c->writeBuffer_;
 
     if (buffer.allRead() != 1)
@@ -878,7 +878,7 @@ int blockWriting(Event *ev)
 }
 
 // @return OK DONE AGAIN ERROR
-int processRequestBody(Request *r)
+int processRequestBody(std::shared_ptr<Request> r)
 {
     if (r->headers_in.chunked)
     {
@@ -891,7 +891,7 @@ int processRequestBody(Request *r)
 }
 
 // @return OK ERROR
-int requestBodyLength(Request *r)
+int requestBodyLength(std::shared_ptr<Request> r)
 {
     auto &buffer = r->c->readBuffer_;
     auto &rb = r->request_body;
@@ -933,7 +933,7 @@ int requestBodyLength(Request *r)
 }
 
 // @return OK DONE AGAIN ERROR
-int requestBodyChunked(Request *r)
+int requestBodyChunked(std::shared_ptr<Request> r)
 {
     auto &buffer = r->c->readBuffer_;
     auto &rb = r->request_body;
@@ -987,7 +987,7 @@ int requestBodyChunked(Request *r)
 }
 
 // @return OK AGAIN ERROR
-int readRequestBody(Request *r, std::function<int(Request *)> post_handler)
+int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_ptr<Request>)> post_handler)
 {
     int ret = 0;
     int preRead = 0;
@@ -1033,7 +1033,7 @@ int readRequestBody(Request *r, std::function<int(Request *)> post_handler)
 int readRequestBodyInner(Event *ev)
 {
     Connection *c = ev->c;
-    Request *r = (Request *)c->data_;
+    std::shared_ptr<Request> r = c->data_;
 
     auto &rb = r->request_body;
     auto &buffer = c->readBuffer_;
@@ -1092,7 +1092,7 @@ int readRequestBodyInner(Event *ev)
 
 int sendfileEvent(Event *ev)
 {
-    Request *r = (Request *)ev->c->data_;
+    std::shared_ptr<Request> r = ev->c->data_;
     auto &filebody = r->headers_out.file_body;
 
     int len =
@@ -1138,7 +1138,7 @@ int sendfileEvent(Event *ev)
 
 int sendStrEvent(Event *ev)
 {
-    Request *r = (Request *)ev->c->data_;
+    std::shared_ptr<Request> r = ev->c->data_;
     auto &strbody = r->headers_out.str_body;
 
     static int offset = 0;
@@ -1185,7 +1185,7 @@ int sendStrEvent(Event *ev)
     return OK;
 }
 
-int keepAliveRequest(Request *r)
+int keepAliveRequest(std::shared_ptr<Request> r)
 {
     int fd = r->c->fd_.getFd();
 
@@ -1221,7 +1221,7 @@ int finalizeConnection(Connection *c)
     return 0;
 }
 
-int finalizeRequest(Request *r)
+int finalizeRequest(std::shared_ptr<Request> r)
 {
     r->quit = 1;
     finalizeConnection(r->c);

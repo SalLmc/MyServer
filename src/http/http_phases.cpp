@@ -48,13 +48,13 @@ std::vector<PhaseHandler> phases{{genericPhaseChecker, {passPhaseHandler}},
                                  {genericPhaseChecker, {proxyPassHandler, staticContentHandler, autoIndexHandler}},
                                  {genericPhaseChecker, {passPhaseHandler}}};
 
-PhaseHandler::PhaseHandler(std::function<int(Request *, PhaseHandler *)> checkerr,
-                           std::vector<std::function<int(Request *)>> &&handlerss)
+PhaseHandler::PhaseHandler(std::function<int(std::shared_ptr<Request>, PhaseHandler *)> checkerr,
+                           std::vector<std::function<int(std::shared_ptr<Request>)>> &&handlerss)
     : checker(checkerr), handlers(handlerss)
 {
 }
 
-int genericPhaseChecker(Request *r, PhaseHandler *ph)
+int genericPhaseChecker(std::shared_ptr<Request> r, PhaseHandler *ph)
 {
     int ret = 0;
 
@@ -82,12 +82,12 @@ int genericPhaseChecker(Request *r, PhaseHandler *ph)
     return OK;
 }
 
-int passPhaseHandler(Request *r)
+int passPhaseHandler(std::shared_ptr<Request> r)
 {
     return PHASE_NEXT;
 }
 
-int contentAccessHandler(Request *r)
+int contentAccessHandler(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Content access handler";
     auto &server = cyclePtr->servers_[r->c->server_idx_];
@@ -277,7 +277,7 @@ autoindex:
     }
 }
 
-int proxyPassHandler(Request *r)
+int proxyPassHandler(std::shared_ptr<Request> r)
 {
     if (r->now_proxy_pass != 1)
     {
@@ -298,7 +298,7 @@ int proxyPassHandler(Request *r)
     return OK;
 }
 
-int initUpstream(Request *r)
+int initUpstream(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Initing upstream";
 
@@ -334,7 +334,7 @@ int initUpstream(Request *r)
     LOG_INFO << "Upstream to: " << ip << ":" << port << newUri << " with FD:" << upc->fd_.getFd();
 
     // setup upstream
-    Upstream *ups = heap.hNew<Upstream>();
+    std::shared_ptr<Upstream> ups(new Upstream());
     r->c->ups_ = ups;
     upc->ups_ = ups;
     ups->c4client = r->c;
@@ -368,9 +368,9 @@ int upstreamRecv(Event *upc_ev)
     int n;
     int ret;
     Connection *upc = upc_ev->c;
-    Upstream *ups = upc->ups_;
-    Request *cr = (Request *)ups->c4client->data_;
-    Request *upsr = (Request *)ups->c4upstream->data_;
+    std::shared_ptr<Upstream> ups = upc->ups_;
+    std::shared_ptr<Request> cr = ups->c4client->data_;
+    std::shared_ptr<Request> upsr = ups->c4upstream->data_;
 
     while (1)
     {
@@ -384,7 +384,7 @@ int upstreamRecv(Event *upc_ev)
             LOG_INFO << "Recv error";
             finalizeRequest(upsr);
             finalizeRequest(cr);
-            heap.hDelete(upc->ups_);
+            // heap.hDelete(upc->ups_);
             return ERROR;
         }
         else if (n == 0)
@@ -392,7 +392,7 @@ int upstreamRecv(Event *upc_ev)
             LOG_INFO << "Upstream server close connection";
             finalizeRequest(upsr);
             finalizeRequest(cr);
-            heap.hDelete(upc->ups_);
+            // heap.hDelete(upc->ups_);
             return ERROR;
         }
         else
@@ -408,7 +408,7 @@ int upstreamRecv(Event *upc_ev)
                 LOG_INFO << "Process error";
                 finalizeRequest(upsr);
                 finalizeRequest(cr);
-                heap.hDelete(upc->ups_);
+                // heap.hDelete(upc->ups_);
                 return ERROR;
             }
             break;
@@ -436,8 +436,8 @@ int upstreamRecv(Event *upc_ev)
 int send2upstream(Event *upc_ev)
 {
     Connection *upc = upc_ev->c;
-    Upstream *ups = upc->ups_;
-    Request *cr = (Request *)upc->ups_->c4client->data_;
+    std::shared_ptr<Upstream> ups = upc->ups_;
+    std::shared_ptr<Request> cr = upc->ups_->c4client->data_;
     int ret = 0;
 
     for (; upc->writeBuffer_.allRead() != 1;)
@@ -457,7 +457,7 @@ int send2upstream(Event *upc_ev)
                 LOG_INFO << "SEND ERR, FINALIZE CONNECTION";
                 finalizeConnection(upc);
                 finalizeRequest(cr);
-                heap.hDelete(upc->ups_);
+                // heap.hDelete(upc->ups_);
                 return ERROR;
             }
         }
@@ -466,7 +466,7 @@ int send2upstream(Event *upc_ev)
             LOG_INFO << "Upstream close connection, FINALIZE CONNECTION";
             finalizeConnection(upc);
             finalizeRequest(cr);
-            heap.hDelete(upc->ups_);
+            // heap.hDelete(upc->ups_);
             return ERROR;
         }
         else
@@ -479,7 +479,7 @@ int send2upstream(Event *upc_ev)
     upc->write_.handler = blockWriting;
 
     ups->process_handler = processStatusLine;
-    Request *upsr = (Request *)heap.hNew<Request>();
+    std::shared_ptr<Request> upsr(new Request());
     upsr->c = ups->c4upstream;
     ups->c4upstream->data_ = upsr;
 
@@ -487,7 +487,7 @@ int send2upstream(Event *upc_ev)
     return upstreamRecv(&upc->read_);
 }
 
-int staticContentHandler(Request *r)
+int staticContentHandler(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Static content handler";
     if (r->headers_out.restype == RES_FILE)
@@ -524,7 +524,7 @@ int staticContentHandler(Request *r)
     return PHASE_NEXT;
 }
 
-int autoIndexHandler(Request *r)
+int autoIndexHandler(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Auto index handler";
     if (r->headers_out.restype != RES_AUTO_INDEX)
@@ -597,7 +597,7 @@ int autoIndexHandler(Request *r)
     return PHASE_NEXT;
 }
 
-int appendResponseLine(Request *r)
+int appendResponseLine(std::shared_ptr<Request> r)
 {
     auto &writebuffer = r->c->writeBuffer_;
     auto &out = r->headers_out;
@@ -606,7 +606,7 @@ int appendResponseLine(Request *r)
 
     return OK;
 }
-int appendResponseHeader(Request *r)
+int appendResponseHeader(std::shared_ptr<Request> r)
 {
     auto &writebuffer = r->c->writeBuffer_;
     auto &out = r->headers_out;
@@ -620,7 +620,7 @@ int appendResponseHeader(Request *r)
     writebuffer.append("\r\n");
     return OK;
 }
-int appendResponseBody(Request *r)
+int appendResponseBody(std::shared_ptr<Request> r)
 {
     // auto &writebuffer = r->c->writeBuffer_;
     auto &out = r->headers_out;
@@ -642,9 +642,10 @@ int appendResponseBody(Request *r)
     return OK;
 }
 
-std::list<std::function<int(Request *)>> responseList{appendResponseLine, appendResponseHeader, appendResponseBody};
+std::list<std::function<int(std::shared_ptr<Request>)>> responseList{appendResponseLine, appendResponseHeader,
+                                                                     appendResponseBody};
 
-int doResponse(Request *r)
+int doResponse(std::shared_ptr<Request> r)
 {
     for (auto &x : responseList)
     {
@@ -661,10 +662,10 @@ int doResponse(Request *r)
 int upsResponse2Client(Event *upc_ev)
 {
     Connection *upc = upc_ev->c;
-    Upstream *ups = upc->ups_;
+    std::shared_ptr<Upstream> ups = upc->ups_;
     Connection *c = ups->c4client;
-    Request *cr = (Request *)c->data_;
-    Request *upsr = (Request *)upc->data_;
+    std::shared_ptr<Request> cr = c->data_;
+    std::shared_ptr<Request> upsr = upc->data_;
     int ret = 0;
 
     LOG_INFO << "Write to client, FD:" << c->fd_.getFd();
@@ -691,18 +692,18 @@ int upsResponse2Client(Event *upc_ev)
                 printf("%s\n", strerror(errno));
                 printf("%d\n", c->fd_.getFd());
                 LOG_INFO << "SEND ERR, FINALIZE CONNECTION";
-                finalizeRequest((Request *)upsr);
-                finalizeRequest((Request *)cr);
-                heap.hDelete(upc->ups_);
+                finalizeRequest(upsr);
+                finalizeRequest(cr);
+                // heap.hDelete(upc->ups_);
                 return ERROR;
             }
         }
         else if (ret == 0)
         {
             LOG_INFO << "Upstream close connection, FINALIZE CONNECTION";
-            finalizeRequest((Request *)upsr);
-            finalizeRequest((Request *)cr);
-            heap.hDelete(upc->ups_);
+            finalizeRequest(upsr);
+            finalizeRequest(cr);
+            // heap.hDelete(upc->ups_);
             return ERROR;
         }
         else
@@ -722,6 +723,6 @@ int upsResponse2Client(Event *upc_ev)
     {
         finalizeRequest(cr);
     }
-    heap.hDelete(ups);
+    // heap.hDelete(ups);
     return OK;
 }

@@ -29,10 +29,10 @@ class Status;
     *(uint32_t *)m == ((c3 << 24) | (c2 << 16) | (c1 << 8) | c0) &&                                                    \
         ((uint32_t *)m)[1] == ((c7 << 24) | (c6 << 16) | (c5 << 8) | c4) && m[8] == c8
 
-int parseRequestLine(Request *r);
-int processRequestUri(Request *r);
-int parseComplexUri(Request *r, int merge_slashes);
-int parseHeaderLine(Request *r, int allow_underscores);
-int parseChunked(Request *r);
-int parseStatusLine(Request *r, Status *status);
+int parseRequestLine(std::shared_ptr<Request> r);
+int processRequestUri(std::shared_ptr<Request> r);
+int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes);
+int parseHeaderLine(std::shared_ptr<Request> r, int allow_underscores);
+int parseChunked(std::shared_ptr<Request> r);
+int parseStatusLine(std::shared_ptr<Request> r, Status *status);
 #endif
