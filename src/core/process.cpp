@@ -51,7 +51,7 @@ void masterProcessCycle(Cycle *cycle)
         return;
     }
 
-    cycle->logger_ = new Logger("log/", "master_loop", 8);
+    cycle->logger_ = new Logger("log/", "master_loop", 1);
 
     LOG_INFO << "Looping";
     for (;;)
@@ -160,15 +160,24 @@ void workerProcessCycle(Cycle *cycle)
         exit(1);
     }
 
+    // listen
+    for (auto &x : cyclePtr->servers_)
+    {
+        if (initListen(cyclePtr, x.port) == ERROR)
+        {
+            LOG_CRIT << "init listen failed";
+        }
+    }
+
     // epoll
-    epoller.setEpollFd(epoll_create(5));
+    epoller.setEpollFd(epoll_create1(0));
     if (!useAcceptMutex)
     {
         for (auto &listen : cycle->listening_)
         {
-            if (epoller.addFd(listen->fd_.getFd(), EPOLLIN, listen) == 0)
+            if (epoller.addFd(listen->fd_.getFd(), EPOLLIN | EPOLLET, listen) == 0)
             {
-                LOG_CRIT << "accept mutex addfd failed, errno:" << strerror(errno);
+                LOG_CRIT << "Listenfd add failed, errno:" << strerror(errno);
             }
         }
     }
@@ -214,7 +223,6 @@ void processEventsAndTimers(Cycle *cycle)
     {
         LOG_INFO << "process events errno: " << strerror(errno);
     }
-
 
     process_posted_events(&posted_accept_events);
 

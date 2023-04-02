@@ -133,8 +133,8 @@ void ConnectionPool::recoverConnection(Connection *c)
     c->readBuffer_.init();
     c->writeBuffer_.init();
 
-    c->data_ = NULL;
-    c->ups_ = NULL;
+    c->data_.reset();
+    c->ups_.reset();
 #endif
 }
 

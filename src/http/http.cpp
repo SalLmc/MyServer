@@ -155,10 +155,10 @@ Connection *addListen(Cycle *cycle, int port)
     listenC->addr_.sin_port = htons(port);
 
     listenC->fd_ = socket(AF_INET, SOCK_STREAM, 0);
-    assert(listenC->fd_.getFd() > 0);
+    assert(listenC->fd_.getFd() >= 0);
 
     int reuse = 1;
-    setsockopt(listenC->fd_.getFd(), SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse));
+    setsockopt(listenC->fd_.getFd(), SOL_SOCKET, SO_REUSEPORT, (const char*)&reuse, sizeof(reuse));
     setnonblocking(listenC->fd_.getFd());
 
     assert(bind(listenC->fd_.getFd(), (sockaddr *)&listenC->addr_, sizeof(listenC->addr_)) == 0);
@@ -226,7 +226,10 @@ int newConnection(Event *ev)
 
         newc->read_.handler = waitRequest;
 
-        epoller.addFd(newc->fd_.getFd(), EPOLLIN | EPOLLET, newc);
+        if (epoller.addFd(newc->fd_.getFd(), EPOLLIN | EPOLLET, newc) == 0)
+        {
+            LOG_WARN << "Add client fd failed, FD:" << newc->fd_.getFd();
+        }
 
         cyclePtr->timer_.Add(newc->fd_.getFd(), getTickMs() + 60000, setEventTimeout, (void *)&newc->read_);
 
@@ -248,9 +251,10 @@ int waitRequest(Event *ev)
     cyclePtr->timer_.Remove(ev->c->fd_.getFd());
 
     Connection *c = ev->c;
-    int len = c->readBuffer_.cRecvFd(c->fd_.getFd(), &errno, 0);
 
     LOG_INFO << "waitRequest recv from FD:" << c->fd_.getFd();
+
+    int len = c->readBuffer_.cRecvFd(c->fd_.getFd(), &errno, 0);
 
     if (len == 0)
     {
@@ -294,9 +298,10 @@ int keepAlive(Event *ev)
     cyclePtr->timer_.Remove(ev->c->fd_.getFd());
 
     Connection *c = ev->c;
-    int len = c->readBuffer_.cRecvFd(c->fd_.getFd(), &errno, 0);
 
     LOG_INFO << "keepAlive recv from FD:" << c->fd_.getFd();
+
+    int len = c->readBuffer_.cRecvFd(c->fd_.getFd(), &errno, 0);
 
     if (len == 0)
     {
@@ -427,7 +432,7 @@ int processRequestHeaders(Event *ev)
             }
 
             int ret = readRequestHeader(r);
-            if (ret == AGAIN || ret == ERROR)
+            if (ret == ERROR || ret == AGAIN)
             {
                 break;
             }
@@ -520,10 +525,10 @@ int readRequestHeader(std::shared_ptr<Request> r)
     Connection *c = r->c;
     assert(c != NULL);
 
-    int n = c->readBuffer_.now->pos;
-    if (n > 0)
+    int n = c->readBuffer_.now->len - c->readBuffer_.now->pos;
+    if (!c->readBuffer_.allRead())
     {
-        return n;
+        return 1;
     }
 
     n = c->readBuffer_.cRecvFd(c->fd_.getFd(), &errno, 0);
@@ -1215,6 +1220,7 @@ int finalizeConnection(Connection *c)
     int fd = c->fd_.getFd();
 
     epoller.delFd(c->fd_.getFd());
+
     cPool.recoverConnection(c);
 
     LOG_INFO << "FINALIZE CONNECTION DONE, FD:" << fd;

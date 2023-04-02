@@ -1,7 +1,7 @@
 #include "../headers.h"
 
-#include "logger.h"
 #include "../util/utils_declaration.h"
+#include "logger.h"
 
 LogLine::LogLine()
 {
@@ -162,6 +162,20 @@ Logger &Logger::operator+=(LogLine &line)
     //     ls_.push_back(std::move(line));
     // }
     // cond_.notify_one();
+    
+    line.buffer_[line.pos++] = '\n';
+    write(fd_, line.buffer_, line.pos);
+
+    struct stat st;
+    int ret = fstat(fd_, &st);
+    if (ret == 0 && st.st_size >= maxFileSize_ * 1048576)
+    {
+        char loc[100];
+        memset(loc, 0, sizeof(loc));
+        sprintf(loc, "%s%s_%d.txt", filePath_, fileName_, cnt++);
+        fd_ = open(loc, O_RDWR | O_CREAT | O_TRUNC, 0666);
+        assert(fd_ >= 0);
+    }
 #else
     spLock.lock();
     ls_.push_back(std::move(line));

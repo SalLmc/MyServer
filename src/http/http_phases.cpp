@@ -124,7 +124,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
 
             r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
-            // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=40");
+            r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
         else
         {
@@ -136,7 +136,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
 
             r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(st.st_size));
-            // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=40");
+            r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
 
         doResponse(r);
@@ -248,7 +248,7 @@ autoindex:
 
             r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
-            // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=40");
+            r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
         else
         {
@@ -260,7 +260,7 @@ autoindex:
 
             r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(st.st_size));
-            // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=40");
+            r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
 
         doResponse(r);
@@ -357,6 +357,7 @@ int initUpstream(std::shared_ptr<Request> r)
 
     // set epoller
     epoller.addFd(upc->fd_.getFd(), EPOLLIN | EPOLLET, upc);
+
     upc->read_.handler = upstreamRecv;
 
     // send
@@ -517,7 +518,7 @@ int staticContentHandler(std::shared_ptr<Request> r)
         r->headers_out.headers.emplace_back("Content-Type", "application/octet-stream");
     }
     r->headers_out.headers.emplace_back("Content-Length", std::to_string(r->headers_out.content_length));
-    // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=40");
+    r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
 
     doResponse(r);
 
@@ -590,7 +591,7 @@ int autoIndexHandler(std::shared_ptr<Request> r)
         r->headers_out.headers.emplace_back("Content-Type", "application/octet-stream");
     }
     r->headers_out.headers.emplace_back("Content-Length", std::to_string(out.str_body.length()));
-    // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=40");
+    r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
 
     doResponse(r);
 

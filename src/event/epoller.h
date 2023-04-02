@@ -24,7 +24,8 @@ class Epoller
 
   private:
     int epollfd_ = -1;
-    std::vector<epoll_event> events_;
+    int size_ = 0;
+    epoll_event *events_;
 };
 
 #endif

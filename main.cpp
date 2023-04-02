@@ -72,14 +72,14 @@ int main(int argc, char *argv[])
                                     std::vector<std::string>{"index.html"});
     cyclePtr->servers_.emplace_back(8082, "/home/sallmc/share", "sdfxcv", "", "", 1, std::vector<std::string>{});
 
-    for (auto &x : cyclePtr->servers_)
-    {
-        if (initListen(cyclePtr, x.port) == ERROR)
-        {
-            LOG_CRIT << "init listen failed";
-            return 1;
-        }
-    }
+    // for (auto &x : cyclePtr->servers_)
+    // {
+    //     if (initListen(cyclePtr, x.port) == ERROR)
+    //     {
+    //         LOG_CRIT << "init listen failed";
+    //         return 1;
+    //     }
+    // }
 
     // accept mutex
     if (useAcceptMutex)

@@ -21,7 +21,8 @@ void process_posted_events(std::list<Event *> *events)
     }
 }
 
-Epoller::Epoller(int max_event) : epollfd_(-1), events_(max_event)
+Epoller::Epoller(int max_event)
+    : epollfd_(-1), size_(max_event), events_((epoll_event *)malloc(sizeof(epoll_event) * size_))
 {
 }
 
@@ -29,6 +30,7 @@ Epoller::~Epoller()
 {
     if (epollfd_ != -1)
         close(epollfd_);
+    free(events_);
 }
 
 int Epoller::setEpollFd(int fd)
@@ -78,7 +80,7 @@ extern Cycle *cyclePtr;
 
 int Epoller::processEvents(int flags, int timeout_ms)
 {
-    int ret = epoll_wait(epollfd_, &events_[0], static_cast<int>(events_.size()), timeout_ms);
+    int ret = epoll_wait(epollfd_, events_, size_, timeout_ms);
     if (ret == -1)
     {
         return -1;
@@ -91,27 +93,42 @@ int Epoller::processEvents(int flags, int timeout_ms)
             continue;
         }
 
-        if (flags & POST_EVENTS)
+        int revents = events_[i].events;
+        if (revents & (EPOLLERR | EPOLLHUP))
         {
-            if (c->read_.type == ACCEPT)
+            printf("EPOLLERR|EPOLLHUP\n");
+            revents |= EPOLLIN | EPOLLOUT;
+        }
+
+        if ((revents & EPOLLIN) && c->read_.handler)
+        {
+            if (flags & POST_EVENTS)
             {
-                posted_accept_events.push_back(&c->read_);
+                if (c->read_.type == ACCEPT)
+                {
+                    posted_accept_events.push_back(&c->read_);
+                }
+                else
+                {
+                    posted_events.push_back(&c->read_);
+                }
             }
             else
             {
-                posted_events.push_back(&c->read_);
+                c->read_.handler(&c->read_);
             }
-            posted_events.push_back(&c->write_);
-            continue;
         }
 
-        if ((events_[i].events & EPOLLIN) && c->read_.handler)
+        if ((revents & EPOLLOUT) && c->write_.handler)
         {
-            c->read_.handler(&c->read_);
-        }
-        if ((events_[i].events & EPOLLOUT) && c->write_.handler)
-        {
-            c->write_.handler(&c->write_);
+            if (flags & POST_EVENTS)
+            {
+                posted_events.push_back(&c->write_);
+            }
+            else
+            {
+                c->write_.handler(&c->write_);
+            }
         }
     }
     return 0;
