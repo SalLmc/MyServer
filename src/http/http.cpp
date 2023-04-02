@@ -158,12 +158,12 @@ Connection *addListen(Cycle *cycle, int port)
     assert(listenC->fd_.getFd() >= 0);
 
     int reuse = 1;
-    setsockopt(listenC->fd_.getFd(), SOL_SOCKET, SO_REUSEPORT, (const char*)&reuse, sizeof(reuse));
+    setsockopt(listenC->fd_.getFd(), SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse, sizeof(reuse));
     setnonblocking(listenC->fd_.getFd());
 
     assert(bind(listenC->fd_.getFd(), (sockaddr *)&listenC->addr_, sizeof(listenC->addr_)) == 0);
 
-    assert(listen(listenC->fd_.getFd(), 5) == 0);
+    assert(listen(listenC->fd_.getFd(), 1024) == 0);
 
     return listenC;
 }
@@ -200,8 +200,10 @@ Connection *addListen(Cycle *cycle, int port)
 
 int newConnection(Event *ev)
 {
+#ifdef LOOP_ACCEPT
     while (1)
     {
+#endif
         Connection *newc = cPool.getNewConnection();
         if (newc == NULL)
         {
@@ -234,7 +236,9 @@ int newConnection(Event *ev)
         cyclePtr->timer_.Add(newc->fd_.getFd(), getTickMs() + 60000, setEventTimeout, (void *)&newc->read_);
 
         LOG_INFO << "NEW CONNECTION FROM FD:" << ev->c->fd_.getFd() << ", WITH FD:" << newc->fd_.getFd();
+#ifdef LOOP_ACCEPT
     }
+#endif
 
     return 0;
 }

@@ -96,7 +96,7 @@ int Epoller::processEvents(int flags, int timeout_ms)
         int revents = events_[i].events;
         if (revents & (EPOLLERR | EPOLLHUP))
         {
-            printf("EPOLLERR|EPOLLHUP\n");
+            // printf("EPOLLERR|EPOLLHUP\n");
             revents |= EPOLLIN | EPOLLOUT;
         }
 

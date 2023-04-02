@@ -5,6 +5,7 @@
 
 // #define USE_ATOMIC_LOCK
 // #define RE_ALLOC
+// #define LOOP_ACCEPT
 
 extern bool isChild;
 extern bool quit;

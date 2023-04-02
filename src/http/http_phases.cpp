@@ -690,8 +690,8 @@ int upsResponse2Client(Event *upc_ev)
             }
             else
             {
-                printf("%s\n", strerror(errno));
-                printf("%d\n", c->fd_.getFd());
+                // printf("%s\n", strerror(errno));
+                // printf("%d\n", c->fd_.getFd());
                 LOG_INFO << "SEND ERR, FINALIZE CONNECTION";
                 finalizeRequest(upsr);
                 finalizeRequest(cr);

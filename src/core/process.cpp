@@ -175,7 +175,8 @@ void workerProcessCycle(Cycle *cycle)
     {
         for (auto &listen : cycle->listening_)
         {
-            if (epoller.addFd(listen->fd_.getFd(), EPOLLIN | EPOLLET, listen) == 0)
+            // use LT on listenfd
+            if (epoller.addFd(listen->fd_.getFd(), EPOLLIN, listen) == 0)
             {
                 LOG_CRIT << "Listenfd add failed, errno:" << strerror(errno);
             }
