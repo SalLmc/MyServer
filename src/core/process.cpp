@@ -51,6 +51,7 @@ void masterProcessCycle(Cycle *cycle)
         return;
     }
 
+    // logger
     cycle->logger_ = new Logger("log/", "master_loop", 1);
 
     LOG_INFO << "Looping";

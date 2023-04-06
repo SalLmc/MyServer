@@ -163,7 +163,7 @@ Connection *addListen(Cycle *cycle, int port)
 
     assert(bind(listenC->fd_.getFd(), (sockaddr *)&listenC->addr_, sizeof(listenC->addr_)) == 0);
 
-    assert(listen(listenC->fd_.getFd(), 1024) == 0);
+    assert(listen(listenC->fd_.getFd(), 4096) == 0);
 
     return listenC;
 }

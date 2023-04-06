@@ -4,35 +4,39 @@
 
 int main()
 {
-    int fds[2];
-    for (int i = 0; i < 2; i++)
-    {
-        int listenfd = socket(AF_INET, SOCK_STREAM, 0);
+    // int fd=open("nohup.out",O_RDONLY);
+    // assert(fd>=0);
+    // int fd2=open("nohup.out",O_RDONLY);
+    // assert(fd2>=0);
 
-        int reuse = 1;
-        setsockopt(listenfd, SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse, sizeof(reuse));
-        setnonblocking(listenfd);
+    int listenfd = socket(AF_INET, SOCK_STREAM, 0);
 
-        sockaddr_in addr;
-        addr.sin_family = AF_INET;
-        addr.sin_addr.s_addr = INADDR_ANY;
-        addr.sin_port = htons(8081);
+    int reuse = 1;
+    setsockopt(listenfd, SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse, sizeof(reuse));
+    setnonblocking(listenfd);
 
-        bind(listenfd, (sockaddr *)&addr, sizeof(addr));
-        listen(listenfd, 5);
+    sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons(8081);
 
-        fds[i] = listenfd;
-    }
+    bind(listenfd, (sockaddr *)&addr, sizeof(addr));
+    listen(listenfd, 5);
+
+    int epfd = epoll_create1(0);
+    struct epoll_event event;
+    event.data.fd = epfd;
+    event.events = EPOLLIN | EPOLLEXCLUSIVE;
+    epoll_ctl(epfd, EPOLL_CTL_ADD, listenfd, &event);
 
     int pid = fork();
     if (pid == 0)
     {
-        int epfd = epoll_create1(0);
-        struct epoll_event event;
-        event.data.fd = epfd;
-        event.events = EPOLLIN | EPOLLET | EPOLLEXCLUSIVE;
-        epoll_ctl(epfd, EPOLL_CTL_ADD, fds[0], &event);
-
+        // int epfd = epoll_create1(0);
+        // struct epoll_event event;
+        // event.data.fd = epfd;
+        // event.events = EPOLLIN | EPOLLEXCLUSIVE;
+        // epoll_ctl(epfd, EPOLL_CTL_ADD, listenfd, &event);
         epoll_event events[1024] = {0};
         while (1)
         {
@@ -46,12 +50,11 @@ int main()
     }
     else
     {
-        int epfd = epoll_create1(0);
-        struct epoll_event event;
-        event.data.fd = epfd;
-        event.events = EPOLLIN | EPOLLET | EPOLLEXCLUSIVE;
-        epoll_ctl(epfd, EPOLL_CTL_ADD, fds[0], &event);
-
+        // int epfd = epoll_create1(0);
+        // struct epoll_event event;
+        // event.data.fd = epfd;
+        // event.events = EPOLLIN | EPOLLEXCLUSIVE;
+        // epoll_ctl(epfd, EPOLL_CTL_ADD, listenfd, &event);
         epoll_event events[1024] = {0};
         while (1)
         {
