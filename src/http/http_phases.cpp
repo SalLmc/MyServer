@@ -354,12 +354,6 @@ int initUpstream(std::shared_ptr<Request> r)
     {
         wb.append(x.toString());
     }
-
-    // set epoller
-    epoller.addFd(upc->fd_.getFd(), EPOLLIN | EPOLLET, upc);
-
-    upc->read_.handler = upstreamRecv;
-
     // send
     return send2upstream(&upc->write_);
 }
@@ -418,6 +412,12 @@ int upstreamRecv(Event *upc_ev)
 
     LOG_INFO << "Upstream recv done";
 
+    // for (auto &x : upsr->request_body.lbody)
+    // {
+    //     printf("%s", x.toString().c_str());
+    // }
+    // printf("\n");
+
     upsr->c->writeBuffer_.append("HTTP/1.1 " + std::string(ups->ctx.status.start, ups->ctx.status.end) + "\r\n");
     for (auto &x : upsr->headers_in.headers)
     {
@@ -429,7 +429,14 @@ int upstreamRecv(Event *upc_ev)
         upsr->c->writeBuffer_.append(x.toString());
     }
 
-    // printf("%s\n", upc->writeBuffer_.allToStr().c_str());
+    // auto now = upc->writeBuffer_.now;
+    // for (; now; now = now->next)
+    // {
+    //     if (now->len == 0)
+    //         break;
+    //     printf("%s", std::string(now->start + now->pos, now->start + now->len).c_str());
+    // }
+    // printf("\n");
 
     return upsResponse2Client(&upc->write_);
 }
@@ -445,13 +452,20 @@ int send2upstream(Event *upc_ev)
     {
         ret = upc->writeBuffer_.sendFd(upc->fd_.getFd(), &errno, 0);
 
+        if (upc->writeBuffer_.allRead())
+        {
+            break;
+        }
+
         if (ret < 0)
         {
             if (errno == EAGAIN)
             {
-                epoller.modFd(upc->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, upc);
-                upc->write_.handler = send2upstream;
-                return AGAIN;
+                if (epoller.modFd(upc->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, upc))
+                {
+                    upc->write_.handler = send2upstream;
+                    return AGAIN;
+                }
             }
             else
             {
@@ -485,6 +499,11 @@ int send2upstream(Event *upc_ev)
     ups->c4upstream->data_ = upsr;
 
     LOG_INFO << "Send client data to upstream complete";
+
+    // set epoller
+    assert(epoller.addFd(upc->fd_.getFd(), EPOLLIN | EPOLLET, upc));
+    upc->read_.handler = upstreamRecv;
+
     return upstreamRecv(&upc->read_);
 }
 
@@ -671,22 +690,24 @@ int upsResponse2Client(Event *upc_ev)
 
     LOG_INFO << "Write to client, FD:" << c->fd_.getFd();
 
-    // for (auto &x : upc->writeBuffer_.nodes)
-    // {
-    //     printf("%s", std::string(x.start + x.pos, x.start + x.len).c_str());
-    // }
-
     for (; upc->writeBuffer_.allRead() != 1;)
     {
         ret = upc->writeBuffer_.sendFd(c->fd_.getFd(), &errno, 0);
+
+        if (upc->writeBuffer_.allRead())
+        {
+            break;
+        }
 
         if (ret < 0)
         {
             if (errno == EAGAIN)
             {
-                epoller.modFd(upc->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, upc);
-                upc->write_.handler = upsResponse2Client;
-                return AGAIN;
+                if (epoller.modFd(upc->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, upc))
+                {
+                    upc->write_.handler = upsResponse2Client;
+                    return AGAIN;
+                }
             }
             else
             {

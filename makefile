@@ -10,7 +10,7 @@ ARSTATICLIB = ar rcs $@ $^
 CPPSHARELIB = g++ -fPIC -shared $^ -o $@
 
 LINK = -pthread
-FLAGS = -Wall -fPIC
+FLAGS = -Wall -fPIC -g
 
 BUILDEXEWITHLIB = g++ $(FLAGS) $^ ./libmy.so -o $@ $(LINK)
 BUILDEXE = g++ $(FLAGS) $^ -o $@ $(LINK)

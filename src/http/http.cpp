@@ -752,44 +752,26 @@ int processBody(std::shared_ptr<Request> upsr)
 
     upsr->request_body.rest = -1;
 
+    // for (auto &x : upsr->c->readBuffer_.nodes)
+    // {
+    //     if (x.len == 0)
+    //         break;
+    //     printf("%s", std::string(x.start, x.start + x.len).c_str());
+    // }
+    // printf("\n");
+
     ret = processRequestBody(upsr);
 
-    if (upsr->headers_in.chunked)
+    if (ret == OK)
     {
-        if (ret == OK || ret == AGAIN)
-        {
-            return AGAIN;
-        }
-        if (ret == DONE)
-        {
-            upsr->c->read_.handler = blockReading;
-            LOG_INFO << "Upstream process body done";
-            return OK;
-        }
-        if (ret == ERROR)
-        {
-            return ERROR;
-        }
+        upsr->c->read_.handler = blockReading;
+        LOG_INFO << "Upstream process body done";
+        return OK;
     }
     else
     {
-        if (ret == OK)
-        {
-            if (upsr->request_body.rest == 0)
-            {
-                upsr->c->read_.handler = blockReading;
-                LOG_INFO << "Upstream process body done";
-            }
-            else
-            {
-                return AGAIN;
-            }
-        }
-
         return ret;
     }
-
-    return ERROR;
 }
 
 int runPhases(Event *ev)
@@ -886,7 +868,7 @@ int blockWriting(Event *ev)
     return OK;
 }
 
-// @return OK DONE AGAIN ERROR
+// @return OK AGAIN ERROR
 int processRequestBody(std::shared_ptr<Request> r)
 {
     if (r->headers_in.chunked)
@@ -899,7 +881,7 @@ int processRequestBody(std::shared_ptr<Request> r)
     }
 }
 
-// @return OK ERROR
+// @return OK AGAIN ERROR
 int requestBodyLength(std::shared_ptr<Request> r)
 {
     auto &buffer = r->c->readBuffer_;
@@ -931,17 +913,20 @@ int requestBodyLength(std::shared_ptr<Request> r)
             {
                 buffer.now = buffer.now->next;
             }
-            // else
-            // {
-            //     buffer.allread = 1;
-            // }
         }
     }
 
-    return OK;
+    if (rb.rest == 0)
+    {
+        return OK;
+    }
+    else
+    {
+        return AGAIN;
+    }
 }
 
-// @return OK DONE AGAIN ERROR
+// @return OK AGAIN ERROR
 int requestBodyChunked(std::shared_ptr<Request> r)
 {
     auto &buffer = r->c->readBuffer_;
@@ -960,14 +945,14 @@ int requestBodyChunked(std::shared_ptr<Request> r)
 
         if (ret == OK)
         {
-            // a chunk has been parse successfully
+            // a chunk has been parse successfully, keep going
             continue;
         }
 
         if (ret == DONE)
         {
             rb.rest = 0;
-            break;
+            return OK;
         }
 
         if (ret == AGAIN)
@@ -977,22 +962,24 @@ int requestBodyChunked(std::shared_ptr<Request> r)
                 if (buffer.now->next != NULL)
                 {
                     buffer.now = buffer.now->next;
+                    // since there are still data left, keep parsing
                     continue;
                 }
-                // else
-                // {
-                //     buffer.allread = 1;
-                //     break;
-                // }
             }
+            // need to recv more
+            return AGAIN;
         }
 
-        // invalid
-        LOG_INFO << "ERROR";
-        return ERROR;
+        if (ret == ERROR)
+        {
+            // invalid
+            LOG_INFO << "ERROR";
+            return ERROR;
+        }
     }
 
-    return ret;
+    LOG_INFO << "ERROR";
+    return ERROR;
 }
 
 // @return OK AGAIN ERROR
@@ -1008,7 +995,7 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
         r->c->read_.handler = blockReading;
         if (post_handler)
         {
-            LOG_INFO << "to post_handler";
+            LOG_INFO << "To post_handler";
             post_handler(r);
         }
         return OK;
@@ -1021,8 +1008,9 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
 
     ret = processRequestBody(r);
 
-    if (ret != OK && ret != DONE)
+    if (ret == ERROR)
     {
+        LOG_INFO << "ERROR";
         return ret;
     }
 
@@ -1081,11 +1069,12 @@ int readRequestBodyInner(Event *ev)
             r->request_length += ret;
             ret = processRequestBody(r);
 
-            if (ret != OK && ret != DONE)
+            if (ret == OK)
             {
-                return ret;
+                break;
             }
-            // OK | DONE continue
+
+            return ret;
         }
     }
 

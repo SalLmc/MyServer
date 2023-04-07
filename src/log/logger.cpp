@@ -160,7 +160,7 @@ Logger &Logger::operator+=(LogLine &line)
     {
         std::unique_lock<std::mutex> ulock(mutex_);
         ls_.push_back(std::move(line));
-        if (ls_.size() >= 100)
+        if (ls_.size() >= 1)
         {
             cond_.notify_one();
         }

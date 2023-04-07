@@ -88,6 +88,7 @@ class LinkedBuffer
     void append(const char *data, size_t len);
     void append(const std::string &str);
     void retrieve(size_t len);
+    void retrieveAll();
 };
 
 #endif // BUFFER_H
