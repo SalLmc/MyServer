@@ -3,7 +3,7 @@
 
 #define MAX_PROCESS_N 16
 
-#define PROCESS 2
+#define PROCESS 1
 
 // #define USE_ATOMIC_LOCK
 // #define RE_ALLOC
