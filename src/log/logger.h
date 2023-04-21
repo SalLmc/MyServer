@@ -90,12 +90,8 @@ class Logger
 
     std::atomic<State> state;
 
-#ifndef USE_ATOMIC_LOCK
     std::mutex mutex_;
     std::condition_variable cond_;
-#else
-    AtomicSpinlock spLock;
-#endif
 
     std::thread writeThread;
 };

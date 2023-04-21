@@ -5,10 +5,10 @@
 
 #define PROCESS 1
 
-// #define USE_ATOMIC_LOCK
 // #define RE_ALLOC
 // #define LOOP_ACCEPT
 #define ENABLE_LOGGER
+// #define LOGGER_IS_SYNC
 
 extern bool isChild;
 extern bool quit;

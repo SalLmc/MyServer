@@ -142,12 +142,12 @@ Logger::Logger(const char *path, const char *name, unsigned int size_mb)
 Logger::~Logger()
 {
     state.store(State::SHUTDOWN);
-#ifndef USE_ATOMIC_LOCK
+
     {
         std::unique_lock<std::mutex> ulock(mutex_);
         cond_.notify_all();
     }
-#endif
+
     writeThread.join();
     if (fd_ != -1)
     {
@@ -158,7 +158,7 @@ Logger &Logger::operator+=(LogLine &line)
 {
 #ifdef ENABLE_LOGGER
 
-#ifndef USE_ATOMIC_LOCK
+#ifndef LOGGER_IS_SYNC
     {
         std::unique_lock<std::mutex> ulock(mutex_);
         ls_.push_back(std::move(line));
@@ -168,9 +168,8 @@ Logger &Logger::operator+=(LogLine &line)
         }
     }
 #else
-    spLock.lock();
     ls_.push_back(std::move(line));
-    spLock.unlock();
+    write2FileInner();
 #endif
 
 #endif
@@ -186,27 +185,12 @@ void Logger::write2File()
 
     while (state.load() == State::ACTIVE)
     {
-#ifndef USE_ATOMIC_LOCK
         std::unique_lock<std::mutex> ulock(mutex_);
         while (ls_.empty() && state.load() == State::ACTIVE)
         {
             cond_.wait(ulock);
         }
         write2FileInner();
-#else
-        if (spLock.tryLock())
-        {
-            if (!ls_.empty())
-            {
-                write2FileInner();
-            }
-            spLock.unlock();
-        }
-        else
-        {
-            asm_pause();
-        }
-#endif
     }
 
     write2FileInner();
