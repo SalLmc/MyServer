@@ -32,9 +32,8 @@ LogLine::LogLine(Level level, char const *file, char const *function, unsigned i
     auto timeStamp_ = getTickMs();
     auto shortTime = timeStamp_ / 1000;
     std::time_t time_t = shortTime;
-    auto gmtime = std::gmtime(&time_t);
-    gmtime->tm_hour += 8;
-    strftime(buffer_ + pos, 23, "[%Y-%m-%d %H:%M:%S] ", gmtime);
+    auto lctime = std::localtime(&time_t);
+    strftime(buffer_ + pos, 23, "[%Y-%m-%d %H:%M:%S] ", lctime);
     pos += 22;
 
     // pid

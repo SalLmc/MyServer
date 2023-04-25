@@ -405,8 +405,10 @@ int processRequestLine(Event *ev)
 
         if (r->c->readBuffer_.now->pos == r->c->readBuffer_.now->len)
         {
-            r->c->readBuffer_.nodes.emplace_back();
-            r->c->readBuffer_.now = &r->c->readBuffer_.nodes.back();
+            if (r->c->readBuffer_.now->next)
+            {
+                r->c->readBuffer_.now = r->c->readBuffer_.now->next;
+            }
         }
     }
     return OK;
@@ -431,8 +433,10 @@ int processRequestHeaders(Event *ev)
         {
             if (r->c->readBuffer_.now->pos == r->c->readBuffer_.now->len)
             {
-                r->c->readBuffer_.nodes.emplace_back();
-                r->c->readBuffer_.now = &r->c->readBuffer_.nodes.back();
+                if (r->c->readBuffer_.now->next)
+                {
+                    r->c->readBuffer_.now = r->c->readBuffer_.now->next;
+                }
             }
 
             int ret = readRequestHeader(r);
