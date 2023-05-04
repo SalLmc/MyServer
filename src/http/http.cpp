@@ -499,9 +499,10 @@ int processRequestHeaders(Event *ev)
                 break;
             }
 
-            // LOG_INFO<<"Content length:"<<r->headers_in.content_length;
-            // LOG_INFO<<"Chunked:"<<r->headers_in.chunked;
-            // LOG_INFO<<"Connection type:"<<r->headers_in.connection_type;
+            LOG_INFO << "Host: "
+                     << (r->headers_in.header_name_value_map.count("Host")
+                             ? r->headers_in.header_name_value_map["Host"].value
+                             : r->headers_in.header_name_value_map["host"].value);
 
             processRequest(r);
 
