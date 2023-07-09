@@ -75,6 +75,7 @@ void masterProcessCycle(Cycle *cycle)
 
 void startWorkerProcesses(Cycle *cycle, int n)
 {
+    n = std::min(n, MAX_PROCESS_N);
     for (int i = 0; i < n && !isChild; i++)
     {
         spawnProcesses(cycle, workerProcessCycle);
