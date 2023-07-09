@@ -93,7 +93,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
     auto &server = cyclePtr->servers_[r->c->server_idx_];
     std::string uri = std::string(r->uri.data, r->uri.data + r->uri.len);
     std::string path;
-    int fd;
+    Fd fd;
 
     // proxy_pass
     if (server.proxy_pass.from != "")
@@ -112,14 +112,14 @@ int contentAccessHandler(std::shared_ptr<Request> r)
         r->headers_out.status = HTTP_FORBIDDEN;
         r->headers_out.status_line = "HTTP/1.1 403 FORBIDDEN\r\n";
 
-        std::string _403_path = cyclePtr->servers_[r->c->server_idx_].root + "/403.html";
-        Fd _403fd = open(_403_path.c_str(), O_RDONLY);
+        std::string _403_path = "/home/sallmc/VSCode/MyServer/static/403.html";
+        Fd _403fd(open(_403_path.c_str(), O_RDONLY));
         if (_403fd.getFd() < 0)
         {
             r->headers_out.restype = RES_STR;
             auto &str = r->headers_out.str_body;
             str.append("<html>\n<head>\n\t<title>403 Forbidden</title>\n</head>\n");
-            str.append("<body>\n\t<center>\n\t\t<h1>404 "
+            str.append("<body>\n\t<center>\n\t\t<h1>403 "
                        "Forbidden</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
 
             r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));
@@ -131,7 +131,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
             r->headers_out.restype = RES_FILE;
             struct stat st;
             fstat(_403fd.getFd(), &st);
-            r->headers_out.file_body.filefd = _403fd;
+            r->headers_out.file_body.filefd = std::move(_403fd);
             r->headers_out.file_body.file_size = st.st_size;
 
             r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));
@@ -150,7 +150,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
         path = server.root + "/" + server.index;
         fd = open(path.c_str(), O_RDONLY);
 
-        if (fd >= 0) // return index if exist
+        if (fd.getFd() >= 0) // return index if exist
         {
             exten_save[0] = 'h', exten_save[1] = 't', exten_save[2] = 'm', exten_save[3] = 'l', exten_save[4] = '\0';
             r->exten.data = exten_save;
@@ -168,10 +168,10 @@ int contentAccessHandler(std::shared_ptr<Request> r)
         path = server.root + uri;
         fd = open(path.c_str(), O_RDONLY);
 
-        if (fd >= 0)
+        if (fd.getFd() >= 0)
         {
             struct stat st;
-            fstat(fd, &st);
+            fstat(fd.getFd(), &st);
             if (st.st_mode & S_IFDIR)
             {
                 goto autoindex;
@@ -188,10 +188,10 @@ int contentAccessHandler(std::shared_ptr<Request> r)
             {
                 path = server.root + "/" + name;
                 fd = open(path.c_str(), O_RDONLY);
-                if (fd >= 0)
+                if (fd.getFd() >= 0)
                 {
                     struct stat st;
-                    fstat(fd, &st);
+                    fstat(fd.getFd(), &st);
                     if (!(st.st_mode & S_IFDIR))
                     {
                         auto pos = path.find('.');
@@ -214,17 +214,18 @@ int contentAccessHandler(std::shared_ptr<Request> r)
     }
 
 fileok:
-    if (fd >= 0)
+    if (fd.getFd() >= 0)
     {
         r->headers_out.status = HTTP_OK;
         r->headers_out.status_line = "HTTP/1.1 200 OK\r\n";
         r->headers_out.restype = RES_FILE;
-        // close fd after sendfile in writeResponse
-        r->headers_out.file_body.filefd = fd;
 
         struct stat st;
-        fstat(fd, &st);
+        fstat(fd.getFd(), &st);
         r->headers_out.file_body.file_size = st.st_size;
+
+        // close fd after sendfile in writeResponse
+        r->headers_out.file_body.filefd = std::move(fd);
 
         return PHASE_NEXT;
     }
@@ -236,8 +237,8 @@ autoindex:
         r->headers_out.status = HTTP_NOT_FOUND;
         r->headers_out.status_line = "HTTP/1.1 404 NOT FOUND\r\n";
 
-        std::string _404_path = cyclePtr->servers_[r->c->server_idx_].root + "/404.html";
-        Fd _404fd = open(_404_path.c_str(), O_RDONLY);
+        std::string _404_path = "/home/sallmc/VSCode/MyServer/static/404.html";
+        Fd _404fd(open(_404_path.c_str(), O_RDONLY));
         if (_404fd.getFd() < 0)
         {
             r->headers_out.restype = RES_STR;
@@ -255,7 +256,7 @@ autoindex:
             r->headers_out.restype = RES_FILE;
             struct stat st;
             fstat(_404fd.getFd(), &st);
-            r->headers_out.file_body.filefd = _404fd;
+            r->headers_out.file_body.filefd = std::move(_404fd);
             r->headers_out.file_body.file_size = st.st_size;
 
             r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));

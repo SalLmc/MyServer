@@ -52,6 +52,8 @@ class Fd
     bool operator!=(int fd);
     bool operator!=(Fd fd);
     void operator=(int fd);
+    void operator=(Fd &&fd);
+    Fd &operator=(const Fd &) = delete;
 
   private:
     int fd_;

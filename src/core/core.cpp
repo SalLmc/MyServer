@@ -58,6 +58,11 @@ void Fd::operator=(int fd)
 {
     fd_ = fd;
 }
+void Fd::operator=(Fd &&fd)
+{
+    fd_ = fd.fd_;
+    fd.fd_ = -1;
+}
 
 Event::Event(Connection *cc) : handler(NULL), c(cc), type(NORMAL), timeout(NOT_TIMEOUT)
 {

@@ -56,7 +56,7 @@ failed:
 
 int writePid2File()
 {
-    Fd filefd = open("pid_file", O_CREAT | O_RDWR, 0666);
+    Fd filefd(open("pid_file", O_CREAT | O_RDWR, 0666));
     if (filefd.getFd() < 0)
     {
         return ERROR;
@@ -72,7 +72,7 @@ int writePid2File()
 
 pid_t readPidFromFile()
 {
-    Fd filefd = open("pid_file", O_RDWR);
+    Fd filefd(open("pid_file", O_RDWR));
     if (filefd.getFd() < 0)
     {
         return ERROR;
