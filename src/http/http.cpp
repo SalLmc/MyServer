@@ -504,6 +504,8 @@ int processRequestHeaders(Event *ev)
                              ? r->headers_in.header_name_value_map["Host"].value
                              : r->headers_in.header_name_value_map["host"].value);
 
+            LOG_INFO << "Port: " << cyclePtr->servers_[r->c->server_idx_].port;
+
             processRequest(r);
 
             break;
@@ -821,6 +823,7 @@ int writeResponse(Event *ev)
         if (len < 0 && errno != EAGAIN)
         {
             LOG_CRIT << "write response failed";
+            finalizeRequest(r);
             return ERROR;
         }
 
