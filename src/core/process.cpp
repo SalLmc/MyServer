@@ -1,4 +1,5 @@
-#include "process.h"
+#include "../headers.h"
+
 #include "../core/core.h"
 #include "../event/epoller.h"
 #include "../event/event.h"
@@ -6,6 +7,7 @@
 #include "../http/http.h"
 #include "../log/logger.h"
 #include "../util/utils_declaration.h"
+#include "process.h"
 
 #include "../memory/memory_manage.hpp"
 
@@ -43,12 +45,13 @@ void masterProcessCycle(Cycle *cycle)
 
     // start processes
     isChild = 0;
-    startWorkerProcesses(cycle, 8);
+    startWorkerProcesses(cycle, PROCESS);
     if (isChild)
     {
         return;
     }
 
+    // logger
     cycle->logger_ = new Logger("log/", "master_loop", 1);
 
     LOG_INFO << "Looping";
@@ -72,6 +75,7 @@ void masterProcessCycle(Cycle *cycle)
 
 void startWorkerProcesses(Cycle *cycle, int n)
 {
+    n = std::min(n, MAX_PROCESS_N);
     for (int i = 0; i < n && !isChild; i++)
     {
         spawnProcesses(cycle, workerProcessCycle);
@@ -97,6 +101,11 @@ pid_t spawnProcesses(Cycle *cycle, std::function<void(Cycle *)> proc)
         isChild = 1;
         processes[slot].pid = getpid();
         processes[slot].status = ACTIVE;
+
+        // cpu_set_t set;
+        // CPU_ZERO(&set);
+        // CPU_SET(slot % cores, &set);
+        // sched_setaffinity(pid, sizeof(set), &set);
 
         // processes[slot].channel[1].read_.c = &processes[slot].channel[1];
         // processes[slot].channel[1].read_.c->read_.handler = recvFromMaster;
@@ -158,21 +167,31 @@ void workerProcessCycle(Cycle *cycle)
         exit(1);
     }
 
+    // listen
+    for (auto &x : cyclePtr->servers_)
+    {
+        if (initListen(cyclePtr, x.port) == ERROR)
+        {
+            LOG_CRIT << "init listen failed";
+        }
+    }
+
     // epoll
-    epoller.setEpollFd(epoll_create(5));
+    epoller.setEpollFd(epoll_create1(0));
     if (!useAcceptMutex)
     {
-        for (auto listen : cycle->listening_)
+        for (auto &listen : cycle->listening_)
         {
-            if (epoller.addFd(listen->fd_.getFd(), EPOLLIN | EPOLLET, listen) == 0)
+            // use LT on listenfd
+            if (epoller.addFd(listen->fd_.getFd(), EPOLLIN, listen) == 0)
             {
-                LOG_CRIT << "accept mutex addfd failed, errno:" << strerror(errno);
+                LOG_CRIT << "Listenfd add failed, errno:" << strerror(errno);
             }
         }
     }
 
     // timer
-    cyclePtr->timer_.Add(-1, getTickMs() + 15000, recoverRequests, NULL);
+    // cyclePtr->timer_.Add(-1, getTickMs() + 15000, recoverRequests, NULL);
 
     LOG_INFO << "Worker Looping";
     for (;;)
@@ -207,7 +226,11 @@ void processEventsAndTimers(Cycle *cycle)
         }
     }
 
-    epoller.processEvents(flags, 0);
+    int ret = epoller.processEvents(flags, 1);
+    if (ret == -1)
+    {
+        LOG_INFO << "process events errno: " << strerror(errno);
+    }
 
     process_posted_events(&posted_accept_events);
 

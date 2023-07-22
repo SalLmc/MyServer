@@ -1,10 +1,6 @@
+#include "../headers.h"
+
 #include "buffer.h"
-#include <assert.h>
-#include <cstring> //perror
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/uio.h> //readv
-#include <unistd.h>  // write
 
 Buffer::Buffer(int buff_size) : buffer_(buff_size), read_pos_(0), write_pos_(0)
 {
@@ -214,7 +210,7 @@ void LinkedBufferNode::init(size_t size)
 
 std::string LinkedBufferNode::toString()
 {
-    return std::string(start + pos, start + pos + len);
+    return std::string(start + pos, start + len);
 }
 
 LinkedBufferNode::~LinkedBufferNode()
@@ -368,10 +364,6 @@ void LinkedBuffer::append(u_char *data, size_t len)
 
 void LinkedBuffer::append(const char *data, size_t len)
 {
-    // if (len > 0)
-    // {
-    //     allread = 0;
-    // }
     size_t copied = 0;
     auto now = &nodes.back();
 
@@ -395,7 +387,7 @@ void LinkedBuffer::append(const char *data, size_t len)
         else
         {
             std::copy(data + copied, data + len, now->start + now->len);
-            now->len += len;
+            now->len += len - copied;
             return;
         }
     }
@@ -429,6 +421,19 @@ void LinkedBuffer::retrieve(size_t len)
             {
                 now = now->next;
             }
+        }
+    }
+    return;
+}
+
+void LinkedBuffer::retrieveAll()
+{
+    while (allRead() != 1)
+    {
+        now->pos = now->len;
+        if (now->next)
+        {
+            now = now->next;
         }
     }
     return;

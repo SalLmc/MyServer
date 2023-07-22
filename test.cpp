@@ -1,27 +1,69 @@
-#include <arpa/inet.h>
-#include <assert.h>
-#include <atomic>
-#include <fcntl.h>
-#include <netinet/in.h>
-#include <poll.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/file.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <unordered_map>
+#include "src/headers.h"
 
-#include "src/core/core.h"
+#include "src/util/utils_declaration.h"
 
 int main()
 {
-    ServerAttribute a(8081, "/home/sallmc/dist", "index.html", "/api/", "http://175.178.175.106:8080/", 0,{"index.html"});
+    // int fd=open("nohup.out",O_RDONLY);
+    // assert(fd>=0);
+    // int fd2=open("nohup.out",O_RDONLY);
+    // assert(fd2>=0);
 
-    for(auto &x:a.try_files)
+    int listenfd = socket(AF_INET, SOCK_STREAM, 0);
+
+    int reuse = 1;
+    setsockopt(listenfd, SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse, sizeof(reuse));
+    setnonblocking(listenfd);
+
+    sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons(8081);
+
+    bind(listenfd, (sockaddr *)&addr, sizeof(addr));
+    listen(listenfd, 5);
+
+    int epfd = epoll_create1(0);
+    struct epoll_event event;
+    event.data.fd = epfd;
+    event.events = EPOLLIN | EPOLLEXCLUSIVE;
+    epoll_ctl(epfd, EPOLL_CTL_ADD, listenfd, &event);
+
+    int pid = fork();
+    if (pid == 0)
     {
-        printf("%s\n",x.c_str());
+        // int epfd = epoll_create1(0);
+        // struct epoll_event event;
+        // event.data.fd = epfd;
+        // event.events = EPOLLIN | EPOLLEXCLUSIVE;
+        // epoll_ctl(epfd, EPOLL_CTL_ADD, listenfd, &event);
+        epoll_event events[1024] = {0};
+        while (1)
+        {
+            int len = epoll_wait(epfd, events, 1024, 1);
+
+            for (int i = 0; i < len; i++)
+            {
+                printf("%d %d\n", getpid(), events[i].data.fd);
+            }
+        }
+    }
+    else
+    {
+        // int epfd = epoll_create1(0);
+        // struct epoll_event event;
+        // event.data.fd = epfd;
+        // event.events = EPOLLIN | EPOLLEXCLUSIVE;
+        // epoll_ctl(epfd, EPOLL_CTL_ADD, listenfd, &event);
+        epoll_event events[1024] = {0};
+        while (1)
+        {
+            int len = epoll_wait(epfd, events, 1024, 1);
+
+            for (int i = 0; i < len; i++)
+            {
+                printf("%d %d\n", getpid(), events[i].data.fd);
+            }
+        }
     }
 }

@@ -1,8 +1,10 @@
+#include "../headers.h"
+
 #include "../global.h"
 #include "utils_declaration.h"
-#include <cstring>
 
-SignalWrapper signals[] = {{SIGINT, signal_handler, "stop"}, {SIGUSR1, signal_handler, "reload"}, {0, NULL, ""}};
+SignalWrapper signals[] = {
+    {SIGINT, signal_handler, "stop"}, {SIGUSR1, signal_handler, "reload"}, {SIGPIPE, SIG_IGN, ""}, {0, NULL, ""}};
 
 void signal_handler(int sig)
 {
@@ -19,7 +21,7 @@ void signal_handler(int sig)
 
 int init_signals()
 {
-    for (int i = 0; signals[i].command != ""; i++)
+    for (int i = 0; signals[i].sig != 0; i++)
     {
         struct sigaction sa;
         memset(&sa, '\0', sizeof(sa));
@@ -37,7 +39,7 @@ int init_signals()
 int send_signal(pid_t pid, std::string command)
 {
     int sent = 0;
-    for (int i = 0; signals[i].command != ""; i++)
+    for (int i = 0; signals[i].sig != 0; i++)
     {
         if (signals[i].command == command)
         {

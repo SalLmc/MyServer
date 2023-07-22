@@ -1,9 +1,7 @@
 #ifndef UTILS_DECLARATION_H
 #define UTILS_DECLARATION_H
 
-#include <signal.h>
-#include <string>
-#include <unordered_map>
+#include "../headers.h"
 
 #define asm_pause() __asm__("pause")
 

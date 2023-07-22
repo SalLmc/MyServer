@@ -1,18 +1,7 @@
 #ifndef CORE_H
 #define CORE_H
 
-#include <assert.h>
-#include <dirent.h>
-#include <fcntl.h>
-#include <functional>
-#include <memory>
-#include <netinet/in.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/mman.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <vector>
+#include "../headers.h"
 
 #include "../buffer/buffer.h"
 #include "../log/logger.h"
@@ -30,6 +19,7 @@
 
 class Connection;
 class Upstream;
+class Request;
 
 #define NOT_TIMEOUT 0
 #define TIMEOUT 1
@@ -62,6 +52,8 @@ class Fd
     bool operator!=(int fd);
     bool operator!=(Fd fd);
     void operator=(int fd);
+    void operator=(Fd &&fd);
+    Fd &operator=(const Fd &) = delete;
 
   private:
     int fd_;
@@ -81,8 +73,10 @@ class Connection
     LinkedBuffer writeBuffer_;
     int idx_;
     int server_idx_;
-    void *data_;
-    Upstream *ups_;
+    // void *data_;
+    // Upstream *ups_;
+    std::shared_ptr<Request> data_;
+    std::shared_ptr<Upstream> ups_;
 };
 
 class ConnectionPool

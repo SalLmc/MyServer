@@ -1,9 +1,7 @@
-#include "logger.h"
+#include "../headers.h"
+
 #include "../util/utils_declaration.h"
-#include <assert.h>
-#include <fcntl.h>
-#include <stdlib.h>
-#include <string.h>
+#include "logger.h"
 
 LogLine::LogLine()
 {
@@ -34,9 +32,8 @@ LogLine::LogLine(Level level, char const *file, char const *function, unsigned i
     auto timeStamp_ = getTickMs();
     auto shortTime = timeStamp_ / 1000;
     std::time_t time_t = shortTime;
-    auto gmtime = std::gmtime(&time_t);
-    gmtime->tm_hour += 8;
-    strftime(buffer_ + pos, 23, "[%Y-%m-%d %H:%M:%S] ", gmtime);
+    auto lctime = std::localtime(&time_t);
+    strftime(buffer_ + pos, 23, "[%Y-%m-%d %H:%M:%S] ", lctime);
     pos += 22;
 
     // pid
@@ -144,12 +141,12 @@ Logger::Logger(const char *path, const char *name, unsigned int size_mb)
 Logger::~Logger()
 {
     state.store(State::SHUTDOWN);
-#ifndef USE_ATOMIC_LOCK
+
     {
         std::unique_lock<std::mutex> ulock(mutex_);
         cond_.notify_all();
     }
-#endif
+
     writeThread.join();
     if (fd_ != -1)
     {
@@ -158,16 +155,22 @@ Logger::~Logger()
 }
 Logger &Logger::operator+=(LogLine &line)
 {
-#ifndef USE_ATOMIC_LOCK
+#ifdef ENABLE_LOGGER
+
+#ifndef LOGGER_IS_SYNC
     {
         std::unique_lock<std::mutex> ulock(mutex_);
         ls_.push_back(std::move(line));
+        if (ls_.size() >= 1)
+        {
+            cond_.notify_one();
+        }
     }
-    cond_.notify_one();
 #else
-    spLock.lock();
     ls_.push_back(std::move(line));
-    spLock.unlock();
+    write2FileInner();
+#endif
+
 #endif
     return *this;
 }
@@ -181,27 +184,12 @@ void Logger::write2File()
 
     while (state.load() == State::ACTIVE)
     {
-#ifndef USE_ATOMIC_LOCK
         std::unique_lock<std::mutex> ulock(mutex_);
         while (ls_.empty() && state.load() == State::ACTIVE)
         {
             cond_.wait(ulock);
         }
         write2FileInner();
-#else
-        if (spLock.tryLock())
-        {
-            if (!ls_.empty())
-            {
-                write2FileInner();
-            }
-            spLock.unlock();
-        }
-        else
-        {
-            asm_pause();
-        }
-#endif
     }
 
     write2FileInner();
@@ -223,6 +211,8 @@ void Logger::write2FileInner()
             char loc[100];
             memset(loc, 0, sizeof(loc));
             sprintf(loc, "%s%s_%d.txt", filePath_, fileName_, cnt++);
+            close(fd_);
+            fd_ = -1;
             fd_ = open(loc, O_RDWR | O_CREAT | O_TRUNC, 0666);
             assert(fd_ >= 0);
         }

@@ -1,11 +1,9 @@
-#include "http_phases.h"
+#include "../headers.h"
+
 #include "../event/epoller.h"
 #include "../util/utils_declaration.h"
 #include "http.h"
-#include <dirent.h>
-#include <list>
-#include <sys/types.h>
-#include <vector>
+#include "http_phases.h"
 
 #include "../memory/memory_manage.hpp"
 
@@ -50,13 +48,13 @@ std::vector<PhaseHandler> phases{{genericPhaseChecker, {passPhaseHandler}},
                                  {genericPhaseChecker, {proxyPassHandler, staticContentHandler, autoIndexHandler}},
                                  {genericPhaseChecker, {passPhaseHandler}}};
 
-PhaseHandler::PhaseHandler(std::function<int(Request *, PhaseHandler *)> checkerr,
-                           std::vector<std::function<int(Request *)>> &&handlerss)
+PhaseHandler::PhaseHandler(std::function<int(std::shared_ptr<Request>, PhaseHandler *)> checkerr,
+                           std::vector<std::function<int(std::shared_ptr<Request>)>> &&handlerss)
     : checker(checkerr), handlers(handlerss)
 {
 }
 
-int genericPhaseChecker(Request *r, PhaseHandler *ph)
+int genericPhaseChecker(std::shared_ptr<Request> r, PhaseHandler *ph)
 {
     int ret = 0;
 
@@ -84,18 +82,18 @@ int genericPhaseChecker(Request *r, PhaseHandler *ph)
     return OK;
 }
 
-int passPhaseHandler(Request *r)
+int passPhaseHandler(std::shared_ptr<Request> r)
 {
     return PHASE_NEXT;
 }
 
-int contentAccessHandler(Request *r)
+int contentAccessHandler(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Content access handler";
     auto &server = cyclePtr->servers_[r->c->server_idx_];
     std::string uri = std::string(r->uri.data, r->uri.data + r->uri.len);
     std::string path;
-    int fd;
+    Fd fd;
 
     // proxy_pass
     if (server.proxy_pass.from != "")
@@ -114,31 +112,31 @@ int contentAccessHandler(Request *r)
         r->headers_out.status = HTTP_FORBIDDEN;
         r->headers_out.status_line = "HTTP/1.1 403 FORBIDDEN\r\n";
 
-        std::string _403_path = cyclePtr->servers_[r->c->server_idx_].root + "/403.html";
-        Fd _403fd = open(_403_path.c_str(), O_RDONLY);
+        std::string _403_path = "/home/sallmc/VSCode/MyServer/static/403.html";
+        Fd _403fd(open(_403_path.c_str(), O_RDONLY));
         if (_403fd.getFd() < 0)
         {
             r->headers_out.restype = RES_STR;
             auto &str = r->headers_out.str_body;
             str.append("<html>\n<head>\n\t<title>403 Forbidden</title>\n</head>\n");
-            str.append("<body>\n\t<center>\n\t\t<h1>404 "
+            str.append("<body>\n\t<center>\n\t\t<h1>403 "
                        "Forbidden</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
 
             r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
-            // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=40");
+            r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
         else
         {
             r->headers_out.restype = RES_FILE;
             struct stat st;
             fstat(_403fd.getFd(), &st);
-            r->headers_out.file_body.filefd = _403fd;
+            r->headers_out.file_body.filefd = std::move(_403fd);
             r->headers_out.file_body.file_size = st.st_size;
 
             r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(st.st_size));
-            // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=40");
+            r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
 
         doResponse(r);
@@ -152,7 +150,7 @@ int contentAccessHandler(Request *r)
         path = server.root + "/" + server.index;
         fd = open(path.c_str(), O_RDONLY);
 
-        if (fd >= 0) // return index if exist
+        if (fd.getFd() >= 0) // return index if exist
         {
             exten_save[0] = 'h', exten_save[1] = 't', exten_save[2] = 'm', exten_save[3] = 'l', exten_save[4] = '\0';
             r->exten.data = exten_save;
@@ -170,10 +168,10 @@ int contentAccessHandler(Request *r)
         path = server.root + uri;
         fd = open(path.c_str(), O_RDONLY);
 
-        if (fd >= 0)
+        if (fd.getFd() >= 0)
         {
             struct stat st;
-            fstat(fd, &st);
+            fstat(fd.getFd(), &st);
             if (st.st_mode & S_IFDIR)
             {
                 goto autoindex;
@@ -190,10 +188,10 @@ int contentAccessHandler(Request *r)
             {
                 path = server.root + "/" + name;
                 fd = open(path.c_str(), O_RDONLY);
-                if (fd >= 0)
+                if (fd.getFd() >= 0)
                 {
                     struct stat st;
-                    fstat(fd, &st);
+                    fstat(fd.getFd(), &st);
                     if (!(st.st_mode & S_IFDIR))
                     {
                         auto pos = path.find('.');
@@ -216,17 +214,18 @@ int contentAccessHandler(Request *r)
     }
 
 fileok:
-    if (fd >= 0)
+    if (fd.getFd() >= 0)
     {
         r->headers_out.status = HTTP_OK;
         r->headers_out.status_line = "HTTP/1.1 200 OK\r\n";
         r->headers_out.restype = RES_FILE;
-        // close fd after sendfile in writeResponse
-        r->headers_out.file_body.filefd = fd;
 
         struct stat st;
-        fstat(fd, &st);
+        fstat(fd.getFd(), &st);
         r->headers_out.file_body.file_size = st.st_size;
+
+        // close fd after sendfile in writeResponse
+        r->headers_out.file_body.filefd = std::move(fd);
 
         return PHASE_NEXT;
     }
@@ -238,8 +237,8 @@ autoindex:
         r->headers_out.status = HTTP_NOT_FOUND;
         r->headers_out.status_line = "HTTP/1.1 404 NOT FOUND\r\n";
 
-        std::string _404_path = cyclePtr->servers_[r->c->server_idx_].root + "/404.html";
-        Fd _404fd = open(_404_path.c_str(), O_RDONLY);
+        std::string _404_path = "/home/sallmc/VSCode/MyServer/static/404.html";
+        Fd _404fd(open(_404_path.c_str(), O_RDONLY));
         if (_404fd.getFd() < 0)
         {
             r->headers_out.restype = RES_STR;
@@ -250,19 +249,19 @@ autoindex:
 
             r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
-            // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=40");
+            r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
         else
         {
             r->headers_out.restype = RES_FILE;
             struct stat st;
             fstat(_404fd.getFd(), &st);
-            r->headers_out.file_body.filefd = _404fd;
+            r->headers_out.file_body.filefd = std::move(_404fd);
             r->headers_out.file_body.file_size = st.st_size;
 
             r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(st.st_size));
-            // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=40");
+            r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
 
         doResponse(r);
@@ -279,7 +278,7 @@ autoindex:
     }
 }
 
-int proxyPassHandler(Request *r)
+int proxyPassHandler(std::shared_ptr<Request> r)
 {
     if (r->now_proxy_pass != 1)
     {
@@ -300,7 +299,7 @@ int proxyPassHandler(Request *r)
     return OK;
 }
 
-int initUpstream(Request *r)
+int initUpstream(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Initing upstream";
 
@@ -336,7 +335,7 @@ int initUpstream(Request *r)
     LOG_INFO << "Upstream to: " << ip << ":" << port << newUri << " with FD:" << upc->fd_.getFd();
 
     // setup upstream
-    Upstream *ups = heap.hNew<Upstream>();
+    std::shared_ptr<Upstream> ups(new Upstream());
     r->c->ups_ = ups;
     upc->ups_ = ups;
     ups->c4client = r->c;
@@ -356,11 +355,6 @@ int initUpstream(Request *r)
     {
         wb.append(x.toString());
     }
-
-    // set epoller
-    epoller.addFd(upc->fd_.getFd(), EPOLLIN | EPOLLET, upc);
-    upc->read_.handler = upstreamRecv;
-
     // send
     return send2upstream(&upc->write_);
 }
@@ -370,9 +364,9 @@ int upstreamRecv(Event *upc_ev)
     int n;
     int ret;
     Connection *upc = upc_ev->c;
-    Upstream *ups = upc->ups_;
-    Request *cr = (Request *)ups->c4client->data_;
-    Request *upsr = (Request *)ups->c4upstream->data_;
+    std::shared_ptr<Upstream> ups = upc->ups_;
+    std::shared_ptr<Request> cr = ups->c4client->data_;
+    std::shared_ptr<Request> upsr = ups->c4upstream->data_;
 
     while (1)
     {
@@ -386,7 +380,7 @@ int upstreamRecv(Event *upc_ev)
             LOG_INFO << "Recv error";
             finalizeRequest(upsr);
             finalizeRequest(cr);
-            heap.hDelete(upc->ups_);
+            // heap.hDelete(upc->ups_);
             return ERROR;
         }
         else if (n == 0)
@@ -394,7 +388,7 @@ int upstreamRecv(Event *upc_ev)
             LOG_INFO << "Upstream server close connection";
             finalizeRequest(upsr);
             finalizeRequest(cr);
-            heap.hDelete(upc->ups_);
+            // heap.hDelete(upc->ups_);
             return ERROR;
         }
         else
@@ -410,7 +404,7 @@ int upstreamRecv(Event *upc_ev)
                 LOG_INFO << "Process error";
                 finalizeRequest(upsr);
                 finalizeRequest(cr);
-                heap.hDelete(upc->ups_);
+                // heap.hDelete(upc->ups_);
                 return ERROR;
             }
             break;
@@ -418,6 +412,12 @@ int upstreamRecv(Event *upc_ev)
     }
 
     LOG_INFO << "Upstream recv done";
+
+    // for (auto &x : upsr->request_body.lbody)
+    // {
+    //     printf("%s", x.toString().c_str());
+    // }
+    // printf("\n");
 
     upsr->c->writeBuffer_.append("HTTP/1.1 " + std::string(ups->ctx.status.start, ups->ctx.status.end) + "\r\n");
     for (auto &x : upsr->headers_in.headers)
@@ -430,7 +430,14 @@ int upstreamRecv(Event *upc_ev)
         upsr->c->writeBuffer_.append(x.toString());
     }
 
-    // printf("%s\n", upc->writeBuffer_.allToStr().c_str());
+    // auto now = upc->writeBuffer_.now;
+    // for (; now; now = now->next)
+    // {
+    //     if (now->len == 0)
+    //         break;
+    //     printf("%s", std::string(now->start + now->pos, now->start + now->len).c_str());
+    // }
+    // printf("\n");
 
     return upsResponse2Client(&upc->write_);
 }
@@ -438,28 +445,35 @@ int upstreamRecv(Event *upc_ev)
 int send2upstream(Event *upc_ev)
 {
     Connection *upc = upc_ev->c;
-    Upstream *ups = upc->ups_;
-    Request *cr = (Request *)upc->ups_->c4client->data_;
+    std::shared_ptr<Upstream> ups = upc->ups_;
+    std::shared_ptr<Request> cr = upc->ups_->c4client->data_;
     int ret = 0;
 
     for (; upc->writeBuffer_.allRead() != 1;)
     {
         ret = upc->writeBuffer_.sendFd(upc->fd_.getFd(), &errno, 0);
 
+        if (upc->writeBuffer_.allRead())
+        {
+            break;
+        }
+
         if (ret < 0)
         {
             if (errno == EAGAIN)
             {
-                epoller.modFd(upc->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, upc);
-                upc->write_.handler = send2upstream;
-                return AGAIN;
+                if (epoller.modFd(upc->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, upc))
+                {
+                    upc->write_.handler = send2upstream;
+                    return AGAIN;
+                }
             }
             else
             {
                 LOG_INFO << "SEND ERR, FINALIZE CONNECTION";
                 finalizeConnection(upc);
                 finalizeRequest(cr);
-                heap.hDelete(upc->ups_);
+                // heap.hDelete(upc->ups_);
                 return ERROR;
             }
         }
@@ -468,7 +482,7 @@ int send2upstream(Event *upc_ev)
             LOG_INFO << "Upstream close connection, FINALIZE CONNECTION";
             finalizeConnection(upc);
             finalizeRequest(cr);
-            heap.hDelete(upc->ups_);
+            // heap.hDelete(upc->ups_);
             return ERROR;
         }
         else
@@ -481,15 +495,20 @@ int send2upstream(Event *upc_ev)
     upc->write_.handler = blockWriting;
 
     ups->process_handler = processStatusLine;
-    Request *upsr = (Request *)heap.hNew<Request>();
+    std::shared_ptr<Request> upsr(new Request());
     upsr->c = ups->c4upstream;
     ups->c4upstream->data_ = upsr;
 
     LOG_INFO << "Send client data to upstream complete";
+
+    // set epoller
+    assert(epoller.addFd(upc->fd_.getFd(), EPOLLIN | EPOLLET, upc));
+    upc->read_.handler = upstreamRecv;
+
     return upstreamRecv(&upc->read_);
 }
 
-int staticContentHandler(Request *r)
+int staticContentHandler(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Static content handler";
     if (r->headers_out.restype == RES_FILE)
@@ -519,14 +538,14 @@ int staticContentHandler(Request *r)
         r->headers_out.headers.emplace_back("Content-Type", "application/octet-stream");
     }
     r->headers_out.headers.emplace_back("Content-Length", std::to_string(r->headers_out.content_length));
-    // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=40");
+    r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
 
     doResponse(r);
 
     return PHASE_NEXT;
 }
 
-int autoIndexHandler(Request *r)
+int autoIndexHandler(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Auto index handler";
     if (r->headers_out.restype != RES_AUTO_INDEX)
@@ -592,14 +611,14 @@ int autoIndexHandler(Request *r)
         r->headers_out.headers.emplace_back("Content-Type", "application/octet-stream");
     }
     r->headers_out.headers.emplace_back("Content-Length", std::to_string(out.str_body.length()));
-    // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=40");
+    r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
 
     doResponse(r);
 
     return PHASE_NEXT;
 }
 
-int appendResponseLine(Request *r)
+int appendResponseLine(std::shared_ptr<Request> r)
 {
     auto &writebuffer = r->c->writeBuffer_;
     auto &out = r->headers_out;
@@ -608,7 +627,7 @@ int appendResponseLine(Request *r)
 
     return OK;
 }
-int appendResponseHeader(Request *r)
+int appendResponseHeader(std::shared_ptr<Request> r)
 {
     auto &writebuffer = r->c->writeBuffer_;
     auto &out = r->headers_out;
@@ -622,7 +641,7 @@ int appendResponseHeader(Request *r)
     writebuffer.append("\r\n");
     return OK;
 }
-int appendResponseBody(Request *r)
+int appendResponseBody(std::shared_ptr<Request> r)
 {
     // auto &writebuffer = r->c->writeBuffer_;
     auto &out = r->headers_out;
@@ -644,9 +663,10 @@ int appendResponseBody(Request *r)
     return OK;
 }
 
-std::list<std::function<int(Request *)>> responseList{appendResponseLine, appendResponseHeader, appendResponseBody};
+std::list<std::function<int(std::shared_ptr<Request>)>> responseList{appendResponseLine, appendResponseHeader,
+                                                                     appendResponseBody};
 
-int doResponse(Request *r)
+int doResponse(std::shared_ptr<Request> r)
 {
     for (auto &x : responseList)
     {
@@ -663,48 +683,50 @@ int doResponse(Request *r)
 int upsResponse2Client(Event *upc_ev)
 {
     Connection *upc = upc_ev->c;
-    Upstream *ups = upc->ups_;
+    std::shared_ptr<Upstream> ups = upc->ups_;
     Connection *c = ups->c4client;
-    Request *cr = (Request *)c->data_;
-    Request *upsr = (Request *)upc->data_;
+    std::shared_ptr<Request> cr = c->data_;
+    std::shared_ptr<Request> upsr = upc->data_;
     int ret = 0;
 
     LOG_INFO << "Write to client, FD:" << c->fd_.getFd();
-
-    // for (auto &x : upc->writeBuffer_.nodes)
-    // {
-    //     printf("%s", std::string(x.start + x.pos, x.start + x.len).c_str());
-    // }
 
     for (; upc->writeBuffer_.allRead() != 1;)
     {
         ret = upc->writeBuffer_.sendFd(c->fd_.getFd(), &errno, 0);
 
+        if (upc->writeBuffer_.allRead())
+        {
+            break;
+        }
+
         if (ret < 0)
         {
             if (errno == EAGAIN)
             {
-                epoller.modFd(upc->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, upc);
-                upc->write_.handler = upsResponse2Client;
-                return AGAIN;
+                if (epoller.modFd(upc->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, upc))
+                {
+                    upc->write_.handler = upsResponse2Client;
+                    return AGAIN;
+                }
             }
             else
             {
-                printf("%s\n", strerror(errno));
-                printf("%d\n", c->fd_.getFd());
+                // printf("%s\n", strerror(errno));
+                // printf("%d\n", c->fd_.getFd());
                 LOG_INFO << "SEND ERR, FINALIZE CONNECTION";
-                finalizeRequest((Request *)upsr);
-                finalizeRequest((Request *)cr);
-                heap.hDelete(upc->ups_);
+                finalizeRequest(upsr);
+                finalizeRequest(cr);
+                // heap.hDelete(upc->ups_);
                 return ERROR;
             }
         }
         else if (ret == 0)
         {
             LOG_INFO << "Upstream close connection, FINALIZE CONNECTION";
-            finalizeRequest((Request *)upsr);
-            finalizeRequest((Request *)cr);
-            heap.hDelete(upc->ups_);
+            finalizeRequest(upsr);
+            finalizeRequest(cr);
+            // heap.hDelete(upc->ups_);
             return ERROR;
         }
         else
@@ -724,6 +746,6 @@ int upsResponse2Client(Event *upc_ev)
     {
         finalizeRequest(cr);
     }
-    heap.hDelete(ups);
+    // heap.hDelete(ups);
     return OK;
 }

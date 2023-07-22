@@ -1,5 +1,7 @@
-#include "http_parse.h"
+#include "../headers.h"
+
 #include "http.h"
+#include "http_parse.h"
 
 extern Cycle *cyclePtr;
 
@@ -21,7 +23,7 @@ uint32_t usual[] = {
     0xffffffff  /* 1111 1111 1111 1111  1111 1111 1111 1111 */
 };
 
-int parseRequestLine(Request *r)
+int parseRequestLine(std::shared_ptr<Request> r)
 {
     // LOG_INFO << "parse request line";
     u_char c, ch, *p, *m;
@@ -755,7 +757,7 @@ done:
     return OK;
 }
 
-int parseComplexUri(Request *r, int merge_slashes)
+int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
 {
     u_char c, ch, decoded, *p, *u;
     enum
@@ -1116,7 +1118,7 @@ args:
     return OK;
 }
 
-int parseHeaderLine(Request *r, int allow_underscores)
+int parseHeaderLine(std::shared_ptr<Request> r, int allow_underscores)
 {
     u_char c, ch, *p;
     // unsigned long hash;
@@ -1406,18 +1408,16 @@ header_done:
 
 #define MAX_OFF_T_VALUE 9223372036854775807LL
 
-int parseChunked(Request *r)
+int parseChunked(std::shared_ptr<Request> r)
 {
     u_char *pos, ch, c;
     int rc;
+    int once = 0;
+    int left;
+    int err_line;
 
     ChunkedInfo *ctx = &r->request_body.chunkedInfo;
     auto &buffer = r->c->readBuffer_;
-
-    // if (ctx->pos == NULL)
-    // {
-    //     ctx->pos = buffer.now->start + buffer.now->pos;
-    // }
 
     auto &state = ctx->state;
 
@@ -1428,8 +1428,17 @@ int parseChunked(Request *r)
 
     rc = AGAIN;
 
+    // printf("%s\n", buffer.now->toString().c_str());
+    // u_char *tmp = buffer.now->start + buffer.now->pos + ctx->data_offset;
+    // if (tmp < buffer.now->start + buffer.now->len)
+    // {
+    //     printf("value:%d\n",*tmp);
+    // }
+
     for (pos = buffer.now->start + buffer.now->pos + ctx->data_offset; pos < buffer.now->start + buffer.now->len; pos++)
     {
+        // printf("%d %d ", ctx->data_offset, *pos);
+        once = 1;
         ch = *pos;
 
         switch (state)
@@ -1451,12 +1460,13 @@ int parseChunked(Request *r)
                 ctx->size = c - 'a' + 10;
                 break;
             }
-
+            err_line = __LINE__;
             goto invalid;
 
         case ChunkedState::sw_chunk_size:
             if (ctx->size > MAX_OFF_T_VALUE / 16)
             {
+                err_line = __LINE__;
                 goto invalid;
             }
 
@@ -1491,6 +1501,7 @@ int parseChunked(Request *r)
                     state = ChunkedState::sw_last_chunk_extension;
                     break;
                 default:
+                    err_line = __LINE__;
                     goto invalid;
                 }
 
@@ -1511,6 +1522,7 @@ int parseChunked(Request *r)
                 state = ChunkedState::sw_chunk_extension;
                 break;
             default:
+                err_line = __LINE__;
                 goto invalid;
             }
 
@@ -1533,6 +1545,7 @@ int parseChunked(Request *r)
                 state = ChunkedState::sw_chunk_data;
                 break;
             }
+            err_line = __LINE__;
             goto invalid;
 
         case ChunkedState::sw_chunk_data:
@@ -1549,6 +1562,7 @@ int parseChunked(Request *r)
                 state = ChunkedState::sw_chunk_start;
                 break;
             default:
+                err_line = __LINE__;
                 goto invalid;
             }
             break;
@@ -1559,6 +1573,7 @@ int parseChunked(Request *r)
                 state = ChunkedState::sw_chunk_start;
                 break;
             }
+            err_line = __LINE__;
             goto invalid;
 
         case ChunkedState::sw_last_chunk_extension:
@@ -1578,6 +1593,7 @@ int parseChunked(Request *r)
                 state = ChunkedState::sw_trailer;
                 break;
             }
+            err_line = __LINE__;
             goto invalid;
 
         case ChunkedState::sw_trailer:
@@ -1598,6 +1614,7 @@ int parseChunked(Request *r)
             {
                 goto done;
             }
+            err_line = __LINE__;
             goto invalid;
 
         case ChunkedState::sw_trailer_header:
@@ -1617,35 +1634,39 @@ int parseChunked(Request *r)
                 state = ChunkedState::sw_trailer;
                 break;
             }
+            err_line = __LINE__;
             goto invalid;
         }
     }
 
 data:
 
-    // // if "goto data" then *pos supposed to be the first byte of data
-    // r->request_body.body.len += pos - ctx->pos;
-    // r->request_body.body.len += ctx->size;
-    // ctx->pos = pos + ctx->size; // ctx->pos points to the \r after data
-
-    ctx->data_offset = ctx->size;
-
-    r->request_body.lbody.emplace_back(buffer.now->start + buffer.now->pos, pos - buffer.now->start - buffer.now->pos);
-    buffer.now->pos = pos - buffer.now->start;
-    if (buffer.now->pos < buffer.now->len) // there is data in this buf
+    if (rc==OK)
     {
-        if (ctx->size <= buffer.now->len - buffer.now->pos) // all the data
+        ctx->data_offset = ctx->size;
+    }
+
+    if (rc==OK) // right after chunked size, we need to add the chunk size too!
+    {
+        left = pos - buffer.now->start -
+               buffer.now->pos; // only add "SIZE\r\n", *pos supposed to be the first byte of data
+        r->request_body.lbody.emplace_back(buffer.now->start + buffer.now->pos, left);
+        buffer.now->pos += left;
+    }
+    else // add chunked data
+    {
+        if (once) // means this buffer contains all of this chunk, and the \r\n after
         {
-            r->request_body.lbody.emplace_back(buffer.now->start + buffer.now->pos, ctx->size);
-            buffer.now->pos += ctx->size;
+            left = pos - buffer.now->start - buffer.now->pos;
             ctx->data_offset = 0;
         }
-        else // part of data
+        else // chunk is larger than this buffer, just add them all
         {
-            r->request_body.lbody.emplace_back(buffer.now->start + buffer.now->pos, ctx->size);
-            buffer.now->pos = buffer.now->len;
-            ctx->data_offset -= buffer.now->len - buffer.now->pos;
+            left = buffer.now->len - buffer.now->pos;
+            ctx->data_offset -= left;
         }
+        r->request_body.lbody.emplace_back(buffer.now->start + buffer.now->pos, left);
+        buffer.now->pos += left;
     }
 
     if (ctx->size > MAX_OFF_T_VALUE - 5)
@@ -1659,30 +1680,27 @@ data:
 
 done:
 
-    // // *pos is the last \n
-    // // "data:" sets ctx->pos to the \r after data
-    // // +=\r\n0\r\n
-    // r->request_body.body.len += pos - ctx->pos + 1;
+    // *pos is the last \n
 
-    r->request_body.lbody.emplace_back(buffer.now->start + buffer.now->pos,
-                                       pos + 1 - buffer.now->start - buffer.now->pos);
+    left = pos + 1 - buffer.now->start - buffer.now->pos;
+    r->request_body.lbody.emplace_back(buffer.now->start + buffer.now->pos, left);
 
     // prepare for the next time
     ctx->state = ChunkedState::sw_chunk_start;
     ctx->size = 0;
     ctx->data_offset = 0;
 
-    buffer.retrieve(buffer.now->len - buffer.now->pos);
-    // r->c->readBuffer_.retrieveUntil(r->c->readBuffer_.beginWrite());
+    buffer.retrieve(left);
 
     return DONE;
 
 invalid:
 
+    printf("Error at %d, %d\n", err_line, once);
     return ERROR;
 }
 
-int parseStatusLine(Request *r, Status *status)
+int parseStatusLine(std::shared_ptr<Request> r, Status *status)
 {
     u_char ch;
     u_char *p;

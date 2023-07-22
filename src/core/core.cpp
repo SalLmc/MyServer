@@ -1,3 +1,5 @@
+#include "../headers.h"
+
 #include "core.h"
 
 #include "../memory/memory_manage.hpp"
@@ -56,6 +58,11 @@ void Fd::operator=(int fd)
 {
     fd_ = fd;
 }
+void Fd::operator=(Fd &&fd)
+{
+    fd_ = fd.fd_;
+    fd.fd_ = -1;
+}
 
 Event::Event(Connection *cc) : handler(NULL), c(cc), type(NORMAL), timeout(NOT_TIMEOUT)
 {
@@ -109,6 +116,7 @@ void ConnectionPool::recoverConnection(Connection *c)
     if (c->idx_ == -2)
     {
         heap.hDelete(c);
+        c = nullptr;
         return;
     }
 
@@ -130,8 +138,8 @@ void ConnectionPool::recoverConnection(Connection *c)
     c->readBuffer_.init();
     c->writeBuffer_.init();
 
-    c->data_ = NULL;
-    c->ups_ = NULL;
+    c->data_.reset();
+    c->ups_.reset();
 #endif
 }
 

@@ -1,3 +1,5 @@
+#include "src/headers.h"
+
 #include "src/core/core.h"
 #include "src/core/process.h"
 #include "src/event/epoller.h"
@@ -6,17 +8,18 @@
 #include "src/http/http.h"
 #include "src/util/utils_declaration.h"
 
-#include <memory>
-
 std::unordered_map<std::string, std::string> mp;
 extern ConnectionPool cPool;
 extern Cycle *cyclePtr;
 extern sharedMemory shmForAMtx;
 extern ProcessMutex acceptMutex;
 extern Epoller epoller;
+extern long cores;
 
 int main(int argc, char *argv[])
 {
+    cores = sysconf(_SC_NPROCESSORS_CONF);
+
     std::unique_ptr<Cycle> cycle(new Cycle(&cPool, new Logger("log/", "startup", 1)));
     cyclePtr = cycle.get();
 
@@ -68,18 +71,19 @@ int main(int argc, char *argv[])
 
     // server init
     // port root index from to auto_index try_files
-    cyclePtr->servers_.emplace_back(8081, "static", "index.html", "/api/", "http://175.178.175.106:8080/", 0,
+    cyclePtr->servers_.emplace_back(8081, "/home/sallmc/dist", "index.html", "/api/", "http://175.178.175.106:8080/", 0,
                                     std::vector<std::string>{"index.html"});
     cyclePtr->servers_.emplace_back(8082, "/home/sallmc/share", "sdfxcv", "", "", 1, std::vector<std::string>{});
+    cyclePtr->servers_.emplace_back(8083, "static", "index.html", "", "", 0, std::vector<std::string>{"index.html"});
 
-    for (auto &x : cyclePtr->servers_)
-    {
-        if (initListen(cyclePtr, x.port) == ERROR)
-        {
-            LOG_CRIT << "init listen failed";
-            return 1;
-        }
-    }
+    // for (auto &x : cyclePtr->servers_)
+    // {
+    //     if (initListen(cyclePtr, x.port) == ERROR)
+    //     {
+    //         LOG_CRIT << "init listen failed";
+    //         return 1;
+    //     }
+    // }
 
     // accept mutex
     if (useAcceptMutex)

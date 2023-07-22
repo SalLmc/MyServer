@@ -1,27 +1,27 @@
 #ifndef HTTP_H
 #define HTTP_H
 
+#include "../headers.h"
+
 #include "../core/core.h"
-#include <list>
-#include <unordered_map>
 
 class Request;
 
 int initListen(Cycle *cycle, int port);
 Connection *addListen(Cycle *cycle, int port);
-int keepAliveRequest(Request *r);
+int keepAliveRequest(std::shared_ptr<Request> r);
 int finalizeConnection(Connection *c);
-int finalizeRequest(Request *r);
-int readRequestHeader(Request *r);
-int processRequestHeader(Request *r, int need_host);
-int processRequest(Request *r);
-int readRequestBody(Request *r, std::function<int(Request *)> post_handler);
-int processRequestBody(Request *r);
-int requestBodyLength(Request *r);
-int requestBodyChunked(Request *r);
-int processStatusLine(Request *upsr);
-int processHeaders(Request *upsr);
-int processBody(Request *upsr);
+int finalizeRequest(std::shared_ptr<Request> r);
+int readRequestHeader(std::shared_ptr<Request> r);
+int processRequestHeader(std::shared_ptr<Request> r, int need_host);
+int processRequest(std::shared_ptr<Request> r);
+int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_ptr<Request>)> post_handler);
+int processRequestBody(std::shared_ptr<Request> r);
+int requestBodyLength(std::shared_ptr<Request> r);
+int requestBodyChunked(std::shared_ptr<Request> r);
+int processStatusLine(std::shared_ptr<Request> upsr);
+int processHeaders(std::shared_ptr<Request> upsr);
+int processBody(std::shared_ptr<Request> upsr);
 
 // event handler
 int newConnection(Event *ev);
@@ -218,7 +218,7 @@ class RequestBody
     ChunkedInfo chunkedInfo;
     // str_t body;
     std::list<str_t> lbody;
-    std::function<int(Request *)> post_handler;
+    std::function<int(std::shared_ptr<Request>)> post_handler;
 };
 
 extern Cycle *cyclePtr;
@@ -332,7 +332,7 @@ class Upstream
     Connection *c4upstream;
     Connection *c4client;
     ProxyCtx ctx;
-    std::function<int(Request *r)> process_handler;
+    std::function<int(std::shared_ptr<Request>r)> process_handler;
 };
 
 #define HTTP_CONTINUE 100

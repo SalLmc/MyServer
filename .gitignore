@@ -1,6 +1,10 @@
-/.**
-/log
+.*/
+log/
+build/
 *.o
 *.so
 *.a
-/static
+*.gch
+*.d
+pid_file
+nohup.out

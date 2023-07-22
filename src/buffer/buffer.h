@@ -1,10 +1,7 @@
 #ifndef BUFFER_H
 #define BUFFER_H
 
-#include <atomic>
-#include <list>
-#include <string>
-#include <vector> //readv
+#include "../headers.h"
 
 class Buffer
 {
@@ -91,6 +88,7 @@ class LinkedBuffer
     void append(const char *data, size_t len);
     void append(const std::string &str);
     void retrieve(size_t len);
+    void retrieveAll();
 };
 
 #endif // BUFFER_H

@@ -1,14 +1,9 @@
+#include "src/headers.h"
+
 #include "src/core/core.h"
 #include "src/global.h"
-#include "src/util/utils_declaration.h"
-#include <bits/stdc++.h>
-#include <stdio.h>
-#include <string>
-#include <sys/fcntl.h>
-#include <unistd.h>
-#include <vector>
-
 #include "src/log/logger.h"
+#include "src/util/utils_declaration.h"
 
 extern ConnectionPool cPool;
 
