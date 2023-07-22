@@ -6,3 +6,5 @@ build/
 *.a
 *.gch
 *.d
+pid_file
+nohup.out
