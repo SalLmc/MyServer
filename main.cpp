@@ -14,9 +14,12 @@ extern Cycle *cyclePtr;
 extern sharedMemory shmForAMtx;
 extern ProcessMutex acceptMutex;
 extern Epoller epoller;
+extern long cores;
 
 int main(int argc, char *argv[])
 {
+    cores = sysconf(_SC_NPROCESSORS_CONF);
+
     std::unique_ptr<Cycle> cycle(new Cycle(&cPool, new Logger("log/", "startup", 1)));
     cyclePtr = cycle.get();
 

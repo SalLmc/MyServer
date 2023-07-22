@@ -15,5 +15,6 @@ extern bool restart;
 extern int slot;
 extern bool useAcceptMutex;
 extern bool acceptMutexHeld;
+extern long cores;
 
 #endif

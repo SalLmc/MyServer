@@ -102,6 +102,11 @@ pid_t spawnProcesses(Cycle *cycle, std::function<void(Cycle *)> proc)
         processes[slot].pid = getpid();
         processes[slot].status = ACTIVE;
 
+        // cpu_set_t set;
+        // CPU_ZERO(&set);
+        // CPU_SET(slot % cores, &set);
+        // sched_setaffinity(pid, sizeof(set), &set);
+
         // processes[slot].channel[1].read_.c = &processes[slot].channel[1];
         // processes[slot].channel[1].read_.c->read_.handler = recvFromMaster;
         // epoller.addFd(processes[slot].channel[1].fd_.getFd(), EPOLLIN | EPOLLET, &processes[slot].channel[1]);

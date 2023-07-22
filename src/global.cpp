@@ -6,3 +6,4 @@ bool restart = 0;
 int slot = 0;
 bool useAcceptMutex = 0;
 bool acceptMutexHeld = 0;
+long cores;
