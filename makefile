@@ -1,5 +1,5 @@
-PROGS = $(BUILDPATH)/libmy.so $(BUILDPATH)/main \
-		$(BUILDPATH)/signal_test $(BUILDPATH)/log_test $(BUILDPATH)/timer_test $(BUILDPATH)/memory_test $(BUILDPATH)/test
+PROGS = libmy.so main \
+		signal_test log_test timer_test memory_test test
 		
 PRE_HEADER = src/headers.h.gch
 
@@ -15,40 +15,33 @@ CPPSHARELIB = g++ -fPIC -shared $^ -o $@
 LINK = -pthread
 FLAGS = -Wall -fPIC -g -MD
 
-BUILDEXEWITHLIB = g++ $(FLAGS) $^ $(BUILDPATH)/libmy.so -o $@ $(LINK)
+BUILDEXEWITHLIB = g++ $(FLAGS) $^ libmy.so -o $@ $(LINK)
 BUILDEXE = g++ $(FLAGS) $^ -o $@ $(LINK)
 
-BUILDPATH = build
-
-all: build $(PRE_HEADER) $(PROGS)
-
-build:
-	if [ ! -d "build" ]; then \
-		mkdir build; \
-	fi
+all: $(PRE_HEADER) $(PROGS)
 
 src/headers.h.gch: src/headers.h
 	g++ $(FLAGS) src/headers.h
 
-$(BUILDPATH)/libmy.so: $(CPP_OBJECTS)
+libmy.so: $(CPP_OBJECTS)
 	$(CPPSHARELIB)
 
-$(BUILDPATH)/main: main.o
+main: main.o
 	$(BUILDEXEWITHLIB)
 
-$(BUILDPATH)/signal_test: signal_test.o
+signal_test: signal_test.o
 	$(BUILDEXEWITHLIB)
 
-$(BUILDPATH)/log_test: log_test.o
+log_test: log_test.o
 	$(BUILDEXEWITHLIB)
 
-$(BUILDPATH)/timer_test: timer_test.o
+timer_test: timer_test.o
 	$(BUILDEXEWITHLIB)
 
-$(BUILDPATH)/memory_test: memory_test.o
+memory_test: memory_test.o
 	$(BUILDEXEWITHLIB)
 
-$(BUILDPATH)/test: test.o
+test: test.o
 	$(BUILDEXEWITHLIB)
 
 -include $(INCLUDE_FILES)
