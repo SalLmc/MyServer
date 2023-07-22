@@ -15,7 +15,7 @@ CPPSHARELIB = g++ -fPIC -shared $^ -o $@
 LINK = -pthread
 FLAGS = -Wall -fPIC -g -MD
 
-BUILDEXEWITHLIB = g++ $(FLAGS) $^ libmy.so -o $@ $(LINK)
+BUILDEXEWITHLIB = g++ $(FLAGS) $^ ./libmy.so -o $@ $(LINK)
 BUILDEXE = g++ $(FLAGS) $^ -o $@ $(LINK)
 
 all: $(PRE_HEADER) $(PROGS)
