@@ -1,4 +1,6 @@
-PROGS = $(BUILDPATH)/libmy.so $(BUILDPATH)/main $(BUILDPATH)/signal_test $(BUILDPATH)/log_test $(BUILDPATH)/timer_test $(BUILDPATH)/memory_test $(BUILDPATH)/test
+PROGS = $(BUILDPATH)/libmy.so $(BUILDPATH)/main \
+		$(BUILDPATH)/signal_test $(BUILDPATH)/log_test $(BUILDPATH)/timer_test $(BUILDPATH)/memory_test $(BUILDPATH)/test
+		
 PRE_HEADER = src/headers.h.gch
 
 SRCDIRS = src/buffer src/core src/event src/http src/log src/memory src/timer src/util src
@@ -18,7 +20,12 @@ BUILDEXE = g++ $(FLAGS) $^ -o $@ $(LINK)
 
 BUILDPATH = build
 
-all: $(PRE_HEADER) $(PROGS)
+all: build $(PRE_HEADER) $(PROGS)
+
+build:
+	if [ ! -d "build" ]; then \
+		mkdir build; \
+	fi
 
 src/headers.h.gch: src/headers.h
 	g++ $(FLAGS) src/headers.h

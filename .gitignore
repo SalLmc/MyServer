@@ -1,6 +1,6 @@
 .*/
-log/*
-build/*
+log/
+build/
 *.o
 *.so
 *.a
