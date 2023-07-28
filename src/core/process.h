@@ -14,6 +14,4 @@ int recvFromMaster(Event *rev);
 void signalWorkerProcesses(int sig);
 void processEventsAndTimers(Cycle *cycle);
 
-int recoverEtags(void *arg);
-
 #endif

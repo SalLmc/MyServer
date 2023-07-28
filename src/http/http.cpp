@@ -17,8 +17,6 @@ extern Cycle *cyclePtr;
 extern HeapMemory heap;
 extern std::vector<PhaseHandler> phases;
 
-std::unordered_map<std::string, std::string> etag_path_map;
-std::unordered_map<std::string, std::string> path_etag_map;
 std::unordered_map<std::string, std::string> exten_content_type_map = {
     {"html", "text/html"},
     {"htm", "text/html"},
@@ -1245,14 +1243,10 @@ std::string cacheControl(int fd)
     if (path != "")
     {
         std::string etag = std::to_string(st.st_mtim.tv_nsec + st.st_mtim.tv_sec);
-        path_etag_map[path] = etag;
-        etag_path_map[etag] = path;
         return etag;
     }
     else
     {
-        path_etag_map.clear();
-        etag_path_map.clear();
         return "";
     }
 }
@@ -1267,7 +1261,6 @@ bool matchEtag(int fd, std::string b_etag)
         std::string etag = std::to_string(st.st_mtim.tv_nsec + st.st_mtim.tv_sec);
         if (etag != b_etag)
         {
-            etag_path_map.erase(b_etag);
             return 0;
         }
         else
@@ -1277,8 +1270,6 @@ bool matchEtag(int fd, std::string b_etag)
     }
     else
     {
-        path_etag_map.clear();
-        etag_path_map.clear();
         return 0;
     }
 }

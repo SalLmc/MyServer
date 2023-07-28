@@ -17,8 +17,6 @@ extern ProcessMutex acceptMutex;
 extern HeapMemory heap;
 extern std::list<Event *> posted_accept_events;
 extern std::list<Event *> posted_events;
-extern std::unordered_set<std::string> etag_path_map;
-extern std::unordered_map<std::string, std::string> path_etag_map;
 
 Process processes[MAX_PROCESS_N];
 
@@ -193,7 +191,7 @@ void workerProcessCycle(Cycle *cycle)
     }
 
     // timer
-    cyclePtr->timer_.Add(-1, getTickMs() + 600000, recoverEtags, (void *)600000);
+    // cyclePtr->timer_.Add(-1, getTickMs() + 600000, recoverEtags, (void *)600000);
 
     LOG_INFO << "Worker Looping";
     for (;;)
@@ -244,13 +242,4 @@ void processEventsAndTimers(Cycle *cycle)
     cycle->timer_.Tick();
 
     process_posted_events(&posted_events);
-}
-
-int recoverEtags(void *arg)
-{
-    LOG_INFO << "Recover etags";
-    path_etag_map.clear();
-    etag_path_map.clear();
-    cyclePtr->timer_.Again(-1, getTickMs() + (long long)arg);
-    return OK;
 }
