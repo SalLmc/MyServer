@@ -17,6 +17,8 @@ extern ProcessMutex acceptMutex;
 extern HeapMemory heap;
 extern std::list<Event *> posted_accept_events;
 extern std::list<Event *> posted_events;
+extern std::unordered_set<std::string> etag_path_map;
+extern std::unordered_map<std::string, std::string> path_etag_map;
 
 Process processes[MAX_PROCESS_N];
 
@@ -191,7 +193,7 @@ void workerProcessCycle(Cycle *cycle)
     }
 
     // timer
-    // cyclePtr->timer_.Add(-1, getTickMs() + 15000, recoverRequests, NULL);
+    cyclePtr->timer_.Add(-1, getTickMs() + 600000, recoverEtags, (void *)600000);
 
     LOG_INFO << "Worker Looping";
     for (;;)
@@ -244,29 +246,11 @@ void processEventsAndTimers(Cycle *cycle)
     process_posted_events(&posted_events);
 }
 
-int recoverRequests(void *arg)
+int recoverEtags(void *arg)
 {
-    // LOG_INFO << "Recover requests";
-    for (auto i = heap.ptrs_.begin(); i != heap.ptrs_.end();)
-    {
-        if (typeMap[i->type] == Type::REQUEST)
-        {
-            Request *r = (Request *)i->addr;
-            if (r->quit == 1)
-            {
-                delete r;
-                i = heap.ptrs_.erase(i);
-            }
-            else
-            {
-                i++;
-            }
-        }
-        else
-        {
-            i++;
-        }
-    }
-    cyclePtr->timer_.Again(-1, getTickMs() + 15000);
+    LOG_INFO << "Recover etags";
+    path_etag_map.clear();
+    etag_path_map.clear();
+    cyclePtr->timer_.Again(-1, getTickMs() + (long long)arg);
     return OK;
 }

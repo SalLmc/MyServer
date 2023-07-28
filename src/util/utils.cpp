@@ -203,3 +203,19 @@ std::string UrlDecode(const std::string &str)
     }
     return strTemp;
 }
+
+std::string fd2Path(int fd)
+{
+    if (fd < 0)
+        return "";
+    char path[32];
+    memset(path, 0, sizeof(path));
+    sprintf(path, "/proc/self/fd/%d", fd);
+    char buf[100];
+    memset(buf, 0, sizeof(buf));
+    int ret = readlink(path, buf, sizeof(buf) - 1);
+    if (ret == -1)
+        return "";
+    std::string s(buf);
+    return s;
+}

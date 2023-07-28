@@ -22,6 +22,8 @@ int requestBodyChunked(std::shared_ptr<Request> r);
 int processStatusLine(std::shared_ptr<Request> upsr);
 int processHeaders(std::shared_ptr<Request> upsr);
 int processBody(std::shared_ptr<Request> upsr);
+std::string cacheControl(int fd);
+bool matchEtag(int fd, std::string b_etag);
 
 // event handler
 int newConnection(Event *ev);
@@ -332,7 +334,7 @@ class Upstream
     Connection *c4upstream;
     Connection *c4client;
     ProxyCtx ctx;
-    std::function<int(std::shared_ptr<Request>r)> process_handler;
+    std::function<int(std::shared_ptr<Request> r)> process_handler;
 };
 
 #define HTTP_CONTINUE 100

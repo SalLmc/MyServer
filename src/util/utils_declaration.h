@@ -17,13 +17,13 @@ std::string byte2properstr(off_t bytes);
 std::string getIp(std::string addr);
 int getPort(std::string addr);
 std::string getNewUri(std::string addr);
-
 unsigned char ToHex(unsigned char x);
 unsigned char FromHex(unsigned char x);
 // space to %20
 std::string UrlEncode(const std::string &str, char ignore);
 // %20 to space
 std::string UrlDecode(const std::string &str);
+std::string fd2Path(int fd);
 
 /* signal.cpp */
 

@@ -216,6 +216,19 @@ int contentAccessHandler(std::shared_ptr<Request> r)
 fileok:
     if (fd.getFd() >= 0)
     {
+        if (r->headers_in.header_name_value_map.count("If-None-Match"))
+        {
+            std::string browser_etag = r->headers_in.header_name_value_map["If-None-Match"].value;
+            if (matchEtag(fd.getFd(), browser_etag))
+            {
+                r->headers_out.status = HTTP_NOT_MODIFIED;
+                r->headers_out.status_line = "HTTP/1.1 304 Not Modified\r\n";
+                r->headers_out.restype = RES_EMPTY;
+                r->headers_out.headers.emplace_back("Etag", std::move(browser_etag));
+                return PHASE_NEXT;
+            }
+        }
+
         r->headers_out.status = HTTP_OK;
         r->headers_out.status_line = "HTTP/1.1 200 OK\r\n";
         r->headers_out.restype = RES_FILE;
@@ -514,6 +527,11 @@ int staticContentHandler(std::shared_ptr<Request> r)
     if (r->headers_out.restype == RES_FILE)
     {
         r->headers_out.content_length = r->headers_out.file_body.file_size;
+        std::string etag = cacheControl(r->headers_out.file_body.filefd.getFd());
+        if (etag != "")
+        {
+            r->headers_out.headers.emplace_back("Etag", std::move(etag));
+        }
     }
     else if (r->headers_out.restype == RES_STR)
     {
