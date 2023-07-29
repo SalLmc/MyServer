@@ -1242,7 +1242,7 @@ std::string cacheControl(int fd)
     struct stat st;
     if (fstat(fd, &st) != 0)
         return "";
-    std::string etag = std::to_string(st.st_mtim.tv_nsec + st.st_mtim.tv_sec);
+    std::string etag = std::to_string(st.st_mtim.tv_nsec + st.st_mtim.tv_sec * 1000);
     return etag;
 }
 
@@ -1254,7 +1254,7 @@ bool matchEtag(int fd, std::string b_etag)
     if (fstat(fd, &st) != 0)
         return 0;
 
-    std::string etag = std::to_string(st.st_mtim.tv_nsec + st.st_mtim.tv_sec);
+    std::string etag = std::to_string(st.st_mtim.tv_nsec + st.st_mtim.tv_sec * 1000);
     if (etag != b_etag)
     {
         return 0;
