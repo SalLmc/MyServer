@@ -1237,39 +1237,30 @@ int finalizeRequest(std::shared_ptr<Request> r)
 
 std::string cacheControl(int fd)
 {
-    struct stat st;
-    fstat(fd, &st);
-    std::string path = fd2Path(fd);
-    if (path != "")
-    {
-        std::string etag = std::to_string(st.st_mtim.tv_nsec + st.st_mtim.tv_sec);
-        return etag;
-    }
-    else
-    {
+    if (fd < 0)
         return "";
-    }
+    struct stat st;
+    if (fstat(fd, &st) != 0)
+        return "";
+    std::string etag = std::to_string(st.st_mtim.tv_nsec + st.st_mtim.tv_sec);
+    return etag;
 }
 
 bool matchEtag(int fd, std::string b_etag)
 {
+    if (fd < 0)
+        return 0;
     struct stat st;
-    fstat(fd, &st);
-    std::string path = fd2Path(fd);
-    if (path != "")
+    if (fstat(fd, &st) != 0)
+        return 0;
+
+    std::string etag = std::to_string(st.st_mtim.tv_nsec + st.st_mtim.tv_sec);
+    if (etag != b_etag)
     {
-        std::string etag = std::to_string(st.st_mtim.tv_nsec + st.st_mtim.tv_sec);
-        if (etag != b_etag)
-        {
-            return 0;
-        }
-        else
-        {
-            return 1;
-        }
+        return 0;
     }
     else
     {
-        return 0;
+        return 1;
     }
 }
