@@ -122,7 +122,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
             str.append("<body>\n\t<center>\n\t\t<h1>403 "
                        "Forbidden</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
 
-            r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));
+            r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"] + "; charset=utf-8"));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
             r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
@@ -134,7 +134,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
             r->headers_out.file_body.filefd = std::move(_403fd);
             r->headers_out.file_body.file_size = st.st_size;
 
-            r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));
+            r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"] + "; charset=utf-8"));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(st.st_size));
             r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
@@ -260,7 +260,7 @@ autoindex:
             str.append("<body>\n\t<center>\n\t\t<h1>404 Not "
                        "Found</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
 
-            r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));
+            r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"] + "; charset=utf-8"));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
             r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
@@ -272,7 +272,7 @@ autoindex:
             r->headers_out.file_body.filefd = std::move(_404fd);
             r->headers_out.file_body.file_size = st.st_size;
 
-            r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));
+            r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"] + "; charset=utf-8"));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(st.st_size));
             r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
@@ -549,7 +549,7 @@ int staticContentHandler(std::shared_ptr<Request> r)
     std::string exten = std::string(r->exten.data, r->exten.data + r->exten.len);
     if (exten_content_type_map.count(exten))
     {
-        r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map[exten]));
+        r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map[exten]) + "; charset=utf-8");
     }
     else
     {
@@ -583,7 +583,7 @@ int autoIndexHandler(std::shared_ptr<Request> r)
     auto &server = cyclePtr->servers_[r->c->server_idx_];
 
     static char title[] = "<html>" CRLF "<head><title>Index of ";
-    static char header[] = "</title><meta charset=\"utf-8\"></head>" CRLF "<body>" CRLF "<h1>Index of ";
+    static char header[] = "</title></head>" CRLF "<body>" CRLF "<h1>Index of ";
     static char tail[] = "</pre>" CRLF "<hr>" CRLF "</body>" CRLF "</html>";
 
     auto &root = server.root;
@@ -622,7 +622,7 @@ int autoIndexHandler(std::shared_ptr<Request> r)
     std::string exten = std::string(r->exten.data, r->exten.data + r->exten.len);
     if (exten_content_type_map.count(exten))
     {
-        r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map[exten]));
+        r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map[exten] + "; charset=utf-8"));
     }
     else
     {
