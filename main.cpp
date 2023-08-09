@@ -63,6 +63,15 @@ int main(int argc, char *argv[])
         }
     }
 
+    {
+        pid_t pid = readPidFromFile();
+        if (kill(pid, 0) == 0)
+        {
+            LOG_CRIT << "server is running!";
+            return 1;
+        }
+    }
+
     if (writePid2File() == ERROR)
     {
         LOG_CRIT << "write pid failed";
@@ -81,7 +90,7 @@ int main(int argc, char *argv[])
     // {
     //     if (initListen(cyclePtr, x.port) == ERROR)
     //     {
-    //         LOG_CRIT << "init listen failed"; 
+    //         LOG_CRIT << "init listen failed";
     //         return 1;
     //     }
     // }
