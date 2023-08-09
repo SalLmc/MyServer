@@ -14,38 +14,29 @@ extern Cycle *cyclePtr;
 
 u_char exten_save[16];
 
-// int testPhaseHandler(Request *r)
-// {
-//     readRequestBody(r, NULL);
-//     printf("%s\n", r->request_body.body.toString().c_str());
+int testPhaseHandler(std::shared_ptr<Request> r)
+{
+    r->headers_out.status = HTTP_OK;
+    r->headers_out.status_line = "HTTP/1.1 200 OK\r\n";
+    r->headers_out.restype = RES_STR;
+    auto &str = r->headers_out.str_body;
+    str.append("<html>\n<head>\n\t<title>test</title>\n</head>\n");
+    str.append("<body>\n\t<center>\n\t\t<h1>test"
+               "</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
 
-//     r->headers_out.status = HTTP_OK;
-//     r->headers_out.status_line = "HTTP/1.1 200 OK\r\n";
-//     r->headers_out.restype = RES_STR;
-//     auto &str = r->headers_out.str_body;
-//     str.append("<html>\n<head>\n\t<title>404 Not Found</title>\n</head>\n");
-//     str.append("<body>\n\t<center>\n\t\t<h1>404 Not "
-//                "Found</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
+    r->headers_out.headers.emplace_back("Content-Type",
+                                        std::string(exten_content_type_map["html"] + "; charset=utf-8"));
+    r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
+    r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
 
-//     r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"]));
-//     r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
-//     // r->headers_out.headers.emplace_back("Keep-Alive", "timeout=40");
-//     doResponse(r);
-
-//     // LOG_INFO << "PHASE_ERR";
-//     return PHASE_ERR;
-// }
+    return doResponse(r);
+}
 
 std::vector<PhaseHandler> phases{{genericPhaseChecker, {passPhaseHandler}},
-                                 {genericPhaseChecker, {passPhaseHandler}},
-                                 {genericPhaseChecker, {passPhaseHandler}},
-                                 {genericPhaseChecker, {passPhaseHandler}},
-                                 {genericPhaseChecker, {passPhaseHandler}},
-                                 {genericPhaseChecker, {passPhaseHandler}},
+
                                  {genericPhaseChecker, {contentAccessHandler}},
-                                 {genericPhaseChecker, {passPhaseHandler}},
-                                 {genericPhaseChecker, {passPhaseHandler}},
                                  {genericPhaseChecker, {proxyPassHandler, staticContentHandler, autoIndexHandler}},
+
                                  {genericPhaseChecker, {passPhaseHandler}}};
 
 PhaseHandler::PhaseHandler(std::function<int(std::shared_ptr<Request>, PhaseHandler *)> checkerr,
@@ -76,6 +67,10 @@ int genericPhaseChecker(std::shared_ptr<Request> r, PhaseHandler *ph)
         if (ret == PHASE_CONTINUE)
         {
             continue;
+        }
+        if (ret == PHASE_QUIT)
+        {
+            return DONE;
         }
     }
     // nothing went wrong & no function asks to go to the next phase
@@ -122,7 +117,8 @@ int contentAccessHandler(std::shared_ptr<Request> r)
             str.append("<body>\n\t<center>\n\t\t<h1>403 "
                        "Forbidden</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
 
-            r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"] + "; charset=utf-8"));
+            r->headers_out.headers.emplace_back("Content-Type",
+                                                std::string(exten_content_type_map["html"] + "; charset=utf-8"));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
             r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
@@ -134,15 +130,13 @@ int contentAccessHandler(std::shared_ptr<Request> r)
             r->headers_out.file_body.filefd = std::move(_403fd);
             r->headers_out.file_body.file_size = st.st_size;
 
-            r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"] + "; charset=utf-8"));
+            r->headers_out.headers.emplace_back("Content-Type",
+                                                std::string(exten_content_type_map["html"] + "; charset=utf-8"));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(st.st_size));
             r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
 
-        doResponse(r);
-
-        LOG_INFO << "PHASE_ERR";
-        return PHASE_ERR;
+        return doResponse(r);
     }
 
     if (uri == "/")
@@ -260,7 +254,8 @@ autoindex:
             str.append("<body>\n\t<center>\n\t\t<h1>404 Not "
                        "Found</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
 
-            r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"] + "; charset=utf-8"));
+            r->headers_out.headers.emplace_back("Content-Type",
+                                                std::string(exten_content_type_map["html"] + "; charset=utf-8"));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
             r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
@@ -272,15 +267,13 @@ autoindex:
             r->headers_out.file_body.filefd = std::move(_404fd);
             r->headers_out.file_body.file_size = st.st_size;
 
-            r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"] + "; charset=utf-8"));
+            r->headers_out.headers.emplace_back("Content-Type",
+                                                std::string(exten_content_type_map["html"] + "; charset=utf-8"));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(st.st_size));
             r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
 
-        doResponse(r);
-
-        LOG_INFO << "PHASE_ERR";
-        return PHASE_ERR;
+        return doResponse(r);
     }
     else
     {
@@ -549,7 +542,8 @@ int staticContentHandler(std::shared_ptr<Request> r)
     std::string exten = std::string(r->exten.data, r->exten.data + r->exten.len);
     if (exten_content_type_map.count(exten))
     {
-        r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map[exten]) + "; charset=utf-8");
+        r->headers_out.headers.emplace_back("Content-Type",
+                                            std::string(exten_content_type_map[exten]) + "; charset=utf-8");
     }
     else
     {
@@ -558,9 +552,7 @@ int staticContentHandler(std::shared_ptr<Request> r)
     r->headers_out.headers.emplace_back("Content-Length", std::to_string(r->headers_out.content_length));
     r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
 
-    doResponse(r);
-
-    return PHASE_NEXT;
+    return doResponse(r);
 }
 
 int autoIndexHandler(std::shared_ptr<Request> r)
@@ -586,17 +578,45 @@ int autoIndexHandler(std::shared_ptr<Request> r)
     static char header[] = "</title></head>" CRLF "<body>" CRLF "<h1>Index of ";
     static char tail[] = "</pre>" CRLF "<hr>" CRLF "</body>" CRLF "</html>";
 
+    // open location
     auto &root = server.root;
     auto subpath = std::string(r->uri.data, r->uri.data + r->uri.len);
+    Dir directory(opendir((root + subpath).c_str()));
+
+    // can't open dir
+    if (directory.dir == NULL)
+    {
+        LOG_WARN << "auto index directory open failed";
+        out.status=HTTP_INTERNAL_SERVER_ERROR;
+        out.status_line="HTTP/1.1 500 Internal Server Error\r\n";
+        out.str_body.append("<html>\r\n"
+                            "<head>\r\n"
+                            "\t<title>500 Internal Server Error</title>\r\n"
+                            "</head>\r\n");
+
+        out.str_body.append("</head>\r\n"
+                            "<body>\r\n"
+                            "</head>\r\n"
+                            "<body>\r\n"
+                            "\t<center>\r\n"
+                            "\t\t<h1>500 Internal Server Error</h1>\r\n"
+                            "\t</center>\r\n"
+                            "\t<hr>\t\n"
+                            "\t<center>MyServer</center>\r\n"
+                            "</body>\r\n"
+                            "</html>\r\n");
+        goto resposne;
+    }
+
+    directory.getInfos(root + subpath);
+
     out.str_body.append(title);
     out.str_body.append(header);
     out.str_body.append(subpath);
     out.str_body.append("</h1>" CRLF "<hr>" CRLF);
     out.str_body.append("<pre><a href=\"../\">../</a>" CRLF);
 
-    Dir dir(opendir((root + subpath).c_str()));
-    dir.getInfos(root + subpath);
-    for (auto &x : dir.infos)
+    for (auto &x : directory.infos)
     {
         out.str_body.append("<a href=\"");
         out.str_body.append(UrlEncode(x.name, '/'));
@@ -618,11 +638,13 @@ int autoIndexHandler(std::shared_ptr<Request> r)
 
     out.str_body.append(tail);
 
+resposne:
     // headers
     std::string exten = std::string(r->exten.data, r->exten.data + r->exten.len);
     if (exten_content_type_map.count(exten))
     {
-        r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map[exten] + "; charset=utf-8"));
+        r->headers_out.headers.emplace_back("Content-Type",
+                                            std::string(exten_content_type_map[exten] + "; charset=utf-8"));
     }
     else
     {
@@ -631,9 +653,7 @@ int autoIndexHandler(std::shared_ptr<Request> r)
     r->headers_out.headers.emplace_back("Content-Length", std::to_string(out.str_body.length()));
     r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
 
-    doResponse(r);
-
-    return PHASE_NEXT;
+    return doResponse(r);
 }
 
 int appendResponseLine(std::shared_ptr<Request> r)
@@ -690,12 +710,11 @@ int doResponse(std::shared_ptr<Request> r)
     {
         if (x(r) == ERROR)
         {
-            return ERROR;
+            return PHASE_ERR;
         }
     }
 
-    writeResponse(&r->c->write_);
-    return OK;
+    return writeResponse(&r->c->write_);
 }
 
 int upsResponse2Client(Event *upc_ev)

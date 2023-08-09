@@ -371,4 +371,6 @@ class Upstream
 #define HTTP_MISDIRECTED_REQUEST 421
 #define HTTP_TOO_MANY_REQUESTS 429
 
+#define HTTP_INTERNAL_SERVER_ERROR     500
+
 #endif

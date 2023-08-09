@@ -796,7 +796,7 @@ int runPhases(Event *ev)
     std::shared_ptr<Request> r = ev->c->data_;
 
     // OK: keep running phases
-    // AGAIN/ERROR: quit phase running
+    // ERROR/DONE: quit phase running
     while (r->at_phase < 11 && phases[r->at_phase].checker)
     {
         ret = phases[r->at_phase].checker(r, &phases[r->at_phase]);
@@ -825,14 +825,14 @@ int writeResponse(Event *ev)
         {
             LOG_CRIT << "write response failed";
             finalizeRequest(r);
-            return ERROR;
+            return PHASE_ERR;
         }
 
         if (buffer.allRead() != 1)
         {
             r->c->write_.handler = writeResponse;
             epoller.modFd(ev->c->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, ev->c);
-            return AGAIN;
+            return PHASE_QUIT;
         }
     }
 
@@ -859,10 +859,9 @@ int writeResponse(Event *ev)
         {
             finalizeRequest(r);
         }
-
-        return OK;
     }
-    return OK;
+
+    return PHASE_QUIT;
 }
 
 int blockReading(Event *ev)
