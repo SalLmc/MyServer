@@ -6,7 +6,7 @@
 
 // #define RE_ALLOC
 // #define LOOP_ACCEPT
-#define ENABLE_LOGGER
+// #define ENABLE_LOGGER
 // #define LOGGER_IS_SYNC
 
 extern bool isChild;
