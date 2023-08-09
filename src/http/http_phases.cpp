@@ -32,12 +32,19 @@ int testPhaseHandler(std::shared_ptr<Request> r)
     return doResponse(r);
 }
 
+int endPhaseHandler(std::shared_ptr<Request> r)
+{
+    LOG_CRIT << "PHASE_ERR";
+    assert(0);
+    return PHASE_ERR;
+}
+
 std::vector<PhaseHandler> phases{{genericPhaseChecker, {passPhaseHandler}},
 
                                  {genericPhaseChecker, {contentAccessHandler}},
                                  {genericPhaseChecker, {proxyPassHandler, staticContentHandler, autoIndexHandler}},
 
-                                 {genericPhaseChecker, {passPhaseHandler}}};
+                                 {genericPhaseChecker, {endPhaseHandler}}};
 
 PhaseHandler::PhaseHandler(std::function<int(std::shared_ptr<Request>, PhaseHandler *)> checkerr,
                            std::vector<std::function<int(std::shared_ptr<Request>)>> &&handlerss)
@@ -587,8 +594,8 @@ int autoIndexHandler(std::shared_ptr<Request> r)
     if (directory.dir == NULL)
     {
         LOG_WARN << "auto index directory open failed";
-        out.status=HTTP_INTERNAL_SERVER_ERROR;
-        out.status_line="HTTP/1.1 500 Internal Server Error\r\n";
+        out.status = HTTP_INTERNAL_SERVER_ERROR;
+        out.status_line = "HTTP/1.1 500 Internal Server Error\r\n";
         out.str_body.append("<html>\r\n"
                             "<head>\r\n"
                             "\t<title>500 Internal Server Error</title>\r\n"
