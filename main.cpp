@@ -18,6 +18,8 @@ extern long cores;
 
 int main(int argc, char *argv[])
 {
+    system("rm -rf log");
+    system("mkdir log");
     cores = sysconf(_SC_NPROCESSORS_CONF);
 
     std::unique_ptr<Cycle> cycle(new Cycle(&cPool, new Logger("log/", "startup", 1)));
