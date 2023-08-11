@@ -334,7 +334,7 @@ int keepAlive(Event *ev)
     return 0;
 }
 
-int processRequestLine(Event *ev)
+int  processRequestLine(Event *ev)
 {
     // LOG_INFO << "process request line";
     Connection *c = ev->c;
@@ -797,7 +797,7 @@ int runPhases(Event *ev)
 
     // OK: keep running phases
     // ERROR/DONE: quit phase running
-    while (r->at_phase < 11 && phases[r->at_phase].checker)
+    while (r->at_phase < phases.size() && phases[r->at_phase].checker)
     {
         ret = phases[r->at_phase].checker(r, &phases[r->at_phase]);
         if (ret == OK)
@@ -1195,13 +1195,11 @@ int keepAliveRequest(std::shared_ptr<Request> r)
 {
     int fd = r->c->fd_.getFd();
 
-    int at_phase = r->at_phase;
     Connection *c = r->c;
 
     r->init();
 
     r->c = c;
-    r->at_phase = at_phase;
 
     c->read_.handler = keepAlive;
     c->write_.handler = NULL;

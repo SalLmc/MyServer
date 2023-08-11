@@ -34,7 +34,7 @@ int testPhaseHandler(std::shared_ptr<Request> r)
 
 int endPhaseHandler(std::shared_ptr<Request> r)
 {
-    LOG_CRIT << "PHASE_ERR";
+    LOG_CRIT << "endPhaseHandler PHASE_ERR";
     assert(0);
     return PHASE_ERR;
 }
@@ -567,6 +567,7 @@ int autoIndexHandler(std::shared_ptr<Request> r)
     LOG_INFO << "Auto index handler";
     if (r->headers_out.restype != RES_AUTO_INDEX)
     {
+        LOG_WARN << "Pass auto index handler";
         return PHASE_NEXT;
     }
 
