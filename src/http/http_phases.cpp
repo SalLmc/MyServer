@@ -77,7 +77,7 @@ int genericPhaseChecker(std::shared_ptr<Request> r, PhaseHandler *ph)
         }
     }
     // nothing went wrong & no function asks to go to the next phase
-    return OK;
+    return DONE;
 }
 
 int passPhaseHandler(std::shared_ptr<Request> r)

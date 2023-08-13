@@ -82,12 +82,12 @@ int main(int argc, char *argv[])
 
     // server init
     // port root index from to auto_index try_files
+    cyclePtr->servers_.emplace_back(80, "static", "index.html", "", "", 0, std::vector<std::string>{"index.html"});
+    cyclePtr->servers_.emplace_back(1479, "/home/sallmc/myfolder", "sdfx", "", "", 1, std::vector<std::string>{});
     cyclePtr->servers_.emplace_back(8081, "/home/sallmc/dist", "index.html", "/api/", "http://175.178.175.106:8080/", 0,
                                     std::vector<std::string>{"index.html"});
     cyclePtr->servers_.emplace_back(8082, "/home/sallmc/share", "sdfxcv", "", "", 1, std::vector<std::string>{});
-    cyclePtr->servers_.emplace_back(8083, "static", "index.html", "", "", 0, std::vector<std::string>{"index.html"});
-    cyclePtr->servers_.emplace_back(1479, "/home/sallmc/myfolder", "sdfx", "", "", 1, std::vector<std::string>{});
-
+    
     // for (auto &x : cyclePtr->servers_)
     // {
     //     if (initListen(cyclePtr, x.port) == ERROR)
