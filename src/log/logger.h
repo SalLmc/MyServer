@@ -72,6 +72,8 @@ class Logger
     void write2FileInner();
     void write2File();
 
+    void wakeup();
+
     const char *filePath_;
     const char *fileName_;
     unsigned int maxFileSize_;
@@ -87,6 +89,7 @@ class Logger
 
     int fd_ = -1;
     int cnt;
+    int bytes;
 
     std::atomic<State> state;
 

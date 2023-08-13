@@ -123,7 +123,7 @@ LogLine &LogLine::operator<<(const char *arg)
 }
 
 Logger::Logger(const char *path, const char *name, unsigned int size_mb)
-    : filePath_(path), fileName_(name), maxFileSize_(size_mb), cnt(1), state(State::INIT),
+    : filePath_(path), fileName_(name), maxFileSize_(size_mb), cnt(1), bytes(0), state(State::INIT),
       writeThread(&Logger::write2File, this)
 {
     if (access(path, 0) != 0)
@@ -153,6 +153,10 @@ Logger::~Logger()
         close(fd_);
     }
 }
+void Logger::wakeup()
+{
+    cond_.notify_one();
+}
 Logger &Logger::operator+=(LogLine &line)
 {
 #ifdef ENABLE_LOGGER
@@ -161,9 +165,9 @@ Logger &Logger::operator+=(LogLine &line)
     {
         std::unique_lock<std::mutex> ulock(mutex_);
         ls_.push_back(std::move(line));
-        if (ls_.size() >= 1)
+        if (ls_.size() >= 100)
         {
-            cond_.notify_one();
+            wakeup();
         }
     }
 #else
@@ -204,9 +208,9 @@ void Logger::write2FileInner()
 
         write(fd_, line.buffer_, line.pos);
 
-        struct stat st;
-        int ret = fstat(fd_, &st);
-        if (ret == 0 && st.st_size >= maxFileSize_ * 1048576)
+        bytes += line.pos;
+
+        if (bytes >= maxFileSize_ * 1048576)
         {
             char loc[100];
             memset(loc, 0, sizeof(loc));
@@ -215,6 +219,7 @@ void Logger::write2FileInner()
             fd_ = -1;
             fd_ = open(loc, O_RDWR | O_CREAT | O_TRUNC, 0666);
             assert(fd_ >= 0);
+            bytes = 0;
         }
         ls_.pop_front();
     }

@@ -3,15 +3,12 @@
 
 #include "../headers.h"
 
-typedef std::function<int(void *)> TimeoutCallBack;
-typedef unsigned long long TimeStamp;
-
 struct TimerNode
 {
     int id;
-    TimeStamp expires;
-    TimeStamp newExpires=0;
-    TimeoutCallBack cb;
+    unsigned long long expires;
+    unsigned long long newExpires=0;
+    std::function<int(void *)> cb;
     void *arg;
     bool operator<(const TimerNode &t)
     {
@@ -32,7 +29,7 @@ class HeapTimer
     }
     void Adjust(int id, unsigned long long new_timeout_ms);
     void Again(int id, unsigned long long new_timeout_ms);
-    void Add(int id, unsigned long long timeoutstamp_ms, const TimeoutCallBack &cb, void *arg);
+    void Add(int id, unsigned long long timeoutstamp_ms, const std::function<int(void *)> &cb, void *arg);
     void Remove(int id); // remove node 
     void DoWork(int id); // delete node && trigger its callback
     void Clear();

@@ -47,7 +47,7 @@ bool HeapTimer::SiftDown(size_t index, size_t n)
     return i > index; // true means siftdown happened
 }
 
-void HeapTimer::Add(int id, unsigned long long timeoutstamp_ms, const TimeoutCallBack &cb, void *arg)
+void HeapTimer::Add(int id, unsigned long long timeoutstamp_ms, const std::function<int(void *)> &cb, void *arg)
 {
     size_t i;
     if (ref_.count(id) == 0) // new node

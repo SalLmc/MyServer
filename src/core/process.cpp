@@ -191,7 +191,7 @@ void workerProcessCycle(Cycle *cycle)
     }
 
     // timer
-    // cyclePtr->timer_.Add(-1, getTickMs() + 600000, recoverEtags, (void *)600000);
+    cyclePtr->timer_.Add(-1, getTickMs() + 3000, logging, (void *)3000);
 
     LOG_INFO << "Worker Looping";
     for (;;)
@@ -242,4 +242,10 @@ void processEventsAndTimers(Cycle *cycle)
     cycle->timer_.Tick();
 
     process_posted_events(&posted_events);
+}
+
+int logging(void *arg)
+{
+    cyclePtr->logger_->wakeup();
+    cyclePtr->timer_.Again(-1, getTickMs() + (int)arg);
 }
