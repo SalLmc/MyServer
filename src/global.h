@@ -2,7 +2,7 @@
 #define GLOBAL_H
 
 #define MAX_PROCESS_N 16
-#define PROCESS 1
+#define PROCESS 2
 
 // #define RE_ALLOC
 // #define LOOP_ACCEPT

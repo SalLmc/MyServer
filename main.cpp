@@ -18,8 +18,8 @@ extern long cores;
 
 int main(int argc, char *argv[])
 {
-    system("rm -rf log");
-    system("mkdir log");
+    assert(system("rm -rf log") == 0);
+    assert(system("mkdir log") == 0);
     cores = sysconf(_SC_NPROCESSORS_CONF);
 
     std::unique_ptr<Cycle> cycle(new Cycle(&cPool, new Logger("log/", "startup", 1)));
@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
     cyclePtr->servers_.emplace_back(8081, "/home/sallmc/dist", "index.html", "/api/", "http://175.178.175.106:8080/", 0,
                                     std::vector<std::string>{"index.html"});
     cyclePtr->servers_.emplace_back(8082, "/home/sallmc/share", "sdfxcv", "", "", 1, std::vector<std::string>{});
-    
+
     // for (auto &x : cyclePtr->servers_)
     // {
     //     if (initListen(cyclePtr, x.port) == ERROR)
