@@ -89,7 +89,7 @@ class Logger
 
     int fd_ = -1;
     int cnt;
-    int bytes;
+    unsigned long long bytes;
 
     std::atomic<State> state;
 
