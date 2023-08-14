@@ -155,7 +155,10 @@ Logger::~Logger()
 }
 void Logger::wakeup()
 {
-    cond_.notify_one();
+    if (!ls_.empty())
+    {
+        cond_.notify_one();
+    }
 }
 Logger &Logger::operator+=(LogLine &line)
 {
