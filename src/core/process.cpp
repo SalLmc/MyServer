@@ -17,6 +17,7 @@ extern ProcessMutex acceptMutex;
 extern HeapMemory heap;
 extern std::list<Event *> posted_accept_events;
 extern std::list<Event *> posted_events;
+extern int process_n;
 
 Process processes[MAX_PROCESS_N];
 
@@ -45,7 +46,7 @@ void masterProcessCycle(Cycle *cycle)
 
     // start processes
     isChild = 0;
-    startWorkerProcesses(cycle, PROCESS);
+    startWorkerProcesses(cycle, process_n);
     if (isChild)
     {
         return;

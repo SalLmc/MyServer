@@ -217,11 +217,15 @@ void Logger::write2FileInner()
         {
             char loc[100];
             memset(loc, 0, sizeof(loc));
-            sprintf(loc, "%s%s_%d.txt", filePath_, fileName_, cnt++);
-            close(fd_);
-            fd_ = -1;
-            fd_ = open(loc, O_RDWR | O_CREAT | O_TRUNC, 0666);
-            assert(fd_ >= 0);
+            sprintf(loc, "%s%s_%d.txt", filePath_, fileName_, cnt);
+
+            int tmpfd = open(loc, O_RDWR | O_CREAT | O_TRUNC, 0666);
+            if (tmpfd >= 0)
+            {
+                close(fd_);
+                fd_ = tmpfd;
+                cnt++;
+            }
             bytes = 0;
         }
         ls_.pop_front();
