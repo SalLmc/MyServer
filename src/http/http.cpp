@@ -689,11 +689,10 @@ int processRequest(std::shared_ptr<Request> r)
     Connection *c = r->c;
     c->read_.handler = blockReading;
 
-    // register EPOLLOUT
-    epoller.modFd(c->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, c);
-    c->write_.handler = runPhases;
+    // // register EPOLLOUT
+    // epoller.modFd(c->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, c);
+    // c->write_.handler = runPhases;
 
-    LOG_INFO << "Run phases";
     r->at_phase = 0;
     runPhases(&c->write_);
     return OK;
@@ -791,8 +790,9 @@ int runPhases(Event *ev)
     //         break;
     //     printf("%s", std::string(x.start, x.start + x.len).c_str());
     // }
+    LOG_INFO << "Phase running";
 
-    int ret = 0;
+    int ret = OK;
     std::shared_ptr<Request> r = ev->c->data_;
 
     // OK: keep running phases
@@ -806,10 +806,11 @@ int runPhases(Event *ev)
         }
         else
         {
-            return ret;
+            break;
         }
     }
-    return OK;
+    LOG_INFO << "runPhases return:" << ret;
+    return ret;
 }
 
 int writeResponse(Event *ev)

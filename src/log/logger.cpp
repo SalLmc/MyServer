@@ -3,6 +3,8 @@
 #include "../util/utils_declaration.h"
 #include "logger.h"
 
+extern unsigned long logger_wake;
+
 LogLine::LogLine()
 {
     memset(buffer_, 0, sizeof(buffer_));
@@ -168,7 +170,7 @@ Logger &Logger::operator+=(LogLine &line)
     {
         std::unique_lock<std::mutex> ulock(mutex_);
         ls_.push_back(std::move(line));
-        if (ls_.size() >= 100)
+        if (ls_.size() >= logger_wake)
         {
             wakeup();
         }

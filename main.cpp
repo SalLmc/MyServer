@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
 
     {
         pid_t pid = readPidFromFile();
-        if (kill(pid, 0) == 0)
+        if (pid != ERROR && kill(pid, 0) == 0)
         {
             LOG_CRIT << "server is running!";
             return 1;

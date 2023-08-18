@@ -87,7 +87,7 @@ int passPhaseHandler(std::shared_ptr<Request> r)
 
 int contentAccessHandler(std::shared_ptr<Request> r)
 {
-    LOG_INFO << "Content access handler";
+    LOG_INFO << "Content access handler, FD:" << r->c->fd_.getFd();
     auto &server = cyclePtr->servers_[r->c->server_idx_];
     std::string uri = std::string(r->uri.data, r->uri.data + r->uri.len);
     std::string path;
@@ -289,13 +289,15 @@ autoindex:
 
 int proxyPassHandler(std::shared_ptr<Request> r)
 {
+    LOG_INFO << "Proxy pass handler, FD:" << r->c->fd_.getFd();
+
     if (r->now_proxy_pass != 1)
     {
         return PHASE_CONTINUE;
     }
     r->now_proxy_pass = 0;
 
-    LOG_INFO << "Proxy pass handler";
+    LOG_INFO << "Need proxy pass";
 
     int ret = readRequestBody(r, initUpstream);
     LOG_INFO << "readRequestBody:" << ret;
@@ -305,7 +307,7 @@ int proxyPassHandler(std::shared_ptr<Request> r)
         return PHASE_ERR;
     }
 
-    return OK;
+    return PHASE_QUIT;
 }
 
 int initUpstream(std::shared_ptr<Request> r)
@@ -519,9 +521,10 @@ int send2upstream(Event *upc_ev)
 
 int staticContentHandler(std::shared_ptr<Request> r)
 {
-    LOG_INFO << "Static content handler";
+    LOG_INFO << "Static content handler, FD:" << r->c->fd_.getFd();
     if (r->headers_out.restype == RES_FILE)
     {
+        LOG_INFO << "RES_FILE";
         r->headers_out.content_length = r->headers_out.file_body.file_size;
         std::string etag = cacheControl(r->headers_out.file_body.filefd.getFd());
         if (etag != "")
@@ -531,14 +534,17 @@ int staticContentHandler(std::shared_ptr<Request> r)
     }
     else if (r->headers_out.restype == RES_STR)
     {
+        LOG_INFO << "RES_STR";
         r->headers_out.content_length = r->headers_out.str_body.length();
     }
     else if (r->headers_out.restype == RES_EMPTY)
     {
+        LOG_INFO << "RES_EMTPY";
         r->headers_out.content_length = 0;
     }
     else if (r->headers_out.restype == RES_AUTO_INDEX)
     {
+        LOG_INFO << "RES_AUTO_INDEX";
         return PHASE_CONTINUE;
     }
 
@@ -560,7 +566,7 @@ int staticContentHandler(std::shared_ptr<Request> r)
 
 int autoIndexHandler(std::shared_ptr<Request> r)
 {
-    LOG_INFO << "Auto index handler";
+    LOG_INFO << "Auto index handler, FD:" << r->c->fd_.getFd();
     if (r->headers_out.restype != RES_AUTO_INDEX)
     {
         LOG_WARN << "Pass auto index handler";

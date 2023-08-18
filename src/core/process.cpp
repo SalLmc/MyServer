@@ -45,6 +45,12 @@ void masterProcessCycle(Cycle *cycle)
     }
 
     // start processes
+    if (only_worker)
+    {
+        workerProcessCycle(cycle);
+        return;
+    }
+
     isChild = 0;
     startWorkerProcesses(cycle, process_n);
     if (isChild)

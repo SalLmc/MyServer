@@ -1,6 +1,9 @@
 #include "global.h"
 
-int process_n = 8;
+int process_n = 2;
+unsigned long logger_wake = 100;
+int only_worker = 0;
+
 bool isChild;
 bool quit = 0;
 bool restart = 0;
