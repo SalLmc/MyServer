@@ -165,8 +165,6 @@ void Logger::wakeup()
 Logger &Logger::operator+=(LogLine &line)
 {
 #ifdef ENABLE_LOGGER
-
-#ifndef LOGGER_IS_SYNC
     {
         std::unique_lock<std::mutex> ulock(mutex_);
         ls_.push_back(std::move(line));
@@ -175,11 +173,6 @@ Logger &Logger::operator+=(LogLine &line)
             wakeup();
         }
     }
-#else
-    ls_.push_back(std::move(line));
-    write2FileInner();
-#endif
-
 #endif
     return *this;
 }

@@ -1,6 +1,6 @@
 #include "global.h"
 
-int process_n = 2;
+int process_n = 8;
 unsigned long logger_wake = 100;
 int only_worker = 0;
 

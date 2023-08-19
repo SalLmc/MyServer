@@ -724,6 +724,14 @@ int doResponse(std::shared_ptr<Request> r)
         }
     }
 
+    // auto &buffer = r->c->writeBuffer_;
+    // for (auto &x : buffer.nodes)
+    // {
+    //     if (x.len == 0)
+    //         break;
+    //     LOG_INFO << x.toString();
+    // }
+
     return writeResponse(&r->c->write_);
 }
 

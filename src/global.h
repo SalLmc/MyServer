@@ -5,8 +5,7 @@
 
 // #define RE_ALLOC
 // #define LOOP_ACCEPT
-#define ENABLE_LOGGER
-// #define LOGGER_IS_SYNC
+// #define ENABLE_LOGGER
 
 extern int process_n;
 extern unsigned long logger_wake;
