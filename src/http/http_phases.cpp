@@ -18,11 +18,13 @@ int testPhaseHandler(std::shared_ptr<Request> r)
 {
     r->headers_out.status = HTTP_OK;
     r->headers_out.status_line = "HTTP/1.1 200 OK\r\n";
-    r->headers_out.restype = RES_EMPTY;
+    r->headers_out.restype = RES_STR;
+
+    r->headers_out.str_body.append("HELLO");
 
     r->headers_out.headers.emplace_back("Content-Type",
                                         std::string(exten_content_type_map["html"] + "; charset=utf-8"));
-    r->headers_out.headers.emplace_back("Content-Length", "0");
+    r->headers_out.headers.emplace_back("Content-Length", std::to_string(r->headers_out.str_body.length()));
     r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
 
     return doResponse(r);

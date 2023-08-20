@@ -1102,7 +1102,7 @@ int sendfileEvent(Event *ev)
     std::shared_ptr<Request> r = ev->c->data_;
     auto &filebody = r->headers_out.file_body;
 
-    int len =
+    ssize_t len =
         sendfile(r->c->fd_.getFd(), filebody.filefd.getFd(), &filebody.offset, filebody.file_size - filebody.offset);
 
     if (len < 0 && errno != EAGAIN)
