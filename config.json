@@ -1,8 +1,8 @@
 {
-    "processes": 8,
-    "logger_wake": 100,
+    "processes": 2,
+    "logger_wake": 1,
     "only_worker": 0,
-    "enable_logger": 0,
+    "enable_logger": 1,
     "servers": [
         {
             "port": 80,

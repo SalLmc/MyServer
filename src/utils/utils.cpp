@@ -72,7 +72,7 @@ int writePid2File()
 
 pid_t readPidFromFile()
 {
-    Fd filefd(open("pid_file", O_RDWR));
+    Fd filefd(open("pid_file", O_RDONLY));
     if (filefd.getFd() < 0)
     {
         return ERROR;

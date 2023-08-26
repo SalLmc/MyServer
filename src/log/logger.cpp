@@ -176,9 +176,9 @@ Logger::Logger(const char *path, const char *name, unsigned int size_mb)
     : filePath_(path), fileName_(name), maxFileSize_(size_mb), cnt(1), bytes(0), state(State::INIT),
       writeThread(&Logger::write2File, this)
 {
-    if (access(path, 0) != 0)
+    if (access(path, W_OK | R_OK | X_OK) != 0)
     {
-        mkdir(path, 0744);
+        mkdir(path, 0777);
     }
 
     char loc[100];
