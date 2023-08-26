@@ -1,6 +1,6 @@
 #include "../headers.h"
 
-#include "../util/utils_declaration.h"
+#include "../utils/utils_declaration.h"
 #include "logger.h"
 
 extern unsigned long logger_wake;

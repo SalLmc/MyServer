@@ -6,7 +6,7 @@
 #include "../global.h"
 #include "../http/http.h"
 #include "../log/logger.h"
-#include "../util/utils_declaration.h"
+#include "../utils/utils_declaration.h"
 #include "process.h"
 
 #include "../memory/memory_manage.hpp"

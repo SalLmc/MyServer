@@ -97,6 +97,7 @@ class ServerAttribute
   public:
     ServerAttribute(int portt, std::string &&roott, std::string &&indexx, std::string &&from, std::string &&to,
                     int auto_indexx, std::vector<std::string> &&tryfiles);
+    ServerAttribute() = default;
     int port;
     std::string root;
     std::string index;

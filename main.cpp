@@ -6,7 +6,9 @@
 #include "src/event/event.h"
 #include "src/global.h"
 #include "src/http/http.h"
-#include "src/util/utils_declaration.h"
+#include "src/utils/utils_declaration.h"
+
+#include "src/utils/json.hpp"
 
 std::unordered_map<std::string, std::string> mp;
 extern ConnectionPool cPool;
@@ -15,6 +17,8 @@ extern sharedMemory shmForAMtx;
 extern ProcessMutex acceptMutex;
 extern Epoller epoller;
 extern long cores;
+
+void init();
 
 int main(int argc, char *argv[])
 {
@@ -82,11 +86,13 @@ int main(int argc, char *argv[])
 
     // server init
     // port root index from to auto_index try_files
-    cyclePtr->servers_.emplace_back(80, "static", "index.html", "", "", 0, std::vector<std::string>{"index.html"});
-    cyclePtr->servers_.emplace_back(1479, "/home/sallmc/myfolder", "sdfx", "", "", 1, std::vector<std::string>{});
-    cyclePtr->servers_.emplace_back(8081, "/home/sallmc/dist", "index.html", "/api/", "http://175.178.175.106:8080/", 0,
-                                    std::vector<std::string>{"index.html"});
-    cyclePtr->servers_.emplace_back(8082, "/home/sallmc/share", "sdfxcv", "", "", 1, std::vector<std::string>{});
+    init();
+    // cyclePtr->servers_.emplace_back(80, "static", "index.html", "", "", 0, std::vector<std::string>{"index.html"});
+    // cyclePtr->servers_.emplace_back(1479, "/home/sallmc/myfolder", "sdfx", "", "", 1, std::vector<std::string>{});
+    // cyclePtr->servers_.emplace_back(8081, "/home/sallmc/dist", "index.html", "/api/", "http://175.178.175.106:8080/",
+    // 0,
+    //                                 std::vector<std::string>{"index.html"});
+    // cyclePtr->servers_.emplace_back(8082, "/home/sallmc/share", "sdfxcv", "", "", 1, std::vector<std::string>{});
 
     // accept mutex
     if (useAcceptMutex)
@@ -109,4 +115,45 @@ int main(int argc, char *argv[])
     }
 
     masterProcessCycle(cyclePtr);
+}
+
+ServerAttribute getServer(nlohmann::json config)
+{
+    ServerAttribute server;
+    server.port = config["port"];
+    server.root = config["root"];
+    server.index = config["index"];
+
+    server.proxy_pass.from = config["proxy_pass"]["from"];
+    server.proxy_pass.to = config["proxy_pass"]["to"];
+
+    server.auto_index = config["auto_index"];
+    server.try_files = config["try_files"];
+
+    std::cout << server.port << " " << server.root << " " << server.index << " " << server.proxy_pass.from << " "
+              << server.proxy_pass.to << " " << server.auto_index;
+    for (auto x : server.try_files)
+    {
+        std::cout << x << " ";
+    }
+    std::cout << "\n";
+
+    return server;
+}
+
+void init()
+{
+    std::ifstream f("config.json");
+    nlohmann::json config = nlohmann::json::parse(f);
+
+    process_n = config["processes"];
+    logger_wake = config["logger_wake"];
+    only_worker = config["only_worker"];
+    enable_logger = config["enable_logger"];
+
+    nlohmann::json servers = config["servers"];
+    for (int i = 0; i < servers.size(); i++)
+    {
+        cyclePtr->servers_.push_back(getServer(servers[i]));
+    }
 }

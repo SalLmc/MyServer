@@ -5,11 +5,12 @@
 
 // #define RE_ALLOC
 // #define LOOP_ACCEPT
-// #define ENABLE_LOGGER
+#define ENABLE_LOGGER
 
 extern int process_n;
 extern unsigned long logger_wake;
 extern int only_worker;
+extern int enable_logger;
 extern bool isChild;
 extern bool quit;
 extern bool restart;

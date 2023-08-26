@@ -3,7 +3,7 @@ PROGS = libmy.so main \
 		
 PRE_HEADER = src/headers.h.gch
 
-SRCDIRS = src/buffer src/core src/event src/http src/log src/memory src/timer src/util src
+SRCDIRS = src/buffer src/core src/event src/http src/log src/memory src/timer src/utils src
 
 CPP_SOURCES = $(foreach dir, $(SRCDIRS), $(wildcard $(dir)/*.cpp))
 CPP_OBJECTS = $(patsubst %.cpp, %.o, $(CPP_SOURCES))
@@ -18,7 +18,9 @@ FLAGS = -Wall -fPIC -g -MD
 BUILDEXEWITHLIB = g++ $(FLAGS) $^ ./libmy.so -o $@ $(LINK)
 BUILDEXE = g++ $(FLAGS) $^ -o $@ $(LINK)
 
-all: $(PRE_HEADER) $(PROGS)
+CONFIG = config.json
+
+all: $(PRE_HEADER) $(PROGS) $(CONFIG)
 
 src/headers.h.gch: src/headers.h
 	g++ $(FLAGS) src/headers.h

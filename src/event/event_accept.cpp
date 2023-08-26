@@ -3,7 +3,7 @@
 #include "../core/core.h"
 #include "../event/epoller.h"
 #include "../global.h"
-#include "../util/utils_declaration.h"
+#include "../utils/utils_declaration.h"
 #include "event.h"
 
 sharedMemory shmForAMtx;

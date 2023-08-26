@@ -1,15 +1,10 @@
 #include "src/headers.h"
 
-#include "src/util/utils_declaration.h"
+using namespace std;
 
 int main()
 {
-    int fd = open("pid_file", O_RDWR);
-    std::string s=fd2Path(fd);
-    if(s!="")
-    {
-        printf("%s\n",s.data());
-    }
-    std::string z="";
-    printf("%d\n",z.empty());
+    std::ifstream f("config.json");
+    nlohmann::json data = nlohmann::json::parse(f);
+    cout<<data["servers"]["port"]<<endl;
 }

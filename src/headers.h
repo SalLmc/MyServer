@@ -1,6 +1,7 @@
 #ifndef HEADERS_H
 #define HEADERS_H
 
+#include "utils/json.hpp"
 #include <algorithm>
 #include <arpa/inet.h>
 #include <assert.h>
@@ -11,7 +12,9 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <fstream>
 #include <functional>
+#include <iostream>
 #include <list>
 #include <memory>
 #include <mutex>
