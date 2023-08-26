@@ -19,10 +19,12 @@ extern Epoller epoller;
 extern long cores;
 
 void init();
+void daemonize();
 
 int main(int argc, char *argv[])
 {
     assert(system("rm -rf log") == 0);
+    assert(mkdir("log", 0777) == 0);
     cores = sysconf(_SC_NPROCESSORS_CONF);
 
     std::unique_ptr<Cycle> cycle(new Cycle(&cPool, new Logger("log/", "startup", 1)));
@@ -77,21 +79,30 @@ int main(int argc, char *argv[])
         }
     }
 
+    // server init
+    init();
+
+    if (is_daemon)
+    {
+        if (cycle->logger_ != NULL)
+        {
+            delete cycle->logger_;
+            cycle->logger_ = NULL;
+        }
+
+        daemonize();
+
+        if (cycle->logger_ == NULL)
+        {
+            cycle->logger_ = new Logger("log/", "starup_after_daemon", 1);
+        }
+    }
+
     if (writePid2File() == ERROR)
     {
         LOG_CRIT << "write pid failed";
         return 1;
     }
-
-    // server init
-    // port root index from to auto_index try_files
-    init();
-    // cyclePtr->servers_.emplace_back(80, "static", "index.html", "", "", 0, std::vector<std::string>{"index.html"});
-    // cyclePtr->servers_.emplace_back(1479, "/home/sallmc/myfolder", "sdfx", "", "", 1, std::vector<std::string>{});
-    // cyclePtr->servers_.emplace_back(8081, "/home/sallmc/dist", "index.html", "/api/", "http://175.178.175.106:8080/",
-    // 0,
-    //                                 std::vector<std::string>{"index.html"});
-    // cyclePtr->servers_.emplace_back(8082, "/home/sallmc/share", "sdfxcv", "", "", 1, std::vector<std::string>{});
 
     // accept mutex
     if (useAcceptMutex)
@@ -160,4 +171,35 @@ void init()
     {
         cyclePtr->servers_.push_back(getServer(servers[i]));
     }
+
+    is_daemon = getValue(config, "daemon", 0);
+}
+
+void daemonize()
+{
+    pid_t pid = fork();
+    if (pid < 0)
+    {
+        exit(1);
+    }
+    if (pid > 0)
+    {
+        exit(0);
+    }
+
+    if (setsid() < 0)
+    {
+        exit(1);
+    }
+
+    close(STDIN_FILENO);
+    close(STDOUT_FILENO);
+    close(STDERR_FILENO);
+    open("/dev/null", O_RDONLY);
+    open("/dev/null", O_WRONLY);
+    open("/dev/null", O_WRONLY);
+
+    umask(0);
+
+    signal(SIGCHLD, SIG_IGN);
 }

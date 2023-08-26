@@ -52,6 +52,7 @@ void masterProcessCycle(Cycle *cycle)
     }
 
     isChild = 0;
+
     startWorkerProcesses(cycle, process_n);
     if (isChild)
     {
@@ -202,7 +203,7 @@ void workerProcessCycle(Cycle *cycle)
     {
         cyclePtr->timer_.Add(-1, getTickMs() + 3000, logging, (void *)3000);
     }
-    
+
     LOG_INFO << "Worker Looping";
     for (;;)
     {

@@ -176,7 +176,7 @@ Logger::Logger(const char *path, const char *name, unsigned int size_mb)
     : filePath_(path), fileName_(name), maxFileSize_(size_mb), cnt(1), bytes(0), state(State::INIT),
       writeThread(&Logger::write2File, this)
 {
-    if (access(path, W_OK | R_OK | X_OK) != 0)
+    if (access(path, W_OK | R_OK | X_OK | F_OK) != 0)
     {
         mkdir(path, 0777);
     }
@@ -256,7 +256,7 @@ void Logger::write2FileInner()
 
         bytes += line.pos;
 
-        if (bytes >= maxFileSize_ * 1048576)
+        if (bytes >= maxFileSize_ * 1024 * 1024)
         {
             char loc[100];
             memset(loc, 0, sizeof(loc));
