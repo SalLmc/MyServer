@@ -117,26 +117,30 @@ int main(int argc, char *argv[])
     masterProcessCycle(cyclePtr);
 }
 
+template <class T> T getValue(const nlohmann::json &json, const std::string &key, T defaultValue)
+{
+    if (json.contains(key))
+    {
+        return json[key];
+    }
+    else
+    {
+        return defaultValue;
+    }
+}
+
 ServerAttribute getServer(nlohmann::json config)
 {
     ServerAttribute server;
-    server.port = config["port"];
-    server.root = config["root"];
-    server.index = config["index"];
+    server.port = getValue(config, "port", 80);
+    server.root = getValue(config, "root", std::string("static"));
+    server.index = getValue(config, "index", std::string("index.html"));
 
-    server.proxy_pass.from = config["proxy_pass"]["from"];
-    server.proxy_pass.to = config["proxy_pass"]["to"];
+    server.from = getValue(config, "from", std::string());
+    server.to = getValue(config, "to", std::string());
 
-    server.auto_index = config["auto_index"];
-    server.try_files = config["try_files"];
-
-    std::cout << server.port << " " << server.root << " " << server.index << " " << server.proxy_pass.from << " "
-              << server.proxy_pass.to << " " << server.auto_index;
-    for (auto x : server.try_files)
-    {
-        std::cout << x << " ";
-    }
-    std::cout << "\n";
+    server.auto_index = getValue(config, "auto_index", 0);
+    server.try_files = getValue(config, "try_files", std::vector<std::string>());
 
     return server;
 }
@@ -146,13 +150,14 @@ void init()
     std::ifstream f("config.json");
     nlohmann::json config = nlohmann::json::parse(f);
 
-    process_n = config["processes"];
-    logger_wake = config["logger_wake"];
-    only_worker = config["only_worker"];
-    enable_logger = config["enable_logger"];
+    process_n = getValue(config, "processes", 1);
+    logger_wake = getValue(config, "logger_wake", 1);
+    only_worker = getValue(config, "only_worker", 0);
+    enable_logger = getValue(config, "enable_logger", 1);
 
     nlohmann::json servers = config["servers"];
-    for (int i = 0; i < servers.size(); i++)
+
+    for (long unsigned i = 0; i < servers.size(); i++)
     {
         cyclePtr->servers_.push_back(getServer(servers[i]));
     }

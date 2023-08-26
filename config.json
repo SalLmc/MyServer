@@ -2,7 +2,7 @@
     "processes": 8,
     "logger_wake": 100,
     "only_worker": 0,
-    "enable_logger": 1,
+    "enable_logger": 0,
     "servers": [
         {
             "port": 80,
@@ -19,23 +19,21 @@
             "auto_index": 1
         },
         {
-            "port": 8081,
-            "root": "/home/sallmc/dist",
-            "index": "index.html",
-            "proxy_pass": {
-                "from": "/api/",
-                "to": "http://175.178.175.106:8080/"
-            },
-            "auto_index": 0,
-            "try_files": [
-                "index.html"
-            ]
-        },
-        {
             "port": 8082,
             "root": "/home/sallmc/share",
             "index": "sdfxcv",
             "auto_index": 1
+        },
+        {
+            "port": 8081,
+            "root": "/home/sallmc/dist",
+            "index": "index.html",
+            "from": "/api/",
+            "to": "http://175.178.175.106:8080/",
+            "auto_index": 0,
+            "try_files": [
+                "index.html"
+            ]
         }
     ]
 }

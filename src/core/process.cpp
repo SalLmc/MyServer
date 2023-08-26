@@ -198,11 +198,11 @@ void workerProcessCycle(Cycle *cycle)
     }
 
     // timer
-
-#ifdef ENABLE_LOGGER
-    cyclePtr->timer_.Add(-1, getTickMs() + 3000, logging, (void *)3000);
-#endif
-
+    if (enable_logger)
+    {
+        cyclePtr->timer_.Add(-1, getTickMs() + 3000, logging, (void *)3000);
+    }
+    
     LOG_INFO << "Worker Looping";
     for (;;)
     {

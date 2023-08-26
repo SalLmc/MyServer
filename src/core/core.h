@@ -98,14 +98,14 @@ class ServerAttribute
     ServerAttribute(int portt, std::string &&roott, std::string &&indexx, std::string &&from, std::string &&to,
                     int auto_indexx, std::vector<std::string> &&tryfiles);
     ServerAttribute() = default;
+
     int port;
     std::string root;
     std::string index;
-    struct Proxypass
-    {
-        std::string from;
-        std::string to;
-    } proxy_pass;
+
+    std::string from;
+    std::string to;
+
     int auto_index;
     std::vector<std::string> try_files;
 };

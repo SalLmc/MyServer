@@ -145,10 +145,8 @@ void ConnectionPool::recoverConnection(Connection *c)
 
 ServerAttribute::ServerAttribute(int portt, std::string &&roott, std::string &&indexx, std::string &&from,
                                  std::string &&to, int auto_indexx, std::vector<std::string> &&tryfiles)
-    : port(portt), root(roott), index(indexx), auto_index(auto_indexx), try_files(tryfiles)
+    : port(portt), root(roott), index(indexx), from(from), to(to), auto_index(auto_indexx), try_files(tryfiles)
 {
-    proxy_pass.from = from;
-    proxy_pass.to = to;
 }
 
 Cycle::Cycle(ConnectionPool *pool, Logger *logger) : pool_(pool), logger_(logger)

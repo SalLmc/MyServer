@@ -20,7 +20,7 @@ BUILDEXE = g++ $(FLAGS) $^ -o $@ $(LINK)
 
 CONFIG = config.json
 
-all: $(PRE_HEADER) $(PROGS) $(CONFIG)
+all: $(CONFIG) $(PRE_HEADER) $(PROGS)
 
 src/headers.h.gch: src/headers.h
 	g++ $(FLAGS) src/headers.h
@@ -49,13 +49,10 @@ test: test.o
 -include $(INCLUDE_FILES)
 
 clean:
-	rm -f $(PROGS) $(CPP_OBJECTS) *.o log/* pid_file $(INCLUDE_FILES)
+	rm -f $(PROGS) $(CPP_OBJECTS) *.o pid_file $(INCLUDE_FILES)
 
 cleanall:
-	rm -f $(PROGS) $(CPP_OBJECTS) *.o log/* pid_file src/headers.h.gch $(INCLUDE_FILES)
-
-cleanlog:
-	rm -f log/*
+	rm -f $(PROGS) $(CPP_OBJECTS) *.o pid_file src/headers.h.gch $(INCLUDE_FILES)
 
 %.o: %.cpp
 	g++ $(FLAGS) -c $< -o $@

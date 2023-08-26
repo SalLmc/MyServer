@@ -6,5 +6,9 @@ int main()
 {
     std::ifstream f("config.json");
     nlohmann::json data = nlohmann::json::parse(f);
-    cout<<data["servers"]["port"]<<endl;
+    nlohmann::json a=data["servers"][0];
+
+    std::string from=a["proxy"];
+
+    cout<<from<<endl;
 }

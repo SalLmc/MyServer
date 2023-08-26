@@ -96,10 +96,10 @@ int contentAccessHandler(std::shared_ptr<Request> r)
     Fd fd;
 
     // proxy_pass
-    if (server.proxy_pass.from != "")
+    if (server.from != "")
     {
         std::string checkUri = uri + ((uri.back() == '/') ? "" : "/");
-        if (checkUri.find(server.proxy_pass.from) != std::string::npos)
+        if (checkUri.find(server.from) != std::string::npos)
         {
             r->now_proxy_pass = 1;
             return PHASE_NEXT;
@@ -320,13 +320,13 @@ int initUpstream(std::shared_ptr<Request> r)
 
     // setup upstream server
     auto &server = cyclePtr->servers_[r->c->server_idx_];
-    std::string addr = server.proxy_pass.to;
+    std::string addr = server.to;
     std::string ip = getIp(addr);
     int port = getPort(addr);
 
     // replace uri
     std::string fullUri = std::string(r->uri_start, r->uri_end);
-    std::string newUri = ("/" + fullUri).replace(1, server.proxy_pass.from.length(), "");
+    std::string newUri = ("/" + fullUri).replace(1, server.from.length(), "");
 
     // setup connection
     Connection *upc = cyclePtr->pool_->getNewConnection();
