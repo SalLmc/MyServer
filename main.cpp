@@ -23,8 +23,8 @@ void daemonize();
 
 int main(int argc, char *argv[])
 {
+    umask(0);
     assert(system("rm -rf log") == 0);
-    assert(mkdir("log", 0777) == 0);
     cores = sysconf(_SC_NPROCESSORS_CONF);
 
     std::unique_ptr<Cycle> cycle(new Cycle(&cPool, new Logger("log/", "startup", 1)));
