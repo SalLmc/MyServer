@@ -81,7 +81,7 @@ class ConnectionPool
     Connection **cPool_;
 
   public:
-    const static int POOLSIZE = 64;
+    const static int POOLSIZE = 1024;
     ConnectionPool();
     ~ConnectionPool();
     Connection *getNewConnection();

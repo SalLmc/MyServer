@@ -64,7 +64,7 @@ void Fd::operator=(Fd &&fd)
     fd.fd_ = -1;
 }
 
-Event::Event(Connection *cc) : handler(NULL), c(cc), type(NORMAL), timeout(NOT_TIMEOUT)
+Event::Event(Connection *cc) : c(cc), type(NORMAL), timeout(NOT_TIMEOUT)
 {
 }
 
@@ -133,7 +133,8 @@ void ConnectionPool::recoverConnection(Connection *c)
         c->fd_ = -1;
     }
 
-    c->read_.handler = c->write_.handler = NULL;
+    c->read_.handler = std::function<int(Event *)>();
+    c->write_.handler = std::function<int(Event *)>();
     c->read_.timeout = c->write_.timeout = NOT_TIMEOUT;
 
     c->readBuffer_.init();

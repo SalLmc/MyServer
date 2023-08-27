@@ -6,14 +6,6 @@
     "daemon": 0,
     "servers": [
         {
-            "port": 80,
-            "root": "static",
-            "index": "index.html",
-            "try_files": [
-                "index.html"
-            ]
-        },
-        {
             "port": 1479,
             "root": "/home/sallmc/myfolder",
             "index": "sdfsdf",

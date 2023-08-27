@@ -1228,7 +1228,7 @@ int keepAliveRequest(std::shared_ptr<Request> r)
     r->c = c;
 
     c->read_.handler = keepAlive;
-    c->write_.handler = NULL;
+    c->write_.handler = std::function<int(Event *)>();
 
     c->readBuffer_.init();
     c->writeBuffer_.init();
