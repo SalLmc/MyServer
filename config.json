@@ -1,9 +1,9 @@
 {
-    "processes": 1,
+    "processes": 2,
     "logger_wake": 1,
     "enable_logger": 1,
-    "daemon": 0,
-    "only_worker": 1,
+    "daemon": 1,
+    "only_worker": 0,
     "servers": [
         {
             "port": 1479,

@@ -516,8 +516,14 @@ int send2upstream(Event *upc_ev)
         }
     }
 
-    epoller.modFd(upc->fd_.getFd(), EPOLLIN | EPOLLET, upc);
+    // remove EPOLLOUT events
+    if (epoller.modFd(upc->fd_.getFd(), EPOLLIN | EPOLLET, upc) != 0)
+    {
+        LOG_CRIT << "epoller modfd failed";
+    }
+
     upc->write_.handler = blockWriting;
+    upc->read_.handler = upstreamRecv;
 
     ups->process_handler = processStatusLine;
     std::shared_ptr<Request> upsr(new Request());
@@ -525,13 +531,6 @@ int send2upstream(Event *upc_ev)
     ups->c4upstream->data_ = upsr;
 
     LOG_INFO << "Send client data to upstream complete";
-
-    // set epoller
-    if (epoller.addFd(upc->fd_.getFd(), EPOLLIN | EPOLLET, upc) != 0)
-    {
-        LOG_CRIT << "epoller addfd failed";
-    }
-    upc->read_.handler = upstreamRecv;
 
     return upstreamRecv(&upc->read_);
 }
