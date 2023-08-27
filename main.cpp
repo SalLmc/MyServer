@@ -79,7 +79,10 @@ int main(int argc, char *argv[])
 
     // server init
     umask(0);
-    assert(system("rm -rf log") == 0);
+    if (system("rm -rf log") == 0)
+    {
+        LOG_WARN << "rm log failed";
+    }
 
     init();
 
@@ -95,7 +98,7 @@ int main(int argc, char *argv[])
 
         if (cycle->logger_ == NULL)
         {
-            cycle->logger_ = new Logger("log/", "starup_after_daemon", 1);
+            cycle->logger_ = new Logger("log/", "startup", 1);
         }
     }
 

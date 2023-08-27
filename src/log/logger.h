@@ -32,6 +32,8 @@ class LogLine
 
     char buffer_[1024];
     int pos = 0;
+
+    Level level;
 };
 
 class AtomicSpinlock
@@ -87,9 +89,9 @@ class Logger
     };
     std::list<LogLine> ls_;
 
-    int fd_ = -1;
-    int cnt;
-    unsigned long long bytes;
+    int info_ = -1;
+    int warn_ = -1;
+    int error_ = -1;
 
     std::atomic<State> state;
 

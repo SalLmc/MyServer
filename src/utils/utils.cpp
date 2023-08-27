@@ -79,7 +79,10 @@ pid_t readPidFromFile()
     }
     char buffer[100];
     memset(buffer, '\0', sizeof(buffer));
-    assert(read(filefd.getFd(), buffer, sizeof(buffer) - 1) > 0);
+    if (read(filefd.getFd(), buffer, sizeof(buffer) - 1) <= 0)
+    {
+        return ERROR;
+    }
     pid_t pid = atoi(buffer);
     return pid;
 }
@@ -156,13 +159,21 @@ unsigned char FromHex(unsigned char x)
 {
     unsigned char y;
     if (x >= 'A' && x <= 'Z')
+    {
         y = x - 'A' + 10;
+    }
     else if (x >= 'a' && x <= 'z')
+    {
         y = x - 'a' + 10;
+    }
     else if (x >= '0' && x <= '9')
+    {
         y = x - '0';
+    }
     else
-        assert(0);
+    {
+        // assert(0);
+    }
     return y;
 }
 
@@ -193,10 +204,12 @@ std::string UrlDecode(const std::string &str)
     {
         if (str[i] == '%')
         {
-            assert(i + 2 < length);
-            unsigned char high = FromHex((unsigned char)str[++i]);
-            unsigned char low = FromHex((unsigned char)str[++i]);
-            strTemp += high * 16 + low;
+            if (i + 2 < length)
+            {
+                unsigned char high = FromHex((unsigned char)str[++i]);
+                unsigned char low = FromHex((unsigned char)str[++i]);
+                strTemp += high * 16 + low;
+            }
         }
         else
             strTemp += str[i];

@@ -148,25 +148,45 @@ Connection *addListen(Cycle *cycle, int port)
 {
     ConnectionPool *pool = cycle->pool_;
     Connection *listenC = pool->getNewConnection();
+    int reuse = 1;
 
-    assert(listenC != NULL);
+    if (listenC == NULL)
+    {
+        LOG_CRIT << "get listen failed";
+        return NULL;
+    }
 
     listenC->addr_.sin_addr.s_addr = INADDR_ANY;
     listenC->addr_.sin_family = AF_INET;
     listenC->addr_.sin_port = htons(port);
 
     listenC->fd_ = socket(AF_INET, SOCK_STREAM, 0);
-    assert(listenC->fd_.getFd() >= 0);
+    if (listenC->fd_.getFd() < 0)
+    {
+        LOG_CRIT << "open listenfd failed";
+        goto bad;
+    }
 
-    int reuse = 1;
     setsockopt(listenC->fd_.getFd(), SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse, sizeof(reuse));
     setnonblocking(listenC->fd_.getFd());
 
-    assert(bind(listenC->fd_.getFd(), (sockaddr *)&listenC->addr_, sizeof(listenC->addr_)) == 0);
+    if (bind(listenC->fd_.getFd(), (sockaddr *)&listenC->addr_, sizeof(listenC->addr_)) != 0)
+    {
+        LOG_CRIT << "bind failed";
+        goto bad;
+    }
 
-    assert(listen(listenC->fd_.getFd(), 4096) == 0);
+    if (listen(listenC->fd_.getFd(), 4096) != 0)
+    {
+        LOG_CRIT << "listen failed";
+        goto bad;
+    }
 
     return listenC;
+
+bad:
+    pool->recoverConnection(listenC);
+    return NULL;
 }
 
 // static int recvPrint(Event *ev)
@@ -263,7 +283,7 @@ int waitRequest(Event *ev)
 
     if (len == 0)
     {
-        LOG_INFO << "Client close connection";
+        LOG_WARN << "Client close connection";
         finalizeConnection(c);
         return -1;
     }
@@ -272,7 +292,7 @@ int waitRequest(Event *ev)
     {
         if (errno != EAGAIN)
         {
-            LOG_INFO << "Read error: " << strerror(errno);
+            LOG_WARN << "Read error: " << strerror(errno);
             finalizeConnection(c);
             return -1;
         }
@@ -310,7 +330,7 @@ int keepAlive(Event *ev)
 
     if (len == 0)
     {
-        LOG_INFO << "Client close connection";
+        LOG_WARN << "Client close connection";
         finalizeRequest(ev->c->data_);
         return -1;
     }
@@ -319,7 +339,7 @@ int keepAlive(Event *ev)
     {
         if (errno != EAGAIN)
         {
-            LOG_INFO << "Read error: " << strerror(errno);
+            LOG_WARN << "Read error: " << strerror(errno);
             finalizeRequest(ev->c->data_);
             return -1;
         }
@@ -348,7 +368,7 @@ int processRequestLine(Event *ev)
             int rett = readRequestHeader(r);
             if (rett == ERROR)
             {
-                LOG_INFO << "readRequestHeader ERROR";
+                LOG_WARN << "readRequestHeader ERROR";
                 break;
             }
         }
@@ -535,7 +555,12 @@ int readRequestHeader(std::shared_ptr<Request> r)
 {
     // LOG_INFO << "read request header";
     Connection *c = r->c;
-    assert(c != NULL);
+    if (c == NULL)
+    {
+        LOG_WARN << "connection is NULL";
+        finalizeRequest(r);
+        return ERROR;
+    }
 
     int n = c->readBuffer_.now->len - c->readBuffer_.now->pos;
     if (!c->readBuffer_.allRead())
@@ -549,7 +574,7 @@ int readRequestHeader(std::shared_ptr<Request> r)
     {
         if (errno != EAGAIN)
         {
-            LOG_INFO << "Read error: " << strerror(errno);
+            LOG_WARN << "Read error: " << strerror(errno);
             finalizeRequest(r);
             return ERROR;
         }
@@ -560,7 +585,7 @@ int readRequestHeader(std::shared_ptr<Request> r)
     }
     else if (n == 0)
     {
-        LOG_INFO << "Client close connection";
+        LOG_WARN << "Client close connection";
         finalizeRequest(r);
         return ERROR;
     }
@@ -643,7 +668,7 @@ int processRequestHeader(std::shared_ptr<Request> r, int need_host)
     }
     else if (need_host)
     {
-        LOG_INFO << "Client headers error";
+        LOG_WARN << "Client headers error";
         finalizeRequest(r);
         return ERROR;
     }
@@ -867,13 +892,13 @@ int writeResponse(Event *ev)
 
 int blockReading(Event *ev)
 {
-    LOG_INFO << "Block reading triggered, FD:" << ev->c->fd_.getFd();
+    LOG_WARN << "Block reading triggered, FD:" << ev->c->fd_.getFd();
     return OK;
 }
 
 int blockWriting(Event *ev)
 {
-    LOG_INFO << "Block writing triggered, FD:" << ev->c->fd_.getFd();
+    LOG_WARN << "Block writing triggered, FD:" << ev->c->fd_.getFd();
     return OK;
 }
 
@@ -912,7 +937,7 @@ int requestBodyLength(std::shared_ptr<Request> r)
         }
         else
         {
-            LOG_INFO << "ERROR";
+            LOG_WARN << "ERROR";
             return ERROR;
         }
 
@@ -982,12 +1007,12 @@ int requestBodyChunked(std::shared_ptr<Request> r)
         if (ret == ERROR)
         {
             // invalid
-            LOG_INFO << "ERROR";
+            LOG_WARN << "ERROR";
             return ERROR;
         }
     }
 
-    LOG_INFO << "ERROR";
+    LOG_WARN << "ERROR";
     return ERROR;
 }
 
@@ -1019,7 +1044,7 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
 
     if (ret == ERROR)
     {
-        LOG_INFO << "ERROR";
+        LOG_WARN << "ERROR";
         return ret;
     }
 
@@ -1055,7 +1080,7 @@ int readRequestBodyInner(Event *ev)
 
         if (ret == 0)
         {
-            LOG_INFO << "Client close connection";
+            LOG_WARN << "Client close connection";
             finalizeRequest(r);
             return ERROR;
         }
@@ -1063,13 +1088,13 @@ int readRequestBodyInner(Event *ev)
         {
             if (errno == EAGAIN)
             {
-                LOG_INFO << "EAGAIN";
+                LOG_WARN << "EAGAIN";
                 return AGAIN;
             }
             else
             {
                 finalizeRequest(r);
-                LOG_INFO << "Recv body error";
+                LOG_WARN << "Recv body error";
                 return ERROR;
             }
         }
@@ -1107,13 +1132,13 @@ int sendfileEvent(Event *ev)
 
     if (len < 0 && errno != EAGAIN)
     {
-        LOG_INFO << "Sendfile error: " << strerror(errno);
+        LOG_WARN << "Sendfile error: " << strerror(errno);
         finalizeRequest(r);
         return ERROR;
     }
     else if (len == 0)
     {
-        LOG_INFO << "Client close Connection";
+        LOG_WARN << "Client close Connection";
         finalizeRequest(r);
         return ERROR;
     }
@@ -1155,13 +1180,13 @@ int sendStrEvent(Event *ev)
 
     if (len < 0 && errno != EAGAIN)
     {
-        LOG_INFO << "Send error: " << strerror(errno);
+        LOG_WARN << "Send error: " << strerror(errno);
         finalizeRequest(r);
         return ERROR;
     }
     else if (len == 0)
     {
-        LOG_INFO << "Client close Connection";
+        LOG_WARN << "Client close Connection";
         finalizeRequest(r);
         return ERROR;
     }
@@ -1217,6 +1242,11 @@ int keepAliveRequest(std::shared_ptr<Request> r)
 
 int finalizeConnection(Connection *c)
 {
+    if (c == NULL)
+    {
+        LOG_CRIT << "FINALIZE CONNECTION NULL";
+        return 0;
+    }
     int fd = c->fd_.getFd();
 
     epoller.delFd(c->fd_.getFd());

@@ -237,7 +237,6 @@ void LinkedBuffer::init()
 bool LinkedBuffer::allRead()
 {
     auto &back = nodes.back();
-    assert(back.pos <= back.len);
     return back.pos == back.len;
 }
 

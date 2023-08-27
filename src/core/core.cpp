@@ -108,6 +108,11 @@ Connection *ConnectionPool::getNewConnection()
 
 void ConnectionPool::recoverConnection(Connection *c)
 {
+    if (c == NULL)
+    {
+        return;
+    }
+
     if (c->idx_ == -1)
     {
         return;
@@ -120,10 +125,6 @@ void ConnectionPool::recoverConnection(Connection *c)
         return;
     }
 
-#ifdef RE_ALLOC
-    cPool_[c->idx_] = new Connection;
-    delete c;
-#else
     c->idx_ = -1;
 
     if (c->fd_ != -1)
@@ -140,7 +141,6 @@ void ConnectionPool::recoverConnection(Connection *c)
 
     c->data_.reset();
     c->ups_.reset();
-#endif
 }
 
 ServerAttribute::ServerAttribute(int portt, std::string &&roott, std::string &&indexx, std::string &&from,

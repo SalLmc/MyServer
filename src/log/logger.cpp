@@ -11,7 +11,7 @@ LogLine::LogLine()
     pos = 0;
 }
 
-LogLine::LogLine(Level level, char const *file, char const *function, unsigned int line)
+LogLine::LogLine(Level level, char const *file, char const *function, unsigned int line) : level(level)
 {
     if (!enable_logger)
     {
@@ -173,7 +173,7 @@ LogLine &LogLine::operator<<(const char *arg)
 }
 
 Logger::Logger(const char *path, const char *name, unsigned int size_mb)
-    : filePath_(path), fileName_(name), maxFileSize_(size_mb), cnt(1), bytes(0), state(State::INIT),
+    : filePath_(path), fileName_(name), maxFileSize_(size_mb), state(State::INIT),
       writeThread(&Logger::write2File, this)
 {
     if (access(path, W_OK | R_OK | X_OK | F_OK) != 0)
@@ -181,11 +181,18 @@ Logger::Logger(const char *path, const char *name, unsigned int size_mb)
         mkdir(path, 0777);
     }
 
-    char loc[100];
-    memset(loc, 0, sizeof(loc));
-    sprintf(loc, "%s%s_%d.txt", filePath_, fileName_, cnt++);
-    fd_ = open(loc, O_RDWR | O_CREAT | O_TRUNC, 0666);
-    assert(fd_ >= 0);
+    char info[100] = {0};
+    sprintf(info, "%s%s.info", filePath_, fileName_);
+    char warn[100] = {0};
+    sprintf(warn, "%s%s.warn", filePath_, fileName_);
+    char error[100] = {0};
+    sprintf(error, "%s%s.error", filePath_, fileName_);
+
+    info_ = open(info, O_RDWR | O_CREAT | O_TRUNC, 0666);
+    warn_ = open(warn, O_RDWR | O_CREAT | O_TRUNC, 0666);
+    error_ = open(error, O_RDWR | O_CREAT | O_TRUNC, 0666);
+
+    assert(info_ >= 0 && warn_ >= 0 && error_ >= 0);
     state.store(State::ACTIVE);
 }
 Logger::~Logger()
@@ -198,9 +205,17 @@ Logger::~Logger()
     }
 
     writeThread.join();
-    if (fd_ != -1)
+    if (info_ != -1)
     {
-        close(fd_);
+        close(info_);
+    }
+    if (warn_ != -1)
+    {
+        close(warn_);
+    }
+    if (error_ != -1)
+    {
+        close(error_);
     }
 }
 void Logger::wakeup()
@@ -252,25 +267,21 @@ void Logger::write2FileInner()
         auto &line = ls_.front();
         line.buffer_[line.pos++] = '\n';
 
-        write(fd_, line.buffer_, line.pos);
-
-        bytes += line.pos;
-
-        if (bytes >= maxFileSize_ * 1024 * 1024)
+        switch (line.level)
         {
-            char loc[100];
-            memset(loc, 0, sizeof(loc));
-            sprintf(loc, "%s%s_%d.txt", filePath_, fileName_, cnt);
-
-            int tmpfd = open(loc, O_RDWR | O_CREAT | O_TRUNC, 0666);
-            if (tmpfd >= 0)
-            {
-                close(fd_);
-                fd_ = tmpfd;
-                cnt++;
-            }
-            bytes = 0;
+        case Level::INFO:
+            write(info_, line.buffer_, line.pos);
+            break;
+        case Level::WARN:
+            write(warn_, line.buffer_, line.pos);
+            break;
+        case Level::CRIT:
+            write(error_, line.buffer_, line.pos);
+            break;
+        default:
+            break;
         }
+
         ls_.pop_front();
     }
 }

@@ -35,7 +35,10 @@ Epoller::~Epoller()
 
 int Epoller::setEpollFd(int fd)
 {
-    assert(fd >= 0);
+    if (fd < 0)
+    {
+        return 1;
+    }
     epollfd_ = fd;
     return 0;
 }

@@ -60,8 +60,7 @@ void masterProcessCycle(Cycle *cycle)
     }
 
     // logger
-    cycle->logger_ = new Logger("log/", "master_loop", 1);
-
+    cycle->logger_ = new Logger("log/", "master", 1);
     LOG_INFO << "Looping";
     for (;;)
     {
@@ -92,15 +91,6 @@ void startWorkerProcesses(Cycle *cycle, int n)
 
 pid_t spawnProcesses(Cycle *cycle, std::function<void(Cycle *)> proc)
 {
-    // fd[0] holds by master process, fd[1] hold by worker process
-    int fd[2];
-    assert(socketpair(AF_UNIX, SOCK_STREAM, 0, fd) != -1);
-    processes[slot].channel[0].fd_ = fd[0];
-    processes[slot].channel[1].fd_ = fd[1];
-
-    setnonblocking(fd[0]);
-    setnonblocking(fd[1]);
-
     pid_t pid = fork();
 
     switch (pid)
@@ -110,20 +100,11 @@ pid_t spawnProcesses(Cycle *cycle, std::function<void(Cycle *)> proc)
         processes[slot].pid = getpid();
         processes[slot].status = ACTIVE;
 
-        // cpu_set_t set;
-        // CPU_ZERO(&set);
-        // CPU_SET(slot % cores, &set);
-        // sched_setaffinity(pid, sizeof(set), &set);
-
-        // processes[slot].channel[1].read_.c = &processes[slot].channel[1];
-        // processes[slot].channel[1].read_.c->read_.handler = recvFromMaster;
-        // epoller.addFd(processes[slot].channel[1].fd_.getFd(), EPOLLIN | EPOLLET, &processes[slot].channel[1]);
-
         proc(cycle);
         break;
 
     case -1:
-        assert(0);
+        LOG_WARN << "fork error";
         break;
 
     default: // master
@@ -163,7 +144,7 @@ void workerProcessCycle(Cycle *cycle)
 {
     // log
     char name[20];
-    sprintf(name, "worker_loop_%d", slot);
+    sprintf(name, "worker_%d", slot);
     cycle->logger_ = new Logger("log/", name, 1);
 
     // sig
@@ -240,7 +221,7 @@ void processEventsAndTimers(Cycle *cycle)
     int ret = epoller.processEvents(flags, 1);
     if (ret == -1)
     {
-        LOG_INFO << "process events errno: " << strerror(errno);
+        LOG_WARN << "process events errno: " << strerror(errno);
     }
 
     process_posted_events(&posted_accept_events);

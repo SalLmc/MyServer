@@ -5,8 +5,6 @@
 
 void HeapTimer::SwapNode(size_t i, size_t j)
 {
-    assert(i >= 0 && i < heap_.size());
-    assert(j >= 0 && j < heap_.size());
     std::swap(heap_[i], heap_[j]);
     ref_[heap_[i].id] = i;
     ref_[heap_[j].id] = j;
@@ -14,7 +12,6 @@ void HeapTimer::SwapNode(size_t i, size_t j)
 
 void HeapTimer::SiftUp(size_t i)
 {
-    assert(i >= 0 && i < heap_.size());
     size_t j = (i - 1) / 2; // father
     while (j >= 0 && j < heap_.size())
     {
@@ -28,8 +25,6 @@ void HeapTimer::SiftUp(size_t i)
 
 bool HeapTimer::SiftDown(size_t index, size_t n)
 {
-    assert(index >= 0 && index < heap_.size());
-    assert(n >= 0 && n <= heap_.size());
     size_t i = index;
     size_t j = i * 2 + 1; // left child
     while (j < n)
@@ -71,7 +66,6 @@ void HeapTimer::Add(int id, unsigned long long timeoutstamp_ms, const std::funct
 
 void HeapTimer::Del(size_t index)
 {
-    assert(!heap_.empty() && index >= 0 && index < heap_.size());
     size_t i = index;
     size_t n = heap_.size() - 1;
     if (i < n)
@@ -109,7 +103,6 @@ void HeapTimer::DoWork(int id)
 
 void HeapTimer::Adjust(int id, unsigned long long new_timeout_ms)
 {
-    assert(!heap_.empty() && ref_.count(id) > 0);
     size_t i = ref_[id];
     size_t n = heap_.size();
     heap_[i].expires = new_timeout_ms;
@@ -121,13 +114,11 @@ void HeapTimer::Adjust(int id, unsigned long long new_timeout_ms)
 
 void HeapTimer::Again(int id, unsigned long long new_timeout_ms)
 {
-    assert(!heap_.empty() && ref_.count(id) > 0);
     heap_[ref_[id]].newExpires = new_timeout_ms;
 }
 
 void HeapTimer::Pop()
 {
-    assert(!heap_.empty());
     Del(0);
 }
 

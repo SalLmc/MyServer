@@ -3,7 +3,6 @@
 
 #define MAX_PROCESS_N 16
 
-// #define RE_ALLOC
 // #define LOOP_ACCEPT
 
 extern int process_n;

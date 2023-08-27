@@ -33,7 +33,6 @@ int testPhaseHandler(std::shared_ptr<Request> r)
 int endPhaseHandler(std::shared_ptr<Request> r)
 {
     LOG_CRIT << "endPhaseHandler PHASE_ERR";
-    assert(0);
     return PHASE_ERR;
 }
 
@@ -305,7 +304,7 @@ int proxyPassHandler(std::shared_ptr<Request> r)
     LOG_INFO << "readRequestBody:" << ret;
     if (ret != OK)
     {
-        LOG_INFO << "PHASE ERR";
+        LOG_WARN << "PHASE ERR";
         return PHASE_ERR;
     }
 
@@ -330,15 +329,28 @@ int initUpstream(std::shared_ptr<Request> r)
 
     // setup connection
     Connection *upc = cyclePtr->pool_->getNewConnection();
-    assert(upc != NULL);
+
+    if (upc == NULL)
+    {
+        LOG_WARN << "get connection failed";
+        finalizeRequest(r);
+        return ERROR;
+    }
+
     upc->fd_ = socket(AF_INET, SOCK_STREAM, 0);
-    assert(upc->fd_.getFd() >= 0);
+    if (upc->fd_.getFd() < 0)
+    {
+        LOG_WARN << "open fd failed";
+        finalizeConnection(upc);
+        finalizeRequest(r);
+        return ERROR;
+    }
     upc->addr_.sin_family = AF_INET;
     inet_pton(AF_INET, ip.c_str(), &upc->addr_.sin_addr);
     upc->addr_.sin_port = htons(port);
     if (connect(upc->fd_.getFd(), (struct sockaddr *)&upc->addr_, sizeof(upc->addr_)) < 0)
     {
-        LOG_INFO << "CONNECT ERR, FINALIZE CONNECTION";
+        LOG_WARN << "CONNECT ERR, FINALIZE CONNECTION";
         finalizeConnection(upc);
         finalizeRequest(r);
         return ERROR;
@@ -370,6 +382,8 @@ int initUpstream(std::shared_ptr<Request> r)
     }
     // send
     return send2upstream(&upc->write_);
+
+error:
 }
 
 int upstreamRecv(Event *upc_ev)
@@ -390,7 +404,7 @@ int upstreamRecv(Event *upc_ev)
         }
         else if (n < 0 && errno != EAGAIN)
         {
-            LOG_INFO << "Recv error";
+            LOG_WARN << "Recv error";
             finalizeRequest(upsr);
             finalizeRequest(cr);
             // heap.hDelete(upc->ups_);
@@ -398,7 +412,7 @@ int upstreamRecv(Event *upc_ev)
         }
         else if (n == 0)
         {
-            LOG_INFO << "Upstream server close connection";
+            LOG_WARN << "Upstream server close connection";
             finalizeRequest(upsr);
             finalizeRequest(cr);
             // heap.hDelete(upc->ups_);
@@ -414,7 +428,7 @@ int upstreamRecv(Event *upc_ev)
             }
             else if (ret == ERROR)
             {
-                LOG_INFO << "Process error";
+                LOG_WARN << "Process error";
                 finalizeRequest(upsr);
                 finalizeRequest(cr);
                 // heap.hDelete(upc->ups_);
@@ -483,7 +497,7 @@ int send2upstream(Event *upc_ev)
             }
             else
             {
-                LOG_INFO << "SEND ERR, FINALIZE CONNECTION";
+                LOG_WARN << "SEND ERR, FINALIZE CONNECTION";
                 finalizeConnection(upc);
                 finalizeRequest(cr);
                 // heap.hDelete(upc->ups_);
@@ -492,7 +506,7 @@ int send2upstream(Event *upc_ev)
         }
         else if (ret == 0)
         {
-            LOG_INFO << "Upstream close connection, FINALIZE CONNECTION";
+            LOG_WARN << "Upstream close connection, FINALIZE CONNECTION";
             finalizeConnection(upc);
             finalizeRequest(cr);
             // heap.hDelete(upc->ups_);
@@ -515,7 +529,10 @@ int send2upstream(Event *upc_ev)
     LOG_INFO << "Send client data to upstream complete";
 
     // set epoller
-    assert(epoller.addFd(upc->fd_.getFd(), EPOLLIN | EPOLLET, upc));
+    if (epoller.addFd(upc->fd_.getFd(), EPOLLIN | EPOLLET, upc) != 0)
+    {
+        LOG_CRIT << "epoller addfd failed";
+    }
     upc->read_.handler = upstreamRecv;
 
     return upstreamRecv(&upc->read_);
@@ -771,7 +788,7 @@ int upsResponse2Client(Event *upc_ev)
             {
                 // printf("%s\n", strerror(errno));
                 // printf("%d\n", c->fd_.getFd());
-                LOG_INFO << "SEND ERR, FINALIZE CONNECTION";
+                LOG_WARN << "SEND ERR, FINALIZE CONNECTION";
                 finalizeRequest(upsr);
                 finalizeRequest(cr);
                 // heap.hDelete(upc->ups_);
@@ -780,7 +797,7 @@ int upsResponse2Client(Event *upc_ev)
         }
         else if (ret == 0)
         {
-            LOG_INFO << "Upstream close connection, FINALIZE CONNECTION";
+            LOG_WARN << "Upstream close connection, FINALIZE CONNECTION";
             finalizeRequest(upsr);
             finalizeRequest(cr);
             // heap.hDelete(upc->ups_);
