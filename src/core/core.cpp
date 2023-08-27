@@ -68,7 +68,7 @@ Event::Event(Connection *cc) : c(cc), type(NORMAL), timeout(NOT_TIMEOUT)
 {
 }
 
-Connection::Connection() : read_(this), write_(this), idx_(-1), server_idx_(-1), data_(NULL), ups_(NULL)
+Connection::Connection() : read_(this), write_(this), idx_(-1), server_idx_(-1), data_(NULL), ups_(NULL), quit(0)
 {
 }
 
@@ -121,7 +121,8 @@ void ConnectionPool::recoverConnection(Connection *c)
     if (c->idx_ == -2)
     {
         heap.hDelete(c);
-        c = NULL;
+        // set c to NULL is meaningless. Since c is a uint64
+        // c = NULL;
         return;
     }
 

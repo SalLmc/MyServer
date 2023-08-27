@@ -268,7 +268,7 @@ int waitRequest(Event *ev)
 {
     if (ev->timeout == TIMEOUT)
     {
-        LOG_INFO << "Client timeout";
+        LOG_INFO << "Client timeout, FD:" << ev->c->fd_.getFd();
         finalizeConnection(ev->c);
         return -1;
     }
@@ -315,7 +315,7 @@ int keepAlive(Event *ev)
 {
     if (ev->timeout == TIMEOUT)
     {
-        LOG_INFO << "Client timeout";
+        LOG_INFO << "Client timeout, FD:" << ev->c->fd_.getFd();
         finalizeRequest(ev->c->data_);
         return -1;
     }
@@ -1249,11 +1249,12 @@ int finalizeConnection(Connection *c)
     }
     int fd = c->fd_.getFd();
 
-    epoller.delFd(c->fd_.getFd());
+    c->quit = 1;
 
-    cPool.recoverConnection(c);
+    // delete c at the end of a eventloop
+    // cPool.recoverConnection(c);
 
-    LOG_INFO << "FINALIZE CONNECTION DONE, FD:" << fd;
+    LOG_INFO << "set connection->quit, FD:" << fd;
     return 0;
 }
 

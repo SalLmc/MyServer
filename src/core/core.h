@@ -73,6 +73,8 @@ class Connection
     int server_idx_;
     std::shared_ptr<Request> data_;
     std::shared_ptr<Upstream> ups_;
+
+    int quit;
 };
 
 class ConnectionPool
@@ -81,7 +83,7 @@ class ConnectionPool
     Connection **cPool_;
 
   public:
-    const static int POOLSIZE = 1024;
+    const static int POOLSIZE = 0;
     ConnectionPool();
     ~ConnectionPool();
     Connection *getNewConnection();
