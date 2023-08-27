@@ -23,6 +23,7 @@ void daemonize();
 
 int main(int argc, char *argv[])
 {
+    umask(0);
     cores = sysconf(_SC_NPROCESSORS_CONF);
 
     std::unique_ptr<Cycle> cycle(new Cycle(&cPool, new Logger("log/", "startup", 1)));
@@ -78,9 +79,7 @@ int main(int argc, char *argv[])
     }
 
     // server init
-    umask(0);
-
-    if (system("rm -rf log/master* log/worker*") == 0)
+    if (system("rm -rf log") == 0)
     {
         LOG_WARN << "rm log failed";
     }
