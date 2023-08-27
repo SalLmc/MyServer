@@ -382,8 +382,6 @@ int initUpstream(std::shared_ptr<Request> r)
     }
     // send
     return send2upstream(&upc->write_);
-
-error:
 }
 
 int upstreamRecv(Event *upc_ev)

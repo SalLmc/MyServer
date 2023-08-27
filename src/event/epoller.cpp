@@ -91,7 +91,7 @@ int Epoller::processEvents(int flags, int timeout_ms)
     for (int i = 0; i < ret; i++)
     {
         Connection *c = (Connection *)events_[i].data.ptr;
-        if (c == nullptr || c->idx_ == -1)
+        if (c == NULL || c->idx_ == -1)
         {
             continue;
         }
@@ -103,7 +103,7 @@ int Epoller::processEvents(int flags, int timeout_ms)
             revents |= EPOLLIN | EPOLLOUT;
         }
 
-        if ((revents & EPOLLIN) && c->read_.handler)
+        if ((revents & EPOLLIN) && c && c->read_.handler)
         {
             if (flags & POST_EVENTS)
             {
@@ -122,7 +122,8 @@ int Epoller::processEvents(int flags, int timeout_ms)
             }
         }
 
-        if ((revents & EPOLLOUT) && c->write_.handler)
+        // check if c == NULL. Since read_handler might finalizeConnection
+        if ((revents & EPOLLOUT) && c && c->write_.handler)
         {
             if (flags & POST_EVENTS)
             {

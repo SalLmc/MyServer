@@ -79,7 +79,8 @@ int main(int argc, char *argv[])
 
     // server init
     umask(0);
-    if (system("rm -rf log") == 0)
+
+    if (system("rm -rf log/master* log/worker*") == 0)
     {
         LOG_WARN << "rm log failed";
     }

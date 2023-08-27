@@ -756,7 +756,7 @@ int processHeaders(std::shared_ptr<Request> upsr)
 
         if (ret == AGAIN)
         {
-            printf("AGAIN\n");
+            LOG_INFO << "AGAIN";
             return AGAIN;
         }
 

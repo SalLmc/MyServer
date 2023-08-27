@@ -1,7 +1,7 @@
 {
     "processes": 1,
     "logger_wake": 100,
-    "only_worker": 0,
+    "only_worker": 1,
     "enable_logger": 1,
     "daemon": 0,
     "servers": [
