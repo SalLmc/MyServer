@@ -24,6 +24,16 @@ void daemonize();
 int main(int argc, char *argv[])
 {
     umask(0);
+
+    struct rlimit new_rlim;
+    new_rlim.rlim_cur = 4096;
+    new_rlim.rlim_max = 4096;
+    if (setrlimit(RLIMIT_NOFILE, &new_rlim) != 0)
+    {
+        printf("set new fd amount failed\n");
+        return 1;
+    }
+
     cores = sysconf(_SC_NPROCESSORS_CONF);
 
     std::unique_ptr<Cycle> cycle(new Cycle(&cPool, new Logger("log/", "startup", 1)));

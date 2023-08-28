@@ -1,10 +1,15 @@
 {
-    "processes": 1,
+    "processes": 8,
     "logger_wake": 1,
-    "enable_logger": 1,
-    "daemon": 0,
-    "only_worker": 1,
+    "enable_logger": 0,
+    "daemon": 1,
+    "only_worker": 0,
     "servers": [
+        {
+            "port": 80,
+            "root": "static",
+            "index": "index.html"
+        },
         {
             "port": 1479,
             "root": "/home/sallmc/myfolder",
