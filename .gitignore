@@ -10,4 +10,5 @@ log/
 main
 *test
 pid_file
+cores
 nohup.out

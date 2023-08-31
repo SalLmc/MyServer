@@ -96,12 +96,12 @@ int authAccessHandler(std::shared_ptr<Request> r)
 
     int ok = 0;
     std::string args = std::string(r->args.data, r->args.data + r->args.len);
-    if (args.find("code=Sa1Lmc") != std::string::npos)
+    if (args.find("Code=Sa1Lmc") != std::string::npos)
     {
         ok = 1;
     }
-    if (r->headers_in.header_name_value_map.count("code") &&
-        r->headers_in.header_name_value_map["code"].value == "Sa1Lmc")
+    if (r->headers_in.header_name_value_map.count("Code") &&
+        r->headers_in.header_name_value_map["Code"].value == "Sa1Lmc")
     {
         ok = 1;
     }
