@@ -87,7 +87,7 @@ int passPhaseHandler(std::shared_ptr<Request> r)
 
 int authAccessHandler(std::shared_ptr<Request> r)
 {
-    LOG_INFO << "Content access handler, FD:" << r->c->fd_.getFd();
+    LOG_INFO << "Auth access handler, FD:" << r->c->fd_.getFd();
     auto &server = cyclePtr->servers_[r->c->server_idx_];
     if (!server.auth)
     {
@@ -95,15 +95,28 @@ int authAccessHandler(std::shared_ptr<Request> r)
     }
 
     int ok = 0;
+
     std::string args = std::string(r->args.data, r->args.data + r->args.len);
-    if (args.find("Code=Sa1Lmc") != std::string::npos)
+    if (args.find("code=Sa1Lmc") != std::string::npos)
     {
         ok = 1;
     }
-    if (r->headers_in.header_name_value_map.count("Code") &&
-        r->headers_in.header_name_value_map["Code"].value == "Sa1Lmc")
+    if (!ok)
     {
-        ok = 1;
+        if (r->headers_in.header_name_value_map.count("code"))
+        {
+            if (r->headers_in.header_name_value_map["code"].value == "Sa1Lmc")
+            {
+                ok = 1;
+            }
+        }
+        else if (r->headers_in.header_name_value_map.count("Code"))
+        {
+            if (r->headers_in.header_name_value_map["Code"].value == "Sa1Lmc")
+            {
+                ok = 1;
+            }
+        }
     }
 
     if (ok)
