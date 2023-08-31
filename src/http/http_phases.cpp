@@ -22,8 +22,7 @@ int testPhaseHandler(std::shared_ptr<Request> r)
 
     r->headers_out.str_body.append("HELLO");
 
-    r->headers_out.headers.emplace_back("Content-Type",
-                                        std::string(exten_content_type_map["html"] + "; charset=utf-8"));
+    r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"] + SPLIT + UTF_8));
     r->headers_out.headers.emplace_back("Content-Length", std::to_string(r->headers_out.str_body.length()));
     r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
 
@@ -38,7 +37,7 @@ int endPhaseHandler(std::shared_ptr<Request> r)
 
 std::vector<PhaseHandler> phases{{genericPhaseChecker, {passPhaseHandler}},
 
-                                 {genericPhaseChecker, {contentAccessHandler}},
+                                 {genericPhaseChecker, {authAccessHandler, contentAccessHandler}},
                                  {genericPhaseChecker, {proxyPassHandler, staticContentHandler, autoIndexHandler}},
 
                                  {genericPhaseChecker, {endPhaseHandler}}};
@@ -86,6 +85,47 @@ int passPhaseHandler(std::shared_ptr<Request> r)
     return PHASE_NEXT;
 }
 
+int authAccessHandler(std::shared_ptr<Request> r)
+{
+    LOG_INFO << "Content access handler, FD:" << r->c->fd_.getFd();
+    auto &server = cyclePtr->servers_[r->c->server_idx_];
+    if (!server.auth)
+    {
+        return PHASE_CONTINUE;
+    }
+
+    int ok = 0;
+    std::string args = std::string(r->args.data, r->args.data + r->args.len);
+    if (args.find("code=Sa1Lmc") != std::string::npos)
+    {
+        ok = 1;
+    }
+    if (r->headers_in.header_name_value_map.count("code") &&
+        r->headers_in.header_name_value_map["code"].value == "Sa1Lmc")
+    {
+        ok = 1;
+    }
+
+    if (ok)
+    {
+        return PHASE_CONTINUE;
+    }
+
+    r->headers_out.status = HTTP_UNAUTHORIZED;
+    r->headers_out.status_line = "HTTP/1.1 401 Unauthorized\r\n";
+    r->headers_out.restype = RES_STR;
+    auto &str = r->headers_out.str_body;
+    str.append("<html>\n<head>\n\t<title>401 Unauthorized</title>\n</head>\n");
+    str.append("<body>\n\t<center>\n\t\t<h1>401 "
+               "Unauthorized</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
+
+    r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"] + SPLIT + UTF_8));
+    r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
+    r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
+
+    return doResponse(r);
+}
+
 int contentAccessHandler(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Content access handler, FD:" << r->c->fd_.getFd();
@@ -109,7 +149,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
     if (r->method != Method::GET)
     {
         r->headers_out.status = HTTP_FORBIDDEN;
-        r->headers_out.status_line = "HTTP/1.1 403 FORBIDDEN\r\n";
+        r->headers_out.status_line = "HTTP/1.1 403 Forbidden\r\n";
 
         std::string _403_path = "/home/sallmc/VSCode/MyServer/static/403.html";
         Fd _403fd(open(_403_path.c_str(), O_RDONLY));
@@ -122,7 +162,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
                        "Forbidden</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
 
             r->headers_out.headers.emplace_back("Content-Type",
-                                                std::string(exten_content_type_map["html"] + "; charset=utf-8"));
+                                                std::string(exten_content_type_map["html"] + SPLIT + UTF_8));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
             r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
@@ -135,7 +175,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
             r->headers_out.file_body.file_size = st.st_size;
 
             r->headers_out.headers.emplace_back("Content-Type",
-                                                std::string(exten_content_type_map["html"] + "; charset=utf-8"));
+                                                std::string(exten_content_type_map["html"] + SPLIT + UTF_8));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(st.st_size));
             r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
@@ -246,7 +286,7 @@ autoindex:
     {
     send404:
         r->headers_out.status = HTTP_NOT_FOUND;
-        r->headers_out.status_line = "HTTP/1.1 404 NOT FOUND\r\n";
+        r->headers_out.status_line = "HTTP/1.1 404 Not Found\r\n";
 
         std::string _404_path = "/home/sallmc/VSCode/MyServer/static/404.html";
         Fd _404fd(open(_404_path.c_str(), O_RDONLY));
@@ -259,7 +299,7 @@ autoindex:
                        "Found</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
 
             r->headers_out.headers.emplace_back("Content-Type",
-                                                std::string(exten_content_type_map["html"] + "; charset=utf-8"));
+                                                std::string(exten_content_type_map["html"] + SPLIT + UTF_8));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
             r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
@@ -272,7 +312,7 @@ autoindex:
             r->headers_out.file_body.file_size = st.st_size;
 
             r->headers_out.headers.emplace_back("Content-Type",
-                                                std::string(exten_content_type_map["html"] + "; charset=utf-8"));
+                                                std::string(exten_content_type_map["html"] + SPLIT + UTF_8));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(st.st_size));
             r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
@@ -572,8 +612,7 @@ int staticContentHandler(std::shared_ptr<Request> r)
     std::string exten = std::string(r->exten.data, r->exten.data + r->exten.len);
     if (exten_content_type_map.count(exten))
     {
-        r->headers_out.headers.emplace_back("Content-Type",
-                                            std::string(exten_content_type_map[exten]) + "; charset=utf-8");
+        r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map[exten]) + SPLIT + UTF_8);
     }
     else
     {
@@ -674,8 +713,7 @@ resposne:
     std::string exten = std::string(r->exten.data, r->exten.data + r->exten.len);
     if (exten_content_type_map.count(exten))
     {
-        r->headers_out.headers.emplace_back("Content-Type",
-                                            std::string(exten_content_type_map[exten] + "; charset=utf-8"));
+        r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map[exten] + SPLIT + UTF_8));
     }
     else
     {

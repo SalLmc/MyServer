@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
     if (mp.count("signal"))
     {
         std::string signal = mp["signal"];
-        pid_t pid = readPidFromFile();
+        pid_t pid = readNumberFromFile<pid_t>("pid_file");
         if (pid != -1)
         {
             assert(send_signal(pid, signal) == 0);

@@ -70,23 +70,6 @@ int writePid2File()
     return OK;
 }
 
-pid_t readPidFromFile()
-{
-    Fd filefd(open("pid_file", O_RDONLY));
-    if (filefd.getFd() < 0)
-    {
-        return ERROR;
-    }
-    char buffer[100];
-    memset(buffer, '\0', sizeof(buffer));
-    if (read(filefd.getFd(), buffer, sizeof(buffer) - 1) <= 0)
-    {
-        return ERROR;
-    }
-    pid_t pid = atoi(buffer);
-    return pid;
-}
-
 std::string mtime2str(timespec *mtime)
 {
     char buf[21];

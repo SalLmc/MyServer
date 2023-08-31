@@ -11,7 +11,6 @@ int setnonblocking(int fd);
 unsigned long long getTickMs();
 int getOption(int argc, char *argv[], std::unordered_map<std::string, std::string> *mp);
 int writePid2File();
-pid_t readPidFromFile();
 std::string mtime2str(timespec *mtime);
 std::string byte2properstr(off_t bytes);
 std::string getIp(std::string addr);
@@ -38,5 +37,24 @@ void signal_handler(int sig);
 int init_signals();
 // return 0 for success, -1 for failure, -2 for invalid command
 int send_signal(pid_t pid, std::string command);
+
+template <class T> T readNumberFromFile(const char *file_name)
+{
+    int filefd(open(file_name, O_RDONLY));
+    if (filefd < 0)
+    {
+        return -1;
+    }
+    char buffer[100];
+    memset(buffer, '\0', sizeof(buffer));
+    if (read(filefd, buffer, sizeof(buffer) - 1) <= 0)
+    {
+        close(filefd);
+        return -1;
+    }
+    close(filefd);
+    T num = atoi(buffer);
+    return num;
+}
 
 #endif

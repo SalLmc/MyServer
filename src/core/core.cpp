@@ -146,8 +146,8 @@ void ConnectionPool::recoverConnection(Connection *c)
 }
 
 ServerAttribute::ServerAttribute(int portt, std::string &&roott, std::string &&indexx, std::string &&from,
-                                 std::string &&to, int auto_indexx, std::vector<std::string> &&tryfiles)
-    : port(portt), root(roott), index(indexx), from(from), to(to), auto_index(auto_indexx), try_files(tryfiles)
+                                 std::string &&to, bool auto_indexx, std::vector<std::string> &&tryfiles, bool auth)
+    : port(portt), root(roott), index(indexx), from(from), to(to), auto_index(auto_indexx), try_files(tryfiles), auth(auth)
 {
 }
 

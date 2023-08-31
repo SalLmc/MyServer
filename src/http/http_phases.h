@@ -36,6 +36,7 @@ class PhaseHandler
 int genericPhaseChecker(std::shared_ptr<Request> r, PhaseHandler *ph);
 
 int passPhaseHandler(std::shared_ptr<Request> r);
+int authAccessHandler(std::shared_ptr<Request> r);
 int staticContentHandler(std::shared_ptr<Request> r);
 int contentAccessHandler(std::shared_ptr<Request> r);
 int autoIndexHandler(std::shared_ptr<Request> r);

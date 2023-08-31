@@ -1,7 +1,6 @@
 {
-    "processes": 8,
     "logger_wake": 1,
-    "enable_logger": 0,
+    "enable_logger": 1,
     "daemon": 1,
     "only_worker": 0,
     "servers": [
@@ -14,7 +13,8 @@
             "port": 1479,
             "root": "/home/sallmc/myfolder",
             "index": "sdfsdf",
-            "auto_index": 1
+            "auto_index": 1,
+            "auth": 1
         },
         {
             "port": 8082,

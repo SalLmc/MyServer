@@ -34,7 +34,18 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    cores = sysconf(_SC_NPROCESSORS_CONF);
+    system("cat /proc/cpuinfo | grep cores | uniq | awk '{print $NF'} > cores");
+    {
+        int num = readNumberFromFile<int>("cores");
+        if (num != -1)
+        {
+            cores = num;
+        }
+        else
+        {
+            cores = 1;
+        }
+    }
 
     std::unique_ptr<Cycle> cycle(new Cycle(&cPool, new Logger("log/", "startup", 1)));
     cyclePtr = cycle.get();
@@ -54,7 +65,7 @@ int main(int argc, char *argv[])
     if (mp.count("signal"))
     {
         std::string signal = mp["signal"];
-        pid_t pid = readPidFromFile();
+        pid_t pid = readNumberFromFile<pid_t>("pid_file");
         if (pid != -1)
         {
             int ret = send_signal(pid, signal);
@@ -80,7 +91,7 @@ int main(int argc, char *argv[])
     }
 
     {
-        pid_t pid = readPidFromFile();
+        pid_t pid = readNumberFromFile<pid_t>("pid_file");
         if (pid != ERROR && kill(pid, 0) == 0)
         {
             LOG_CRIT << "server is running!";
@@ -166,6 +177,8 @@ ServerAttribute getServer(nlohmann::json config)
     server.auto_index = getValue(config, "auto_index", 0);
     server.try_files = getValue(config, "try_files", std::vector<std::string>());
 
+    server.auth = getValue(config, "auth", 0);
+
     return server;
 }
 
@@ -174,7 +187,7 @@ void init()
     std::ifstream f("config.json");
     nlohmann::json config = nlohmann::json::parse(f);
 
-    process_n = getValue(config, "processes", 1);
+    process_n = getValue(config, "processes", cores);
     logger_wake = getValue(config, "logger_wake", 1);
     only_worker = getValue(config, "only_worker", 0);
     enable_logger = getValue(config, "enable_logger", 1);
