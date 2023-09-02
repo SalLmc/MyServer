@@ -106,10 +106,12 @@ int authAccessHandler(std::shared_ptr<Request> r)
     }
 
     std::string args = std::string(r->args.data, r->args.data + r->args.len);
-    if (args.find(auth) != std::string::npos)
+
+    if (args.find("code=" + auth) != std::string::npos)
     {
         ok = 1;
     }
+
     if (!ok)
     {
         if (r->headers_in.header_name_value_map.count("code"))
