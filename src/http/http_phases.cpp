@@ -96,8 +96,17 @@ int authAccessHandler(std::shared_ptr<Request> r)
 
     int ok = 0;
 
+    char authc[128] = {0};
+    std::string auth;
+    Fd fd(open("authcode", O_RDONLY));
+    if (fd.getFd() >= 0)
+    {
+        read(fd.getFd(), authc, sizeof(authc));
+        auth.append(authc);
+    }
+
     std::string args = std::string(r->args.data, r->args.data + r->args.len);
-    if (args.find("code=Sa1Lmc") != std::string::npos)
+    if (args.find(auth) != std::string::npos)
     {
         ok = 1;
     }
@@ -105,14 +114,14 @@ int authAccessHandler(std::shared_ptr<Request> r)
     {
         if (r->headers_in.header_name_value_map.count("code"))
         {
-            if (r->headers_in.header_name_value_map["code"].value == "Sa1Lmc")
+            if (r->headers_in.header_name_value_map["code"].value == auth)
             {
                 ok = 1;
             }
         }
         else if (r->headers_in.header_name_value_map.count("Code"))
         {
-            if (r->headers_in.header_name_value_map["Code"].value == "Sa1Lmc")
+            if (r->headers_in.header_name_value_map["Code"].value == auth)
             {
                 ok = 1;
             }
