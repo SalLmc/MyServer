@@ -49,10 +49,7 @@ test: test.o
 -include $(INCLUDE_FILES)
 
 clean:
-	rm -f $(PROGS) $(CPP_OBJECTS) $(INCLUDE_FILES) *.o pid_file cores
-
-cleanall:
-	rm -f $(PROGS) $(CPP_OBJECTS) $(INCLUDE_FILES) *.o pid_file src/headers.h.gch
+	rm -f $(PROGS) $(CPP_OBJECTS) $(INCLUDE_FILES) *.o cores
 
 %.o: %.cpp
 	g++ $(FLAGS) -c $< -o $@

@@ -128,7 +128,7 @@ std::unordered_map<std::string, std::string> exten_content_type_map = {
     {"asf", "video/x-ms-asf"},
     {"wmv", "video/x-ms-wmv"},
     {"avi", "video/x-msvideo"},
-    {"md", "text/plain"},
+    {"md", "text/markdown"},
 };
 
 int initListen(Cycle *cycle, int port)

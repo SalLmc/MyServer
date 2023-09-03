@@ -38,7 +38,8 @@ int endPhaseHandler(std::shared_ptr<Request> r)
 std::vector<PhaseHandler> phases{{genericPhaseChecker, {passPhaseHandler}},
 
                                  {genericPhaseChecker, {authAccessHandler, contentAccessHandler}},
-                                 {genericPhaseChecker, {proxyPassHandler, staticContentHandler, autoIndexHandler}},
+                                 {genericPhaseChecker, {proxyPassHandler}},
+                                 {genericPhaseChecker, {staticContentHandler, autoIndexHandler}},
 
                                  {genericPhaseChecker, {endPhaseHandler}}};
 
@@ -358,7 +359,7 @@ int proxyPassHandler(std::shared_ptr<Request> r)
 
     if (r->now_proxy_pass != 1)
     {
-        return PHASE_CONTINUE;
+        return PHASE_NEXT;
     }
     r->now_proxy_pass = 0;
 
