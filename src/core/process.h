@@ -14,6 +14,6 @@ int recvFromMaster(Event *rev);
 void signalWorkerProcesses(int sig);
 void processEventsAndTimers(Cycle *cycle);
 
-int logging(void *arg);
+int logging(TimerArgs arg);
 
 #endif

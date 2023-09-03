@@ -30,6 +30,6 @@ void shmtxUnlock(ProcessMutex *mtx);
 // 1 for success, 0 for failure, -1 for error
 int acceptexTryLock(Cycle *cycle);
 // @param ev Event *
-int setEventTimeout(void *ev);
+int setEventTimeout(TimerArgs arg);
 
 #endif

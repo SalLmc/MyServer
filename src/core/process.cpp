@@ -182,7 +182,8 @@ void workerProcessCycle(Cycle *cycle)
     // timer
     if (enable_logger)
     {
-        cyclePtr->timer_.Add(-1, getTickMs() + 3000, logging, (void *)3000);
+        TimerArgs args(3000, 0);
+        cyclePtr->timer_.Add(-1, getTickMs() + 3000, logging, args);
     }
 
     LOG_INFO << "Worker Looping";
@@ -236,9 +237,9 @@ void processEventsAndTimers(Cycle *cycle)
     process_posted_events(&posted_events);
 }
 
-int logging(void *arg)
+int logging(TimerArgs arg)
 {
     cyclePtr->logger_->wakeup();
-    cyclePtr->timer_.Again(-1, getTickMs() + (long long)arg);
+    cyclePtr->timer_.Again(-1, getTickMs() + arg.interval);
     return 0;
 }

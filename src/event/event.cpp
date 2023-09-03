@@ -7,9 +7,9 @@
 extern Cycle *cyclePtr;
 extern Epoller epoller;
 
-int setEventTimeout(void *ev)
+int setEventTimeout(TimerArgs arg)
 {
-    Event *thisev = (Event *)ev;
+    Event *thisev = (Event *)arg.args[0];
 
     if (thisev->timeout == IGNORE_TIMEOUT)
     {

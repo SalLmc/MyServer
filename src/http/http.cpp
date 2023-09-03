@@ -254,7 +254,9 @@ int newConnection(Event *ev)
             LOG_WARN << "Add client fd failed, FD:" << newc->fd_.getFd();
         }
 
-        cyclePtr->timer_.Add(newc->fd_.getFd(), getTickMs() + 60000, setEventTimeout, (void *)&newc->read_);
+        TimerArgs arg(0, 1);
+        arg.args[0] = (void *)&newc->read_;
+        cyclePtr->timer_.Add(newc->fd_.getFd(), getTickMs() + 60000, setEventTimeout, arg);
 
         LOG_INFO << "NEW CONNECTION FROM FD:" << ev->c->fd_.getFd() << ", WITH FD:" << newc->fd_.getFd();
 #ifdef LOOP_ACCEPT
@@ -1233,7 +1235,9 @@ int keepAliveRequest(std::shared_ptr<Request> r)
     c->readBuffer_.init();
     c->writeBuffer_.init();
 
-    cyclePtr->timer_.Add(c->fd_.getFd(), getTickMs() + 60000, setEventTimeout, (void *)&c->read_);
+    TimerArgs arg(0, 1);
+    arg.args[0] = (void *)&c->read_;
+    cyclePtr->timer_.Add(c->fd_.getFd(), getTickMs() + 60000, setEventTimeout, arg);
 
     LOG_INFO << "KEEPALIVE CONNECTION DONE, FD:" << fd;
 
