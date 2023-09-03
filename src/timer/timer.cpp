@@ -1,17 +1,7 @@
 #include "../headers.h"
 
-#include "../utils/utils_declaration.h"
 #include "timer.h"
-
-TimerArgs::TimerArgs(unsigned long long interval, int size)
-    : interval(interval), size(size), args((void **)calloc(size, sizeof(void *)))
-{
-}
-
-TimerArgs::~TimerArgs()
-{
-    free(args);
-}
+#include "../utils/utils_declaration.h"
 
 void HeapTimer::SwapNode(size_t i, size_t j)
 {
@@ -52,19 +42,26 @@ bool HeapTimer::SiftDown(size_t index, size_t n)
     return i > index; // true means siftdown happened
 }
 
-void HeapTimer::Add(int id, unsigned long long timeoutstamp_ms, const std::function<int(TimerArgs)> &cb, TimerArgs arg)
+void HeapTimer::Add(int id, unsigned long long timeoutstamp_ms, const std::function<int(void *)> &cb, void *arg)
 {
     size_t i;
-
-    if (ref_.count(id) != 0)
+    if (ref_.count(id) == 0) // new node
     {
-        Del(ref_.count(id));
+        i = heap_.size();
+        ref_[id] = i;
+        heap_.push_back({id, timeoutstamp_ms, 0, cb, arg});
+        SiftUp(i);
     }
-
-    i = heap_.size();
-    ref_[id] = i;
-    heap_.push_back({id, timeoutstamp_ms, 0, cb, arg});
-    SiftUp(i);
+    else
+    {
+        i = ref_[id];
+        heap_[i].expires = timeoutstamp_ms;
+        heap_[i].cb = cb;
+        if (!SiftDown(i, heap_.size()))
+        {
+            SiftUp(i);
+        }
+    }
 }
 
 void HeapTimer::Del(size_t index)
