@@ -12,7 +12,7 @@
         {
             "port": 1479,
             "root": "/home/sallmc/myfolder",
-            "index": "sdfsdf",
+            "index": "x.md",
             "auto_index": 1,
             "auth": 1
         },

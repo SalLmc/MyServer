@@ -231,9 +231,17 @@ int contentAccessHandler(std::shared_ptr<Request> r)
         Fd filefd(open(filePath.c_str(), O_RDONLY));
         if (filefd.getFd() >= 0)
         {
-            exten_save[0] = 'h', exten_save[1] = 't', exten_save[2] = 'm', exten_save[3] = 'l', exten_save[4] = '\0';
-            r->exten.data = exten_save;
-            r->exten.len = 4;
+            auto pos = filePath.find('.');
+            if (pos != std::string::npos) // has exten
+            {
+                int extenlen = filePath.length() - pos - 1;
+                for (int i = 0; i < extenlen; i++)
+                {
+                    exten_save[i] = filePath[i + pos + 1];
+                }
+                r->exten.data = exten_save;
+                r->exten.len = extenlen;
+            }
 
             fd.closeFd();
             fd.reset(std::move(filefd));
