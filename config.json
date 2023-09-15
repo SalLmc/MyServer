@@ -17,11 +17,6 @@
             "auth": 1
         },
         {
-            "port": 1480,
-            "root": "/home/sallmc/blog/public",
-            "index": "index.html"
-        },
-        {
             "port": 8082,
             "root": "/home/sallmc/share",
             "index": "sdfxcv",

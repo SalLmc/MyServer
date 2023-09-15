@@ -196,7 +196,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
             r->headers_out.restype = RES_FILE;
             struct stat st;
             fstat(_403fd.getFd(), &st);
-            r->headers_out.file_body.filefd = std::move(_403fd);
+            r->headers_out.file_body.filefd.reset(std::move(_403fd));
             r->headers_out.file_body.file_size = st.st_size;
 
             r->headers_out.headers.emplace_back("Content-Type",
@@ -236,7 +236,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
             r->exten.len = 4;
 
             fd.closeFd();
-            fd = std::move(filefd);
+            fd.reset(std::move(filefd));
 
             goto fileok;
         }
@@ -265,8 +265,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
                             r->exten.len = extenlen;
                         }
 
-                        fd.closeFd();
-                        fd = std::move(filefd);
+                        fd.reset(std::move(filefd));
 
                         goto fileok;
                     }
@@ -311,7 +310,7 @@ fileok:
         r->headers_out.file_body.file_size = st.st_size;
 
         // close fd after sendfile in writeResponse
-        r->headers_out.file_body.filefd = std::move(fd);
+        r->headers_out.file_body.filefd.reset(std::move(fd));
 
         return PHASE_NEXT;
     }
@@ -343,7 +342,7 @@ autoindex:
             r->headers_out.restype = RES_FILE;
             struct stat st;
             fstat(_404fd.getFd(), &st);
-            r->headers_out.file_body.filefd = std::move(_404fd);
+            r->headers_out.file_body.filefd.reset(std::move(_404fd));
             r->headers_out.file_body.file_size = st.st_size;
 
             r->headers_out.headers.emplace_back("Content-Type",

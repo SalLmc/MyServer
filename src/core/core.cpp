@@ -58,8 +58,9 @@ void Fd::operator=(int fd)
 {
     fd_ = fd;
 }
-void Fd::operator=(Fd &&fd)
+void Fd::reset(Fd &&fd)
 {
+    closeFd();
     fd_ = fd.fd_;
     fd.fd_ = -1;
 }
@@ -147,7 +148,8 @@ void ConnectionPool::recoverConnection(Connection *c)
 
 ServerAttribute::ServerAttribute(int portt, std::string &&roott, std::string &&indexx, std::string &&from,
                                  std::string &&to, bool auto_indexx, std::vector<std::string> &&tryfiles, bool auth)
-    : port(portt), root(roott), index(indexx), from(from), to(to), auto_index(auto_indexx), try_files(tryfiles), auth(auth)
+    : port(portt), root(roott), index(indexx), from(from), to(to), auto_index(auto_indexx), try_files(tryfiles),
+      auth(auth)
 {
 }
 
