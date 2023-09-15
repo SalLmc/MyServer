@@ -208,72 +208,82 @@ int contentAccessHandler(std::shared_ptr<Request> r)
         return doResponse(r);
     }
 
-    if (uri == "/")
-    {
-        path = server.root + "/" + server.index;
-        fd = open(path.c_str(), O_RDONLY);
+    path = server.root + uri;
+    fd = open(path.c_str(), O_RDONLY);
 
-        if (fd.getFd() >= 0) // return index if exist
+    if (fd.getFd() < 0)
+    {
+        goto send404;
+    }
+
+    struct stat st;
+    fstat(fd.getFd(), &st);
+    if (st.st_mode & S_IFDIR)
+    {
+        // use index & try_files
+        if (path.back() != '/')
+        {
+            path += "/";
+        }
+
+        // index
+        std::string filePath = path + server.index;
+        Fd filefd(open(filePath.c_str(), O_RDONLY));
+        if (filefd.getFd() >= 0)
         {
             exten_save[0] = 'h', exten_save[1] = 't', exten_save[2] = 'm', exten_save[3] = 'l', exten_save[4] = '\0';
             r->exten.data = exten_save;
             r->exten.len = 4;
 
+            fd.closeFd();
+            fd = std::move(filefd);
+
             goto fileok;
         }
         else
         {
-            goto autoindex;
-        }
-    }
-    else
-    {
-        path = server.root + uri;
-        fd = open(path.c_str(), O_RDONLY);
-
-        if (fd.getFd() >= 0)
-        {
-            struct stat st;
-            fstat(fd.getFd(), &st);
-            if (st.st_mode & S_IFDIR)
-            {
-                goto autoindex;
-            }
-            else
-            {
-                goto fileok;
-            }
-        }
-        else
-        {
-            // tryfiles...
+            // try_files
             for (auto &name : server.try_files)
             {
-                path = server.root + "/" + name;
-                fd = open(path.c_str(), O_RDONLY);
-                if (fd.getFd() >= 0)
+                filePath = path + name;
+                filefd = open(filePath.c_str(), O_RDONLY);
+                if (filefd.getFd() >= 0)
                 {
                     struct stat st;
                     fstat(fd.getFd(), &st);
                     if (!(st.st_mode & S_IFDIR))
                     {
-                        auto pos = path.find('.');
+                        auto pos = filePath.find('.');
                         if (pos != std::string::npos) // has exten
                         {
-                            int extenlen = path.length() - pos - 1;
+                            int extenlen = filePath.length() - pos - 1;
                             for (int i = 0; i < extenlen; i++)
                             {
-                                exten_save[i] = path[i + pos + 1];
+                                exten_save[i] = filePath[i + pos + 1];
                             }
                             r->exten.data = exten_save;
                             r->exten.len = extenlen;
                         }
+
+                        fd.closeFd();
+                        fd = std::move(filefd);
+
                         goto fileok;
+                    }
+                    else
+                    {
+                        filefd.closeFd();
                     }
                 }
             }
-            goto send404;
         }
+
+        // try autoindex
+        goto autoindex;
+    }
+    else
+    {
+        goto fileok;
     }
 
 fileok:
