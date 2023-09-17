@@ -11,9 +11,15 @@
         },
         {
             "port": 1479,
-            "root": "/home/sallmc/myfolder",
-            "index": "x.md",
+            "root": "/home/sallmc/Notes",
+            "index": "sdfsdf",
             "auto_index": 1,
+            "auth": 1
+        },
+        {
+            "port": 1480,
+            "root": "/home/sallmc/blog/public",
+            "index": "index.html",
             "auth": 1
         },
         {

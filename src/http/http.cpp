@@ -283,7 +283,7 @@ int waitRequest(Event *ev)
 
     if (len == 0)
     {
-        LOG_WARN << "Client close connection";
+        LOG_INFO << "Client close connection";
         finalizeConnection(c);
         return -1;
     }
@@ -330,7 +330,7 @@ int keepAlive(Event *ev)
 
     if (len == 0)
     {
-        LOG_WARN << "Client close connection";
+        LOG_INFO << "Client close connection";
         finalizeRequest(ev->c->data_);
         return -1;
     }
@@ -419,7 +419,7 @@ int processRequestLine(Event *ev)
 
         if (ret != AGAIN)
         {
-            LOG_CRIT << "Parse request line failed";
+            LOG_WARN << "Parse request line failed";
             finalizeRequest(r);
             break;
         }
@@ -478,7 +478,7 @@ int processRequestHeaders(Event *ev)
             {
 
                 /* there was error while a header line parsing */
-                LOG_CRIT << "Client sent invalid header line";
+                LOG_WARN << "Client sent invalid header line";
                 continue;
             }
 
@@ -585,7 +585,7 @@ int readRequestHeader(std::shared_ptr<Request> r)
     }
     else if (n == 0)
     {
-        LOG_WARN << "Client close connection";
+        LOG_INFO << "Client close connection";
         finalizeRequest(r);
         return ERROR;
     }
@@ -617,7 +617,7 @@ int processRequestUri(std::shared_ptr<Request> r)
         if (parseComplexUri(r, 1) != OK)
         {
             r->uri.len = 0;
-            LOG_CRIT << "Client sent invalid request";
+            LOG_WARN << "Client sent invalid request";
             finalizeRequest(r);
             return ERROR;
         }
@@ -849,7 +849,7 @@ int writeResponse(Event *ev)
 
         if (len < 0 && errno != EAGAIN)
         {
-            LOG_CRIT << "write response failed";
+            LOG_WARN << "write response failed, errno: " << strerror(errno);
             finalizeRequest(r);
             return PHASE_ERR;
         }
@@ -1080,7 +1080,7 @@ int readRequestBodyInner(Event *ev)
 
         if (ret == 0)
         {
-            LOG_WARN << "Client close connection";
+            LOG_INFO << "Client close connection";
             finalizeRequest(r);
             return ERROR;
         }
@@ -1138,7 +1138,7 @@ int sendfileEvent(Event *ev)
     }
     else if (len == 0)
     {
-        LOG_WARN << "Client close Connection";
+        LOG_INFO << "Client close connection";
         finalizeRequest(r);
         return ERROR;
     }
@@ -1186,7 +1186,7 @@ int sendStrEvent(Event *ev)
     }
     else if (len == 0)
     {
-        LOG_WARN << "Client close Connection";
+        LOG_INFO << "Client close connection";
         finalizeRequest(r);
         return ERROR;
     }
