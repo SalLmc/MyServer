@@ -218,7 +218,10 @@ void processEventsAndTimers(Cycle *cycle)
         }
     }
 
-    int ret = epoller.processEvents(flags, 1);
+    unsigned long long nextTick = cycle->timer_.GetNextTick();
+    nextTick = ((nextTick == -1) ? -1 : (nextTick - getTickMs()));
+
+    int ret = epoller.processEvents(flags, nextTick);
     if (ret == -1)
     {
         LOG_WARN << "process events errno: " << strerror(errno);
