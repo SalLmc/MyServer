@@ -219,7 +219,7 @@ void processEventsAndTimers(Cycle *cycle)
     }
 
     unsigned long long nextTick = cycle->timer_.GetNextTick();
-    nextTick = ((nextTick == -1) ? -1 : (nextTick - getTickMs()));
+    nextTick = ((nextTick == (unsigned long long)-1) ? -1 : (nextTick - getTickMs()));
 
     int ret = epoller.processEvents(flags, nextTick);
     if (ret == -1)
