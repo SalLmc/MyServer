@@ -29,13 +29,7 @@ int testPhaseHandler(std::shared_ptr<Request> r)
     return doResponse(r);
 }
 
-int endPhaseHandler(std::shared_ptr<Request> r)
-{
-    LOG_CRIT << "endPhaseHandler PHASE_ERR";
-    return PHASE_ERR;
-}
-
-std::vector<PhaseHandler> phases{{genericPhaseChecker, {passPhaseHandler}},
+std::vector<PhaseHandler> phases{{genericPhaseChecker, {logPhaseHandler}},
 
                                  {genericPhaseChecker, {authAccessHandler, contentAccessHandler}},
                                  {genericPhaseChecker, {proxyPassHandler}},
@@ -83,6 +77,22 @@ int genericPhaseChecker(std::shared_ptr<Request> r, PhaseHandler *ph)
 
 int passPhaseHandler(std::shared_ptr<Request> r)
 {
+    return PHASE_NEXT;
+}
+
+int endPhaseHandler(std::shared_ptr<Request> r)
+{
+    LOG_CRIT << "endPhaseHandler PHASE_ERR";
+    return PHASE_ERR;
+}
+
+int logPhaseHandler(std::shared_ptr<Request> r)
+{
+    LOG_INFO << "Log handler, FD:" << r->c->fd_.getFd();
+    char ipString[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &r->c->addr_.sin_addr, ipString, INET_ADDRSTRLEN);
+    LOG_INFO << "ip: " << ipString;
+
     return PHASE_NEXT;
 }
 
