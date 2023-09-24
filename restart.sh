@@ -1,0 +1,2 @@
+./main -s stop
+./main

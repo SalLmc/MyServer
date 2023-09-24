@@ -22,24 +22,18 @@ int testPhaseHandler(std::shared_ptr<Request> r)
 
     r->headers_out.str_body.append("HELLO");
 
-    r->headers_out.headers.emplace_back("Content-Type",
-                                        std::string(exten_content_type_map["html"] + "; charset=utf-8"));
+    r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"] + SPLIT + UTF_8));
     r->headers_out.headers.emplace_back("Content-Length", std::to_string(r->headers_out.str_body.length()));
     r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
 
     return doResponse(r);
 }
 
-int endPhaseHandler(std::shared_ptr<Request> r)
-{
-    LOG_CRIT << "endPhaseHandler PHASE_ERR";
-    return PHASE_ERR;
-}
+std::vector<PhaseHandler> phases{{genericPhaseChecker, {logPhaseHandler}},
 
-std::vector<PhaseHandler> phases{{genericPhaseChecker, {passPhaseHandler}},
-
-                                 {genericPhaseChecker, {contentAccessHandler}},
-                                 {genericPhaseChecker, {proxyPassHandler, staticContentHandler, autoIndexHandler}},
+                                 {genericPhaseChecker, {authAccessHandler, contentAccessHandler}},
+                                 {genericPhaseChecker, {proxyPassHandler}},
+                                 {genericPhaseChecker, {staticContentHandler, autoIndexHandler}},
 
                                  {genericPhaseChecker, {endPhaseHandler}}};
 
@@ -86,6 +80,87 @@ int passPhaseHandler(std::shared_ptr<Request> r)
     return PHASE_NEXT;
 }
 
+int endPhaseHandler(std::shared_ptr<Request> r)
+{
+    LOG_CRIT << "endPhaseHandler PHASE_ERR";
+    return PHASE_ERR;
+}
+
+int logPhaseHandler(std::shared_ptr<Request> r)
+{
+    LOG_INFO << "Log handler, FD:" << r->c->fd_.getFd();
+    char ipString[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &r->c->addr_.sin_addr, ipString, INET_ADDRSTRLEN);
+    LOG_INFO << "ip: " << ipString;
+
+    return PHASE_NEXT;
+}
+
+int authAccessHandler(std::shared_ptr<Request> r)
+{
+    LOG_INFO << "Auth access handler, FD:" << r->c->fd_.getFd();
+    auto &server = cyclePtr->servers_[r->c->server_idx_];
+    if (!server.auth)
+    {
+        return PHASE_CONTINUE;
+    }
+
+    int ok = 0;
+
+    char authc[128] = {0};
+    std::string auth;
+    Fd fd(open("authcode", O_RDONLY));
+    if (fd.getFd() >= 0)
+    {
+        read(fd.getFd(), authc, sizeof(authc));
+        auth.append(authc);
+    }
+
+    std::string args = std::string(r->args.data, r->args.data + r->args.len);
+
+    if (args.find("code=" + auth) != std::string::npos)
+    {
+        ok = 1;
+    }
+
+    if (!ok)
+    {
+        if (r->headers_in.header_name_value_map.count("code"))
+        {
+            if (r->headers_in.header_name_value_map["code"].value == auth)
+            {
+                ok = 1;
+            }
+        }
+        else if (r->headers_in.header_name_value_map.count("Code"))
+        {
+            if (r->headers_in.header_name_value_map["Code"].value == auth)
+            {
+                ok = 1;
+            }
+        }
+    }
+
+    if (ok)
+    {
+        return PHASE_CONTINUE;
+    }
+
+    r->headers_out.status = HTTP_UNAUTHORIZED;
+    r->headers_out.status_line = "HTTP/1.1 401 Unauthorized\r\n";
+    r->headers_out.restype = RES_STR;
+    auto &str = r->headers_out.str_body;
+    str.append("<html>\n<head>\n\t<title>401 Unauthorized</title>\n</head>\n");
+    str.append("<body>\n\t<center>\n\t\t<h1>401 "
+               "Unauthorized</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
+
+    r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"] + SPLIT + UTF_8));
+    r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
+    r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
+
+    return doResponse(r);
+}
+
 int contentAccessHandler(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Content access handler, FD:" << r->c->fd_.getFd();
@@ -109,7 +184,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
     if (r->method != Method::GET)
     {
         r->headers_out.status = HTTP_FORBIDDEN;
-        r->headers_out.status_line = "HTTP/1.1 403 FORBIDDEN\r\n";
+        r->headers_out.status_line = "HTTP/1.1 403 Forbidden\r\n";
 
         std::string _403_path = "/home/sallmc/VSCode/MyServer/static/403.html";
         Fd _403fd(open(_403_path.c_str(), O_RDONLY));
@@ -122,7 +197,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
                        "Forbidden</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
 
             r->headers_out.headers.emplace_back("Content-Type",
-                                                std::string(exten_content_type_map["html"] + "; charset=utf-8"));
+                                                std::string(exten_content_type_map["html"] + SPLIT + UTF_8));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
             r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
@@ -131,11 +206,11 @@ int contentAccessHandler(std::shared_ptr<Request> r)
             r->headers_out.restype = RES_FILE;
             struct stat st;
             fstat(_403fd.getFd(), &st);
-            r->headers_out.file_body.filefd = std::move(_403fd);
+            r->headers_out.file_body.filefd.reset(std::move(_403fd));
             r->headers_out.file_body.file_size = st.st_size;
 
             r->headers_out.headers.emplace_back("Content-Type",
-                                                std::string(exten_content_type_map["html"] + "; charset=utf-8"));
+                                                std::string(exten_content_type_map["html"] + SPLIT + UTF_8));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(st.st_size));
             r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
@@ -143,72 +218,89 @@ int contentAccessHandler(std::shared_ptr<Request> r)
         return doResponse(r);
     }
 
-    if (uri == "/")
-    {
-        path = server.root + "/" + server.index;
-        fd = open(path.c_str(), O_RDONLY);
+    path = server.root + uri;
+    fd = open(path.c_str(), O_RDONLY);
 
-        if (fd.getFd() >= 0) // return index if exist
+    if (fd.getFd() < 0)
+    {
+        goto send404;
+    }
+
+    struct stat st;
+    fstat(fd.getFd(), &st);
+    if (st.st_mode & S_IFDIR)
+    {
+        // use index & try_files
+        if (path.back() != '/')
         {
-            exten_save[0] = 'h', exten_save[1] = 't', exten_save[2] = 'm', exten_save[3] = 'l', exten_save[4] = '\0';
-            r->exten.data = exten_save;
-            r->exten.len = 4;
+            path += "/";
+        }
+
+        // index
+        std::string filePath = path + server.index;
+        Fd filefd(open(filePath.c_str(), O_RDONLY));
+        if (filefd.getFd() >= 0)
+        {
+            auto pos = filePath.find('.');
+            if (pos != std::string::npos) // has exten
+            {
+                int extenlen = filePath.length() - pos - 1;
+                for (int i = 0; i < extenlen; i++)
+                {
+                    exten_save[i] = filePath[i + pos + 1];
+                }
+                r->exten.data = exten_save;
+                r->exten.len = extenlen;
+            }
+
+            fd.closeFd();
+            fd.reset(std::move(filefd));
 
             goto fileok;
         }
         else
         {
-            goto autoindex;
-        }
-    }
-    else
-    {
-        path = server.root + uri;
-        fd = open(path.c_str(), O_RDONLY);
-
-        if (fd.getFd() >= 0)
-        {
-            struct stat st;
-            fstat(fd.getFd(), &st);
-            if (st.st_mode & S_IFDIR)
-            {
-                goto autoindex;
-            }
-            else
-            {
-                goto fileok;
-            }
-        }
-        else
-        {
-            // tryfiles...
+            // try_files
             for (auto &name : server.try_files)
             {
-                path = server.root + "/" + name;
-                fd = open(path.c_str(), O_RDONLY);
-                if (fd.getFd() >= 0)
+                filePath = path + name;
+                filefd = open(filePath.c_str(), O_RDONLY);
+                if (filefd.getFd() >= 0)
                 {
                     struct stat st;
                     fstat(fd.getFd(), &st);
                     if (!(st.st_mode & S_IFDIR))
                     {
-                        auto pos = path.find('.');
+                        auto pos = filePath.find('.');
                         if (pos != std::string::npos) // has exten
                         {
-                            int extenlen = path.length() - pos - 1;
+                            int extenlen = filePath.length() - pos - 1;
                             for (int i = 0; i < extenlen; i++)
                             {
-                                exten_save[i] = path[i + pos + 1];
+                                exten_save[i] = filePath[i + pos + 1];
                             }
                             r->exten.data = exten_save;
                             r->exten.len = extenlen;
                         }
+
+                        fd.reset(std::move(filefd));
+
                         goto fileok;
+                    }
+                    else
+                    {
+                        filefd.closeFd();
                     }
                 }
             }
-            goto send404;
         }
+
+        // try autoindex
+        goto autoindex;
+    }
+    else
+    {
+        goto fileok;
     }
 
 fileok:
@@ -236,7 +328,7 @@ fileok:
         r->headers_out.file_body.file_size = st.st_size;
 
         // close fd after sendfile in writeResponse
-        r->headers_out.file_body.filefd = std::move(fd);
+        r->headers_out.file_body.filefd.reset(std::move(fd));
 
         return PHASE_NEXT;
     }
@@ -246,7 +338,7 @@ autoindex:
     {
     send404:
         r->headers_out.status = HTTP_NOT_FOUND;
-        r->headers_out.status_line = "HTTP/1.1 404 NOT FOUND\r\n";
+        r->headers_out.status_line = "HTTP/1.1 404 Not Found\r\n";
 
         std::string _404_path = "/home/sallmc/VSCode/MyServer/static/404.html";
         Fd _404fd(open(_404_path.c_str(), O_RDONLY));
@@ -259,7 +351,7 @@ autoindex:
                        "Found</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
 
             r->headers_out.headers.emplace_back("Content-Type",
-                                                std::string(exten_content_type_map["html"] + "; charset=utf-8"));
+                                                std::string(exten_content_type_map["html"] + SPLIT + UTF_8));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
             r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
@@ -268,11 +360,11 @@ autoindex:
             r->headers_out.restype = RES_FILE;
             struct stat st;
             fstat(_404fd.getFd(), &st);
-            r->headers_out.file_body.filefd = std::move(_404fd);
+            r->headers_out.file_body.filefd.reset(std::move(_404fd));
             r->headers_out.file_body.file_size = st.st_size;
 
             r->headers_out.headers.emplace_back("Content-Type",
-                                                std::string(exten_content_type_map["html"] + "; charset=utf-8"));
+                                                std::string(exten_content_type_map["html"] + SPLIT + UTF_8));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(st.st_size));
             r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
@@ -294,7 +386,7 @@ int proxyPassHandler(std::shared_ptr<Request> r)
 
     if (r->now_proxy_pass != 1)
     {
-        return PHASE_CONTINUE;
+        return PHASE_NEXT;
     }
     r->now_proxy_pass = 0;
 
@@ -380,7 +472,12 @@ int initUpstream(std::shared_ptr<Request> r)
     {
         wb.append(x.toString());
     }
+
     // send
+    if (epoller.addFd(upc->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, upc) != 1)
+    {
+        LOG_CRIT << "epoller addfd failed, error:" << strerror(errno);
+    }
     return send2upstream(&upc->write_);
 }
 
@@ -516,8 +613,14 @@ int send2upstream(Event *upc_ev)
         }
     }
 
-    epoller.modFd(upc->fd_.getFd(), EPOLLIN | EPOLLET, upc);
+    // remove EPOLLOUT events
+    if (epoller.modFd(upc->fd_.getFd(), EPOLLIN | EPOLLET, upc) != 1)
+    {
+        LOG_CRIT << "epoller modfd failed, error:" << strerror(errno);
+    }
+
     upc->write_.handler = blockWriting;
+    upc->read_.handler = upstreamRecv;
 
     ups->process_handler = processStatusLine;
     std::shared_ptr<Request> upsr(new Request());
@@ -525,13 +628,6 @@ int send2upstream(Event *upc_ev)
     ups->c4upstream->data_ = upsr;
 
     LOG_INFO << "Send client data to upstream complete";
-
-    // set epoller
-    if (epoller.addFd(upc->fd_.getFd(), EPOLLIN | EPOLLET, upc) != 0)
-    {
-        LOG_CRIT << "epoller addfd failed";
-    }
-    upc->read_.handler = upstreamRecv;
 
     return upstreamRecv(&upc->read_);
 }
@@ -568,8 +664,7 @@ int staticContentHandler(std::shared_ptr<Request> r)
     std::string exten = std::string(r->exten.data, r->exten.data + r->exten.len);
     if (exten_content_type_map.count(exten))
     {
-        r->headers_out.headers.emplace_back("Content-Type",
-                                            std::string(exten_content_type_map[exten]) + "; charset=utf-8");
+        r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map[exten]) + SPLIT + UTF_8);
     }
     else
     {
@@ -670,8 +765,7 @@ resposne:
     std::string exten = std::string(r->exten.data, r->exten.data + r->exten.len);
     if (exten_content_type_map.count(exten))
     {
-        r->headers_out.headers.emplace_back("Content-Type",
-                                            std::string(exten_content_type_map[exten] + "; charset=utf-8"));
+        r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map[exten] + SPLIT + UTF_8));
     }
     else
     {

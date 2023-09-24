@@ -1,15 +1,26 @@
 {
-    "processes": 2,
     "logger_wake": 1,
-    "only_worker": 0,
     "enable_logger": 1,
     "daemon": 1,
+    "only_worker": 0,
     "servers": [
         {
+            "port": 80,
+            "root": "static",
+            "index": "index.html"
+        },
+        {
             "port": 1479,
-            "root": "/home/sallmc/myfolder",
+            "root": "/home/sallmc/Notes",
             "index": "sdfsdf",
-            "auto_index": 1
+            "auto_index": 1,
+            "auth": 1
+        },
+        {
+            "port": 1480,
+            "root": "/home/sallmc/blog/public",
+            "index": "index.html",
+            "auth": 1
         },
         {
             "port": 8082,

@@ -371,6 +371,10 @@ class Upstream
 #define HTTP_MISDIRECTED_REQUEST 421
 #define HTTP_TOO_MANY_REQUESTS 429
 
-#define HTTP_INTERNAL_SERVER_ERROR     500
+#define HTTP_INTERNAL_SERVER_ERROR 500
+
+#define SPLIT "; "
+
+#define UTF_8 "charset=utf-8"
 
 #endif

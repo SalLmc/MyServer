@@ -128,7 +128,7 @@ std::unordered_map<std::string, std::string> exten_content_type_map = {
     {"asf", "video/x-ms-asf"},
     {"wmv", "video/x-ms-wmv"},
     {"avi", "video/x-msvideo"},
-    {"md", "text/plain"},
+    {"md", "text/markdown"},
 };
 
 int initListen(Cycle *cycle, int port)
@@ -268,7 +268,7 @@ int waitRequest(Event *ev)
 {
     if (ev->timeout == TIMEOUT)
     {
-        LOG_INFO << "Client timeout";
+        LOG_INFO << "Client timeout, FD:" << ev->c->fd_.getFd();
         finalizeConnection(ev->c);
         return -1;
     }
@@ -283,7 +283,7 @@ int waitRequest(Event *ev)
 
     if (len == 0)
     {
-        LOG_WARN << "Client close connection";
+        LOG_INFO << "Client close connection";
         finalizeConnection(c);
         return -1;
     }
@@ -315,7 +315,7 @@ int keepAlive(Event *ev)
 {
     if (ev->timeout == TIMEOUT)
     {
-        LOG_INFO << "Client timeout";
+        LOG_INFO << "Client timeout, FD:" << ev->c->fd_.getFd();
         finalizeRequest(ev->c->data_);
         return -1;
     }
@@ -330,7 +330,7 @@ int keepAlive(Event *ev)
 
     if (len == 0)
     {
-        LOG_WARN << "Client close connection";
+        LOG_INFO << "Client close connection";
         finalizeRequest(ev->c->data_);
         return -1;
     }
@@ -419,7 +419,7 @@ int processRequestLine(Event *ev)
 
         if (ret != AGAIN)
         {
-            LOG_CRIT << "Parse request line failed";
+            LOG_WARN << "Parse request line failed";
             finalizeRequest(r);
             break;
         }
@@ -478,7 +478,7 @@ int processRequestHeaders(Event *ev)
             {
 
                 /* there was error while a header line parsing */
-                LOG_CRIT << "Client sent invalid header line";
+                LOG_WARN << "Client sent invalid header line";
                 continue;
             }
 
@@ -585,7 +585,7 @@ int readRequestHeader(std::shared_ptr<Request> r)
     }
     else if (n == 0)
     {
-        LOG_WARN << "Client close connection";
+        LOG_INFO << "Client close connection";
         finalizeRequest(r);
         return ERROR;
     }
@@ -617,7 +617,7 @@ int processRequestUri(std::shared_ptr<Request> r)
         if (parseComplexUri(r, 1) != OK)
         {
             r->uri.len = 0;
-            LOG_CRIT << "Client sent invalid request";
+            LOG_WARN << "Client sent invalid request";
             finalizeRequest(r);
             return ERROR;
         }
@@ -849,7 +849,7 @@ int writeResponse(Event *ev)
 
         if (len < 0 && errno != EAGAIN)
         {
-            LOG_CRIT << "write response failed";
+            LOG_WARN << "write response failed, errno: " << strerror(errno);
             finalizeRequest(r);
             return PHASE_ERR;
         }
@@ -1080,7 +1080,7 @@ int readRequestBodyInner(Event *ev)
 
         if (ret == 0)
         {
-            LOG_WARN << "Client close connection";
+            LOG_INFO << "Client close connection";
             finalizeRequest(r);
             return ERROR;
         }
@@ -1138,7 +1138,7 @@ int sendfileEvent(Event *ev)
     }
     else if (len == 0)
     {
-        LOG_WARN << "Client close Connection";
+        LOG_INFO << "Client close connection";
         finalizeRequest(r);
         return ERROR;
     }
@@ -1186,7 +1186,7 @@ int sendStrEvent(Event *ev)
     }
     else if (len == 0)
     {
-        LOG_WARN << "Client close Connection";
+        LOG_INFO << "Client close connection";
         finalizeRequest(r);
         return ERROR;
     }
@@ -1249,11 +1249,12 @@ int finalizeConnection(Connection *c)
     }
     int fd = c->fd_.getFd();
 
-    epoller.delFd(c->fd_.getFd());
+    c->quit = 1;
 
-    cPool.recoverConnection(c);
+    // delete c at the end of a eventloop
+    // cPool.recoverConnection(c);
 
-    LOG_INFO << "FINALIZE CONNECTION DONE, FD:" << fd;
+    LOG_INFO << "set connection->quit, FD:" << fd;
     return 0;
 }
 

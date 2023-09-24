@@ -52,7 +52,7 @@ class Fd
     bool operator!=(int fd);
     bool operator!=(Fd fd);
     void operator=(int fd);
-    void operator=(Fd &&fd);
+    void reset(Fd &&fd);
     Fd &operator=(const Fd &) = delete;
 
   private:
@@ -73,6 +73,8 @@ class Connection
     int server_idx_;
     std::shared_ptr<Request> data_;
     std::shared_ptr<Upstream> ups_;
+
+    int quit;
 };
 
 class ConnectionPool
@@ -81,7 +83,7 @@ class ConnectionPool
     Connection **cPool_;
 
   public:
-    const static int POOLSIZE = 1024;
+    const static int POOLSIZE = 0;
     ConnectionPool();
     ~ConnectionPool();
     Connection *getNewConnection();
@@ -92,7 +94,7 @@ class ServerAttribute
 {
   public:
     ServerAttribute(int portt, std::string &&roott, std::string &&indexx, std::string &&from, std::string &&to,
-                    int auto_indexx, std::vector<std::string> &&tryfiles);
+                    bool auto_indexx, std::vector<std::string> &&tryfiles, bool auth);
     ServerAttribute() = default;
 
     int port;
@@ -102,8 +104,10 @@ class ServerAttribute
     std::string from;
     std::string to;
 
-    int auto_index;
+    bool auto_index;
     std::vector<std::string> try_files;
+
+    bool auth;
 };
 
 class Cycle

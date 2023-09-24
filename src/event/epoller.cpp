@@ -91,16 +91,16 @@ int Epoller::processEvents(int flags, int timeout_ms)
     for (int i = 0; i < ret; i++)
     {
         Connection *c = (Connection *)events_[i].data.ptr;
-        if (c == NULL || c->idx_ == -1)
-        {
-            continue;
-        }
 
         int revents = events_[i].events;
         if (revents & (EPOLLERR | EPOLLHUP))
         {
-            // printf("EPOLLERR|EPOLLHUP\n");
             revents |= EPOLLIN | EPOLLOUT;
+        }
+
+        if (c->quit == 1)
+        {
+            goto recover;
         }
 
         if ((revents & EPOLLIN) && c->read_.handler)
@@ -122,10 +122,9 @@ int Epoller::processEvents(int flags, int timeout_ms)
             }
         }
 
-        // check if c == NULL. Since read_handler might finalizeConnection
-        if (c == NULL || c->idx_ == -1)
+        if (c->quit == 1)
         {
-            continue;
+            goto recover;
         }
 
         if ((revents & EPOLLOUT) && c->write_.handler)
@@ -138,6 +137,15 @@ int Epoller::processEvents(int flags, int timeout_ms)
             {
                 c->write_.handler(&c->write_);
             }
+        }
+
+    recover:
+        if (c->quit)
+        {
+            int fd = c->fd_.getFd();
+            epoller.delFd(fd);
+            cyclePtr->pool_->recoverConnection(c);
+            LOG_INFO << "Connection recover, FD:" << fd;
         }
     }
     return 0;

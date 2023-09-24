@@ -10,10 +10,11 @@ CPP_OBJECTS = $(patsubst %.cpp, %.o, $(CPP_SOURCES))
 INCLUDE_FILES = $(foreach dir, $(SRCDIRS), $(wildcard $(dir)/*.d)) *.d
 
 ARSTATICLIB = ar rcs $@ $^
-CPPSHARELIB = g++ -fPIC -shared $^ -o $@
+CPPSHARELIB = $(CC) -fPIC -shared $^ -o $@
 
 LINK = -pthread
 FLAGS = -Wall -fPIC -g -MD
+CC = $(shell command -v ccache >/dev/null 2>&1 && echo "ccache g++" || echo "g++")
 
 BUILDEXEWITHLIB = g++ $(FLAGS) $^ ./libmy.so -o $@ $(LINK)
 BUILDEXE = g++ $(FLAGS) $^ -o $@ $(LINK)
@@ -49,10 +50,7 @@ test: test.o
 -include $(INCLUDE_FILES)
 
 clean:
-	rm -f $(PROGS) $(CPP_OBJECTS) *.o pid_file $(INCLUDE_FILES)
-
-cleanall:
-	rm -f $(PROGS) $(CPP_OBJECTS) *.o pid_file src/headers.h.gch $(INCLUDE_FILES)
+	rm -f $(PROGS) $(CPP_OBJECTS) $(INCLUDE_FILES) *.o cores
 
 %.o: %.cpp
-	g++ $(FLAGS) -c $< -o $@
+	$(CC) $(FLAGS) -c $< -o $@

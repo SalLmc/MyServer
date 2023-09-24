@@ -58,8 +58,9 @@ void Fd::operator=(int fd)
 {
     fd_ = fd;
 }
-void Fd::operator=(Fd &&fd)
+void Fd::reset(Fd &&fd)
 {
+    closeFd();
     fd_ = fd.fd_;
     fd.fd_ = -1;
 }
@@ -68,7 +69,7 @@ Event::Event(Connection *cc) : c(cc), type(NORMAL), timeout(NOT_TIMEOUT)
 {
 }
 
-Connection::Connection() : read_(this), write_(this), idx_(-1), server_idx_(-1), data_(NULL), ups_(NULL)
+Connection::Connection() : read_(this), write_(this), idx_(-1), server_idx_(-1), data_(NULL), ups_(NULL), quit(0)
 {
 }
 
@@ -121,7 +122,8 @@ void ConnectionPool::recoverConnection(Connection *c)
     if (c->idx_ == -2)
     {
         heap.hDelete(c);
-        c = NULL;
+        // set c to NULL is meaningless. Since c is a uint64
+        // c = NULL;
         return;
     }
 
@@ -145,8 +147,9 @@ void ConnectionPool::recoverConnection(Connection *c)
 }
 
 ServerAttribute::ServerAttribute(int portt, std::string &&roott, std::string &&indexx, std::string &&from,
-                                 std::string &&to, int auto_indexx, std::vector<std::string> &&tryfiles)
-    : port(portt), root(roott), index(indexx), from(from), to(to), auto_index(auto_indexx), try_files(tryfiles)
+                                 std::string &&to, bool auto_indexx, std::vector<std::string> &&tryfiles, bool auth)
+    : port(portt), root(roott), index(indexx), from(from), to(to), auto_index(auto_indexx), try_files(tryfiles),
+      auth(auth)
 {
 }
 
