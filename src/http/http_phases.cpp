@@ -108,8 +108,9 @@ int authAccessHandler(std::shared_ptr<Request> r)
     int ok = 0;
 
     char authc[128] = {0};
+    std::string path = "authcode_" + std::to_string(server.port);
     std::string auth;
-    Fd fd(open("authcode", O_RDONLY));
+    Fd fd(open(path.c_str(), O_RDONLY));
     if (fd.getFd() >= 0)
     {
         read(fd.getFd(), authc, sizeof(authc));
