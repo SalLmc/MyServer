@@ -215,3 +215,46 @@ std::string fd2Path(int fd)
     std::string s(buf);
     return s;
 }
+
+bool isMatch(std::string src, std::string pattern)
+{
+    int n = src.size();
+    int m = pattern.size();
+    src = " " + src;
+    pattern = " " + pattern;
+
+    bool dp[n + 1][m + 1];
+    memset(dp, 0, sizeof(dp));
+    dp[0][0] = 1;
+
+    for (int i = 1; i <= m; i++)
+    {
+        if (pattern[i] == '*')
+        {
+            dp[0][i] = 1;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    for (int i = 1; i <= n; i++)
+    {
+        for (int j = 1; j <= m; j++)
+        {
+            if (src[i] == pattern[j] || pattern[j] == '?')
+            {
+                dp[i][j] = std::max(dp[i][j], dp[i - 1][j - 1]);
+            }
+            else if (pattern[j] == '*')
+            {
+                bool save = dp[i][j];
+                dp[i][j] = std::max(dp[i][j - 1], dp[i - 1][j]);
+                dp[i][j] = std::max(save, dp[i][j]);
+            }
+        }
+    }
+
+    return dp[n][m];
+}

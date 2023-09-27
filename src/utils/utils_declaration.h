@@ -23,6 +23,7 @@ std::string UrlEncode(const std::string &str, char ignore);
 // %20 to space
 std::string UrlDecode(const std::string &str);
 std::string fd2Path(int fd);
+bool isMatch(std::string src, std::string pattern);
 
 /* signal.cpp */
 

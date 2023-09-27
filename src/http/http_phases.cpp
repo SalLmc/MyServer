@@ -100,7 +100,18 @@ int authAccessHandler(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Auth access handler, FD:" << r->c->fd_.getFd();
     auto &server = cyclePtr->servers_[r->c->server_idx_];
-    if (!server.auth)
+
+    bool need_auth = 0;
+    for (std::string path : server.auth_path)
+    {
+        if (isMatch(r->uri.toString(), path))
+        {
+            need_auth = 1;
+            break;
+        }
+    }
+
+    if (!need_auth)
     {
         return PHASE_CONTINUE;
     }

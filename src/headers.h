@@ -20,6 +20,7 @@
 #include <mutex>
 #include <netinet/in.h>
 #include <queue>
+#include <regex>
 #include <semaphore.h>
 #include <signal.h>
 #include <stdint.h>

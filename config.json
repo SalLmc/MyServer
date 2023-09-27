@@ -14,13 +14,17 @@
             "root": "/home/sallmc/Notes",
             "index": "sdfsdf",
             "auto_index": 1,
-            "auth": 1
+            "auth_path": [
+                "*"
+            ]
         },
         {
             "port": 1480,
             "root": "/home/sallmc/blog/public",
             "index": "index.html",
-            "auth": 1
+            "auth_path": [
+                "*"
+            ]
         },
         {
             "port": 8082,
