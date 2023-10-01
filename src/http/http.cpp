@@ -444,7 +444,7 @@ int processRequestHeaders(Event *ev)
     c = ev->c;
     r = c->data_;
 
-    // LOG_INFO << "process request headers";
+    LOG_INFO << "process request headers";
 
     rc = AGAIN;
 
