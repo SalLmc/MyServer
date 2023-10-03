@@ -12,7 +12,6 @@
 #include "../memory/memory_manage.hpp"
 
 extern ConnectionPool cPool;
-extern Epoller epoller;
 extern Cycle *cyclePtr;
 extern HeapMemory heap;
 extern std::vector<PhaseHandler> phases;
@@ -206,7 +205,7 @@ bad:
 //     }
 //     printf("%d recv len:%d from client:%s\n", getpid(), len, ev->c->readBuffer_.allToStr().c_str());
 //     ev->c->writeBuffer_.append(ev->c->readBuffer_.retrieveAllToStr());
-//     epoller.modFd(ev->c->fd_.getFd(), EPOLLOUT | EPOLLET, ev->c);
+//     cyclePtr->eventProccessor->modFd(ev->c->fd_.getFd(), EPOLLOUT | EPOLLET, ev->c);
 //     return 0;
 // }
 
@@ -215,7 +214,7 @@ bad:
 //     ev->c->writeBuffer_.writeFd(ev->c->fd_.getFd(), &errno);
 //     ev->c->writeBuffer_.retrieveAll();
 
-//     epoller.modFd(ev->c->fd_.getFd(), EPOLLIN | EPOLLET, ev->c);
+//     cyclePtr->eventProccessor->modFd(ev->c->fd_.getFd(), EPOLLIN | EPOLLET, ev->c);
 //     return 0;
 // }
 
@@ -249,7 +248,7 @@ int newConnection(Event *ev)
 
         newc->read_.handler = waitRequest;
 
-        if (epoller.addFd(newc->fd_.getFd(), EVENTS(IN | ET), newc) == 0)
+        if (cyclePtr->eventProccessor->addFd(newc->fd_.getFd(), EVENTS(IN | ET), newc) == 0)
         {
             LOG_WARN << "Add client fd failed, FD:" << newc->fd_.getFd();
         }
@@ -716,7 +715,7 @@ int processRequest(std::shared_ptr<Request> r)
     c->read_.handler = blockReading;
 
     // // register EPOLLOUT
-    // epoller.modFd(c->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, c);
+    // cyclePtr->eventProccessor->modFd(c->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, c);
     // c->write_.handler = runPhases;
 
     r->at_phase = 0;
@@ -858,13 +857,13 @@ int writeResponse(Event *ev)
         if (buffer.allRead() != 1)
         {
             r->c->write_.handler = writeResponse;
-            epoller.modFd(ev->c->fd_.getFd(), EVENTS(IN | OUT | ET), ev->c);
+            cyclePtr->eventProccessor->modFd(ev->c->fd_.getFd(), EVENTS(IN | OUT | ET), ev->c);
             return PHASE_QUIT;
         }
     }
 
     r->c->write_.handler = blockWriting;
-    epoller.modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
+    cyclePtr->eventProccessor->modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
 
     if (r->headers_out.restype == RES_FILE)
     {
@@ -1052,7 +1051,7 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
     r->request_length += preRead;
 
     r->c->read_.handler = readRequestBodyInner;
-    epoller.modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
+    cyclePtr->eventProccessor->modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
 
     r->c->write_.handler = blockWriting;
 
@@ -1147,11 +1146,11 @@ int sendfileEvent(Event *ev)
     if (filebody.file_size - filebody.offset > 0)
     {
         r->c->write_.handler = sendfileEvent;
-        epoller.modFd(r->c->fd_.getFd(), EVENTS(IN | OUT | ET), r->c);
+        cyclePtr->eventProccessor->modFd(r->c->fd_.getFd(), EVENTS(IN | OUT | ET), r->c);
         return AGAIN;
     }
 
-    epoller.modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
+    cyclePtr->eventProccessor->modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
     r->c->write_.handler = blockWriting;
     filebody.filefd.closeFd();
 
@@ -1196,12 +1195,12 @@ int sendStrEvent(Event *ev)
     if (bodysize - offset > 0)
     {
         r->c->write_.handler = sendStrEvent;
-        epoller.modFd(r->c->fd_.getFd(), EVENTS(IN | OUT | ET), r->c);
+        cyclePtr->eventProccessor->modFd(r->c->fd_.getFd(), EVENTS(IN | OUT | ET), r->c);
         return AGAIN;
     }
 
     offset = 0;
-    epoller.modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
+    cyclePtr->eventProccessor->modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
     r->c->write_.handler = blockWriting;
 
     LOG_INFO << "SENDSTR RESPONSED";

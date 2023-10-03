@@ -5,7 +5,6 @@
 #include "event.h"
 
 extern Cycle *cyclePtr;
-extern Epoller epoller;
 
 int setEventTimeout(void *ev)
 {
@@ -24,7 +23,7 @@ int setEventTimeout(void *ev)
     if (thisev->c->quit)
     {
         int fd = thisev->c->fd_.getFd();
-        epoller.delFd(fd);
+        cyclePtr->eventProccessor->delFd(fd);
         cyclePtr->pool_->recoverConnection(thisev->c);
         LOG_INFO << "Connection recover, FD:" << fd;
     }
@@ -64,6 +63,7 @@ uint32_t events2epoll(EVENTS events)
         e |= EPOLLET;
     return e;
 }
+
 short events2poll(EVENTS events)
 {
     short e = 0;

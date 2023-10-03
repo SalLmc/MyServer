@@ -6,7 +6,6 @@
 
 extern Cycle *cyclePtr;
 
-Epoller epoller;
 std::list<Event *> posted_accept_events;
 std::list<Event *> posted_events;
 
@@ -130,7 +129,7 @@ int Epoller::processEvents(int flags, int timeout_ms)
         if (c->quit)
         {
             int fd = c->fd_.getFd();
-            epoller.delFd(fd);
+            delFd(fd);
             cyclePtr->pool_->recoverConnection(c);
             LOG_INFO << "Connection recover, FD:" << fd;
         }

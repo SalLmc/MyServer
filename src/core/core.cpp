@@ -154,7 +154,7 @@ ServerAttribute::ServerAttribute(int portt, std::string &&roott, std::string &&i
 {
 }
 
-Cycle::Cycle(ConnectionPool *pool, Logger *logger) : pool_(pool), logger_(logger)
+Cycle::Cycle(ConnectionPool *pool, Logger *logger) : pool_(pool), logger_(logger), eventProccessor(new Epoller())
 {
 }
 
@@ -165,6 +165,7 @@ Cycle::~Cycle()
         delete logger_;
         logger_ = NULL;
     }
+    delete eventProccessor;
 }
 
 sharedMemory::sharedMemory() : addr_(NULL)

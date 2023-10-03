@@ -11,7 +11,6 @@
 
 #include "../memory/memory_manage.hpp"
 
-extern Epoller epoller;
 extern Cycle *cyclePtr;
 extern ProcessMutex acceptMutex;
 extern HeapMemory heap;
@@ -166,13 +165,17 @@ void workerProcessCycle(Cycle *cycle)
     }
 
     // epoll
-    epoller.setEpollFd(epoll_create1(0));
+    Epoller *epoller = dynamic_cast<Epoller *>(cyclePtr->eventProccessor);
+    if (epoller)
+    {
+        epoller->setEpollFd(epoll_create1(0));
+    }
     if (!useAcceptMutex)
     {
         for (auto &listen : cycle->listening_)
         {
             // use LT on listenfd
-            if (epoller.addFd(listen->fd_.getFd(), EVENTS(IN), listen) == 0)
+            if (cyclePtr->eventProccessor->addFd(listen->fd_.getFd(), EVENTS(IN), listen) == 0)
             {
                 LOG_CRIT << "Listenfd add failed, errno:" << strerror(errno);
             }
@@ -221,7 +224,7 @@ void processEventsAndTimers(Cycle *cycle)
     unsigned long long nextTick = cycle->timer_.GetNextTick();
     nextTick = ((nextTick == (unsigned long long)-1) ? -1 : (nextTick - getTickMs()));
 
-    int ret = epoller.processEvents(flags, nextTick);
+    int ret = cyclePtr->eventProccessor->processEvents(flags, nextTick);
     if (ret == -1)
     {
         LOG_WARN << "process events errno: " << strerror(errno);

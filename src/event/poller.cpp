@@ -6,8 +6,6 @@
 
 extern Cycle *cyclePtr;
 
-Poller poller;
-
 Poller::Poller()
 {
 }
@@ -19,64 +17,51 @@ Poller::~Poller()
 bool Poller::addFd(int fd, EVENTS events, void *ctx)
 {
     pollfd now = {fd, events2poll(events), 0};
-    fdCtxMap_.insert({fd, ctx});
-    fds_.push_back(now);
+    PollCtx pctx(now, ctx);
+    fdCtxMap_.insert({fd, pctx});
     return 1;
 }
 
 bool Poller::modFd(int fd, EVENTS events, void *ctx)
 {
     pollfd now = {fd, events2poll(events), 0};
-    bool has = 0;
+    PollCtx pctx(now, ctx);
 
-    for (size_t i = 0; i < fds_.size(); i++)
-    {
-        if (fds_[i].fd == fd)
-        {
-            fds_[i] = now;
-            has = 1;
-            break;
-        }
-    }
-
-    if (has)
-    {
-        fdCtxMap_.erase(fd);
-        fdCtxMap_.insert({fd, ctx});
-    }
+    fdCtxMap_.erase(fd);
+    fdCtxMap_.insert({fd, pctx});
 
     return 1;
 }
 
 bool Poller::delFd(int fd)
 {
-    for (auto it = fds_.begin(); it != fds_.end(); it++)
-    {
-        if (it->fd == fd)
-        {
-            fds_.erase(it);
-            break;
-        }
-    }
-
+    fdCtxMap_.erase(fd);
     return 1;
 }
 
 int Poller::processEvents(int flags, int timeout_ms)
 {
-    int ret = poll(fds_.data(), fds_.size(), timeout_ms);
+    pollfd fds[fdCtxMap_.size()];
+
+    int size = 0;
+    for (auto &x : fdCtxMap_)
+    {
+        fds[size++] = x.second.pfd;
+    }
+
+    int ret = poll(fds, size, timeout_ms);
     if (ret == -1)
     {
         return -1;
     }
-    for (auto &x : fds_)
+    for (auto &x : fds)
     {
         if (x.revents == 0)
         {
             continue;
         }
 
-        Connection *c = (Connection *)fdCtxMap_[x.fd];
+        Connection *c = (Connection *)fdCtxMap_[x.fd].ctx;
 
         short int revents = x.revents;
         if (revents & (POLLERR | POLLHUP))
@@ -107,7 +92,7 @@ int Poller::processEvents(int flags, int timeout_ms)
         if (c->quit)
         {
             int fd = c->fd_.getFd();
-            poller.delFd(fd);
+            delFd(fd);
             cyclePtr->pool_->recoverConnection(c);
             LOG_INFO << "Connection recover, FD:" << fd;
         }

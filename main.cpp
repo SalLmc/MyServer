@@ -15,7 +15,6 @@ extern ConnectionPool cPool;
 extern Cycle *cyclePtr;
 extern sharedMemory shmForAMtx;
 extern ProcessMutex acceptMutex;
-extern Epoller epoller;
 extern long cores;
 
 void init();

@@ -9,7 +9,6 @@
 
 extern std::unordered_map<std::string, std::string> exten_content_type_map;
 extern HeapMemory heap;
-extern Epoller epoller;
 extern Cycle *cyclePtr;
 
 u_char exten_save[16];
@@ -486,7 +485,7 @@ int initUpstream(std::shared_ptr<Request> r)
     }
 
     // send
-    if (epoller.addFd(upc->fd_.getFd(), EVENTS(IN | OUT | ET), upc) != 1)
+    if (cyclePtr->eventProccessor->addFd(upc->fd_.getFd(), EVENTS(IN | OUT | ET), upc) != 1)
     {
         LOG_CRIT << "epoller addfd failed, error:" << strerror(errno);
     }
@@ -596,7 +595,7 @@ int send2upstream(Event *upc_ev)
         {
             if (errno == EAGAIN)
             {
-                if (epoller.modFd(upc->fd_.getFd(), EVENTS(IN | OUT | ET), upc))
+                if (cyclePtr->eventProccessor->modFd(upc->fd_.getFd(), EVENTS(IN | OUT | ET), upc))
                 {
                     upc->write_.handler = send2upstream;
                     return AGAIN;
@@ -626,7 +625,7 @@ int send2upstream(Event *upc_ev)
     }
 
     // remove EPOLLOUT events
-    if (epoller.modFd(upc->fd_.getFd(), EVENTS(IN | ET), upc) != 1)
+    if (cyclePtr->eventProccessor->modFd(upc->fd_.getFd(), EVENTS(IN | ET), upc) != 1)
     {
         LOG_CRIT << "epoller modfd failed, error:" << strerror(errno);
     }
@@ -882,7 +881,7 @@ int upsResponse2Client(Event *upc_ev)
         {
             if (errno == EAGAIN)
             {
-                if (epoller.modFd(upc->fd_.getFd(), EVENTS(IN | OUT | ET), upc))
+                if (cyclePtr->eventProccessor->modFd(upc->fd_.getFd(), EVENTS(IN | OUT | ET), upc))
                 {
                     upc->write_.handler = upsResponse2Client;
                     return AGAIN;

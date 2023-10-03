@@ -7,7 +7,20 @@
 
 class Event;
 
-class Poller : public EventProccessor
+class PollCtx
+{
+  public:
+    PollCtx()
+    {
+    }
+    PollCtx(pollfd pfd, void *ctx) : pfd(pfd), ctx(ctx)
+    {
+    }
+    pollfd pfd;
+    void *ctx;
+};
+
+class Poller : public EventProcessor
 {
   public:
     Poller();
@@ -19,8 +32,7 @@ class Poller : public EventProccessor
     int processEvents(int flags = 0, int timeout_ms = -1);
 
   private:
-    std::unordered_map<int, void *> fdCtxMap_;
-    std::vector<pollfd> fds_;
+    std::unordered_map<int, PollCtx> fdCtxMap_;
 };
 
 #endif
