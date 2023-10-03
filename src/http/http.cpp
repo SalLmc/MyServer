@@ -444,7 +444,7 @@ int processRequestHeaders(Event *ev)
     c = ev->c;
     r = c->data_;
 
-    // LOG_INFO << "process request headers";
+    LOG_INFO << "process request headers";
 
     rc = AGAIN;
 
@@ -461,8 +461,9 @@ int processRequestHeaders(Event *ev)
             }
 
             int ret = readRequestHeader(r);
-            if (ret == ERROR || ret == AGAIN)
+            if (ret == ERROR)
             {
+                LOG_WARN << "Read request header failed";
                 break;
             }
         }

@@ -21,6 +21,7 @@
 #include <netinet/in.h>
 #include <poll.h>
 #include <queue>
+#include <regex>
 #include <semaphore.h>
 #include <signal.h>
 #include <stdint.h>

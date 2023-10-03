@@ -100,7 +100,18 @@ int authAccessHandler(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Auth access handler, FD:" << r->c->fd_.getFd();
     auto &server = cyclePtr->servers_[r->c->server_idx_];
-    if (!server.auth)
+
+    bool need_auth = 0;
+    for (std::string path : server.auth_path)
+    {
+        if (isMatch(r->uri.toString(), path))
+        {
+            need_auth = 1;
+            break;
+        }
+    }
+
+    if (!need_auth)
     {
         return PHASE_CONTINUE;
     }
@@ -108,8 +119,9 @@ int authAccessHandler(std::shared_ptr<Request> r)
     int ok = 0;
 
     char authc[128] = {0};
+    std::string path = "authcode_" + std::to_string(server.port);
     std::string auth;
-    Fd fd(open("authcode", O_RDONLY));
+    Fd fd(open(path.c_str(), O_RDONLY));
     if (fd.getFd() >= 0)
     {
         read(fd.getFd(), authc, sizeof(authc));

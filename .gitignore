@@ -10,6 +10,6 @@ log/
 main
 *test
 pid_file
-authcode
+authcode_*
 cores
 nohup.out

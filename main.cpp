@@ -177,7 +177,7 @@ ServerAttribute getServer(nlohmann::json config)
     server.auto_index = getValue(config, "auto_index", 0);
     server.try_files = getValue(config, "try_files", std::vector<std::string>());
 
-    server.auth = getValue(config, "auth", 0);
+    server.auth_path = getValue(config, "auth_path", std::vector<std::string>());
 
     return server;
 }

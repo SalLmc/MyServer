@@ -94,7 +94,7 @@ class ServerAttribute
 {
   public:
     ServerAttribute(int portt, std::string &&roott, std::string &&indexx, std::string &&from, std::string &&to,
-                    bool auto_indexx, std::vector<std::string> &&tryfiles, bool auth);
+                    bool auto_indexx, std::vector<std::string> &&tryfiles, std::vector<std::string> &&auth_path);
     ServerAttribute() = default;
 
     int port;
@@ -107,7 +107,7 @@ class ServerAttribute
     bool auto_index;
     std::vector<std::string> try_files;
 
-    bool auth;
+    std::vector<std::string> auth_path;
 };
 
 class Cycle
