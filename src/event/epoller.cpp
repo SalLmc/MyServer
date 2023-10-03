@@ -1,25 +1,14 @@
 #include "../headers.h"
 
 #include "../core/core.h"
-#include "../global.h"
+
 #include "epoller.h"
+
+extern Cycle *cyclePtr;
 
 Epoller epoller;
 std::list<Event *> posted_accept_events;
 std::list<Event *> posted_events;
-
-void process_posted_events(std::list<Event *> *events)
-{
-    while (!events->empty())
-    {
-        auto &now = events->front();
-        if (now->handler)
-        {
-            now->handler(now);
-        }
-        events->pop_front();
-    }
-}
 
 Epoller::Epoller(int max_event)
     : epollfd_(-1), size_(max_event), events_((epoll_event *)malloc(sizeof(epoll_event) * size_))
@@ -49,25 +38,25 @@ int Epoller::getFd()
 }
 
 // ctx is Connection*
-bool Epoller::addFd(int fd, uint32_t events, void *ctx)
+bool Epoller::addFd(int fd, EVENTS events, void *ctx)
 {
     if (fd < 0)
         return 0;
     epoll_event event = {0};
     event.data.ptr = ctx;
-    event.events = events;
+    event.events = events2epoll(events);
 
     return epoll_ctl(epollfd_, EPOLL_CTL_ADD, fd, &event) == 0;
 }
 
 // ctx is Connection*
-bool Epoller::modFd(int fd, uint32_t events, void *ctx)
+bool Epoller::modFd(int fd, EVENTS events, void *ctx)
 {
     if (fd < 0)
         return 0;
     epoll_event event = {0};
     event.data.ptr = ctx;
-    event.events = events;
+    event.events = events2epoll(events);
     return epoll_ctl(epollfd_, EPOLL_CTL_MOD, fd, &event) == 0;
 }
 
@@ -78,8 +67,6 @@ bool Epoller::delFd(int fd)
     epoll_event event = {0};
     return epoll_ctl(epollfd_, EPOLL_CTL_DEL, fd, &event) == 0;
 }
-
-extern Cycle *cyclePtr;
 
 int Epoller::processEvents(int flags, int timeout_ms)
 {

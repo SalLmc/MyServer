@@ -249,7 +249,7 @@ int newConnection(Event *ev)
 
         newc->read_.handler = waitRequest;
 
-        if (epoller.addFd(newc->fd_.getFd(), EPOLLIN | EPOLLET, newc) == 0)
+        if (epoller.addFd(newc->fd_.getFd(), EVENTS(IN | ET), newc) == 0)
         {
             LOG_WARN << "Add client fd failed, FD:" << newc->fd_.getFd();
         }
@@ -857,13 +857,13 @@ int writeResponse(Event *ev)
         if (buffer.allRead() != 1)
         {
             r->c->write_.handler = writeResponse;
-            epoller.modFd(ev->c->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, ev->c);
+            epoller.modFd(ev->c->fd_.getFd(), EVENTS(IN | OUT | ET), ev->c);
             return PHASE_QUIT;
         }
     }
 
     r->c->write_.handler = blockWriting;
-    epoller.modFd(r->c->fd_.getFd(), EPOLLIN | EPOLLET, r->c);
+    epoller.modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
 
     if (r->headers_out.restype == RES_FILE)
     {
@@ -1051,7 +1051,7 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
     r->request_length += preRead;
 
     r->c->read_.handler = readRequestBodyInner;
-    epoller.modFd(r->c->fd_.getFd(), EPOLLIN | EPOLLET, r->c);
+    epoller.modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
 
     r->c->write_.handler = blockWriting;
 
@@ -1146,11 +1146,11 @@ int sendfileEvent(Event *ev)
     if (filebody.file_size - filebody.offset > 0)
     {
         r->c->write_.handler = sendfileEvent;
-        epoller.modFd(r->c->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, r->c);
+        epoller.modFd(r->c->fd_.getFd(), EVENTS(IN | OUT | ET), r->c);
         return AGAIN;
     }
 
-    epoller.modFd(r->c->fd_.getFd(), EPOLLIN | EPOLLET, r->c);
+    epoller.modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
     r->c->write_.handler = blockWriting;
     filebody.filefd.closeFd();
 
@@ -1195,12 +1195,12 @@ int sendStrEvent(Event *ev)
     if (bodysize - offset > 0)
     {
         r->c->write_.handler = sendStrEvent;
-        epoller.modFd(r->c->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, r->c);
+        epoller.modFd(r->c->fd_.getFd(), EVENTS(IN | OUT | ET), r->c);
         return AGAIN;
     }
 
     offset = 0;
-    epoller.modFd(r->c->fd_.getFd(), EPOLLIN | EPOLLET, r->c);
+    epoller.modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
     r->c->write_.handler = blockWriting;
 
     LOG_INFO << "SENDSTR RESPONSED";

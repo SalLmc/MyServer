@@ -474,7 +474,7 @@ int initUpstream(std::shared_ptr<Request> r)
     }
 
     // send
-    if (epoller.addFd(upc->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, upc) != 1)
+    if (epoller.addFd(upc->fd_.getFd(), EVENTS(IN | OUT | ET), upc) != 1)
     {
         LOG_CRIT << "epoller addfd failed, error:" << strerror(errno);
     }
@@ -584,7 +584,7 @@ int send2upstream(Event *upc_ev)
         {
             if (errno == EAGAIN)
             {
-                if (epoller.modFd(upc->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, upc))
+                if (epoller.modFd(upc->fd_.getFd(), EVENTS(IN | OUT | ET), upc))
                 {
                     upc->write_.handler = send2upstream;
                     return AGAIN;
@@ -614,7 +614,7 @@ int send2upstream(Event *upc_ev)
     }
 
     // remove EPOLLOUT events
-    if (epoller.modFd(upc->fd_.getFd(), EPOLLIN | EPOLLET, upc) != 1)
+    if (epoller.modFd(upc->fd_.getFd(), EVENTS(IN | ET), upc) != 1)
     {
         LOG_CRIT << "epoller modfd failed, error:" << strerror(errno);
     }
@@ -870,7 +870,7 @@ int upsResponse2Client(Event *upc_ev)
         {
             if (errno == EAGAIN)
             {
-                if (epoller.modFd(upc->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, upc))
+                if (epoller.modFd(upc->fd_.getFd(), EVENTS(IN | OUT | ET), upc))
                 {
                     upc->write_.handler = upsResponse2Client;
                     return AGAIN;

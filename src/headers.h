@@ -19,6 +19,7 @@
 #include <memory>
 #include <mutex>
 #include <netinet/in.h>
+#include <poll.h>
 #include <queue>
 #include <semaphore.h>
 #include <signal.h>

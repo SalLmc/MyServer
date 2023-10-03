@@ -1,6 +1,6 @@
 {
     "logger_wake": 1,
-    "enable_logger": 1,
+    "enable_logger": 0,
     "daemon": 1,
     "only_worker": 0,
     "servers": [
@@ -10,34 +10,10 @@
             "index": "index.html"
         },
         {
-            "port": 1479,
-            "root": "/home/sallmc/Notes",
-            "index": "sdfsdf",
-            "auto_index": 1,
-            "auth": 1
-        },
-        {
-            "port": 1480,
-            "root": "/home/sallmc/blog/public",
-            "index": "index.html",
-            "auth": 1
-        },
-        {
             "port": 8082,
-            "root": "/home/sallmc/share",
+            "root": "/mnt/d",
             "index": "sdfxcv",
             "auto_index": 1
-        },
-        {
-            "port": 8081,
-            "root": "/home/sallmc/dist",
-            "index": "index.html",
-            "from": "/api/",
-            "to": "http://175.178.175.106:8080/",
-            "auto_index": 0,
-            "try_files": [
-                "index.html"
-            ]
         }
     ]
 }
