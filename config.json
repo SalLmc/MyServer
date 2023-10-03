@@ -3,6 +3,7 @@
     "enable_logger": 0,
     "daemon": 1,
     "only_worker": 0,
+    "use_epoll": 1,
     "servers": [
         {
             "port": 80,

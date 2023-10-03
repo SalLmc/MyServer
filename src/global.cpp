@@ -2,9 +2,10 @@
 
 int process_n = 1;
 unsigned long logger_wake = 1;
-int only_worker = 0;
-int enable_logger = 1;
-int is_daemon = 0;
+bool only_worker = 0;
+bool enable_logger = 1;
+bool use_epoll = 1;
+bool is_daemon = 0;
 bool isChild;
 bool quit = 0;
 bool restart = 0;

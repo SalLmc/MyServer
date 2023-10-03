@@ -128,6 +128,18 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    // set event
+    if (use_epoll)
+    {
+        LOG_INFO << "Use epoll";
+        cycle->eventProccessor = new Epoller();
+    }
+    else
+    {
+        LOG_INFO << "Use poll";
+        cycle->eventProccessor = new Poller();
+    }
+
     // accept mutex
     if (useAcceptMutex)
     {
@@ -190,6 +202,7 @@ void init()
     logger_wake = getValue(config, "logger_wake", 1);
     only_worker = getValue(config, "only_worker", 0);
     enable_logger = getValue(config, "enable_logger", 1);
+    use_epoll = getValue(config, "use_epoll", 1);
 
     nlohmann::json servers = config["servers"];
 
@@ -218,12 +231,12 @@ void daemonize()
         exit(1);
     }
 
-    close(STDIN_FILENO);
-    close(STDOUT_FILENO);
-    close(STDERR_FILENO);
-    open("/dev/null", O_RDONLY);
-    open("/dev/null", O_WRONLY);
-    open("/dev/null", O_WRONLY);
+    // close(STDIN_FILENO);
+    // close(STDOUT_FILENO);
+    // close(STDERR_FILENO);
+    // open("/dev/null", O_RDONLY);
+    // open("/dev/null", O_WRONLY);
+    // open("/dev/null", O_WRONLY);
 
     umask(0);
 
