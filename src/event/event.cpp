@@ -1,7 +1,7 @@
 #include "../headers.h"
 
 #include "../core/core.h"
-#include "epoller.h"
+
 #include "event.h"
 
 extern Cycle *cyclePtr;
