@@ -231,12 +231,12 @@ void daemonize()
         exit(1);
     }
 
-    // close(STDIN_FILENO);
-    // close(STDOUT_FILENO);
-    // close(STDERR_FILENO);
-    // open("/dev/null", O_RDONLY);
-    // open("/dev/null", O_WRONLY);
-    // open("/dev/null", O_WRONLY);
+    close(STDIN_FILENO);
+    close(STDOUT_FILENO);
+    close(STDERR_FILENO);
+    open("/dev/null", O_RDONLY);
+    open("/dev/null", O_WRONLY);
+    open("/dev/null", O_WRONLY);
 
     umask(0);
 
