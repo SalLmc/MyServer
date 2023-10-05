@@ -170,7 +170,7 @@ void init()
     std::ifstream f("config.json");
     nlohmann::json config = nlohmann::json::parse(f);
 
-    process_n = getValue(config, "processes", cores);
+    processes = getValue(config, "processes", cores);
     logger_wake = getValue(config, "logger_wake", 1);
     only_worker = getValue(config, "only_worker", 0);
     enable_logger = getValue(config, "enable_logger", 1);

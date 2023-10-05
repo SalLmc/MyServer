@@ -16,9 +16,9 @@ extern ProcessMutex acceptMutex;
 extern HeapMemory heap;
 extern std::list<Event *> posted_accept_events;
 extern std::list<Event *> posted_events;
-extern int process_n;
+extern int processes;
 
-Process processes[MAX_PROCESS_N];
+Process procs[MAX_PROCESS_N];
 
 void masterProcessCycle(Cycle *cycle)
 {
@@ -52,7 +52,7 @@ void masterProcessCycle(Cycle *cycle)
 
     isChild = 0;
 
-    startWorkerProcesses(cycle, process_n);
+    startWorkerProcesses(cycle, processes);
     if (isChild)
     {
         return;
@@ -96,8 +96,8 @@ pid_t spawnProcesses(Cycle *cycle, std::function<void(Cycle *)> proc)
     {
     case 0: // worker
         isChild = 1;
-        processes[slot].pid = getpid();
-        processes[slot].status = ACTIVE;
+        procs[slot].pid = getpid();
+        procs[slot].status = ACTIVE;
 
         proc(cycle);
         break;
@@ -107,8 +107,8 @@ pid_t spawnProcesses(Cycle *cycle, std::function<void(Cycle *)> proc)
         break;
 
     default: // master
-        processes[slot].pid = pid;
-        processes[slot].status = ACTIVE;
+        procs[slot].pid = pid;
+        procs[slot].status = ACTIVE;
 
         slot++;
         break;
@@ -129,11 +129,11 @@ void signalWorkerProcesses(int sig)
 {
     for (int i = 0; i < MAX_PROCESS_N; i++)
     {
-        if (processes[i].status == ACTIVE)
+        if (procs[i].status == ACTIVE)
         {
-            if (kill(processes[i].pid, sig) == -1)
+            if (kill(procs[i].pid, sig) == -1)
             {
-                LOG_CRIT << "Send signals to " << processes[i].pid << " failed";
+                LOG_CRIT << "Send signals to " << procs[i].pid << " failed";
             }
         }
     }
