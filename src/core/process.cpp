@@ -11,7 +11,6 @@
 
 #include "../memory/memory_manage.hpp"
 
-extern Epoller epoller;
 extern Cycle *cyclePtr;
 extern ProcessMutex acceptMutex;
 extern HeapMemory heap;
@@ -166,16 +165,18 @@ void workerProcessCycle(Cycle *cycle)
     }
 
     // epoll
-    epoller.setEpollFd(epoll_create1(0));
-    if (!useAcceptMutex)
+    Epoller *epoller = dynamic_cast<Epoller *>(cyclePtr->eventProccessor);
+    if (epoller)
     {
-        for (auto &listen : cycle->listening_)
+        epoller->setEpollFd(epoll_create1(0));
+    }
+
+    for (auto &listen : cycle->listening_)
+    {
+        // use LT on listenfd
+        if (cyclePtr->eventProccessor->addFd(listen->fd_.getFd(), EVENTS(IN), listen) == 0)
         {
-            // use LT on listenfd
-            if (epoller.addFd(listen->fd_.getFd(), EPOLLIN, listen) == 0)
-            {
-                LOG_CRIT << "Listenfd add failed, errno:" << strerror(errno);
-            }
+            LOG_CRIT << "Listenfd add failed, errno:" << strerror(errno);
         }
     }
 
@@ -206,33 +207,17 @@ void workerProcessCycle(Cycle *cycle)
 void processEventsAndTimers(Cycle *cycle)
 {
     int flags = 0;
-    if (useAcceptMutex)
-    {
-        if (acceptexTryLock(cycle) == -1)
-        {
-            return;
-        }
-        if (acceptMutexHeld)
-        {
-            flags |= POST_EVENTS;
-        }
-    }
 
     unsigned long long nextTick = cycle->timer_.GetNextTick();
     nextTick = ((nextTick == (unsigned long long)-1) ? -1 : (nextTick - getTickMs()));
 
-    int ret = epoller.processEvents(flags, nextTick);
+    int ret = cyclePtr->eventProccessor->processEvents(flags, nextTick);
     if (ret == -1)
     {
         LOG_WARN << "process events errno: " << strerror(errno);
     }
 
     process_posted_events(&posted_accept_events);
-
-    if (acceptMutexHeld)
-    {
-        shmtxUnlock(&acceptMutex);
-    }
 
     cycle->timer_.Tick();
 

@@ -15,7 +15,6 @@ extern ConnectionPool cPool;
 extern Cycle *cyclePtr;
 extern sharedMemory shmForAMtx;
 extern ProcessMutex acceptMutex;
-extern Epoller epoller;
 extern long cores;
 
 void init();
@@ -24,15 +23,6 @@ void daemonize();
 int main(int argc, char *argv[])
 {
     umask(0);
-
-    struct rlimit new_rlim;
-    new_rlim.rlim_cur = 4096;
-    new_rlim.rlim_max = 4096;
-    if (setrlimit(RLIMIT_NOFILE, &new_rlim) != 0)
-    {
-        printf("set new fd amount failed\n");
-        return 1;
-    }
 
     system("cat /proc/cpuinfo | grep cores | uniq | awk '{print $NF'} > cores");
     {
@@ -95,6 +85,7 @@ int main(int argc, char *argv[])
         if (pid != ERROR && kill(pid, 0) == 0)
         {
             LOG_CRIT << "server is running!";
+            printf("Server is running!\n");
             return 1;
         }
     }
@@ -129,24 +120,16 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    // accept mutex
-    if (useAcceptMutex)
+    // set event
+    if (use_epoll)
     {
-        if (shmForAMtx.createShared(sizeof(ProcessMutexShare)) == ERROR)
-        {
-            LOG_CRIT << "create shm for acceptmutex failed";
-            return 1;
-        }
-
-        ProcessMutexShare *share = (ProcessMutexShare *)shmForAMtx.getAddr();
-        share->lock = 0;
-        share->wait = 0;
-
-        if (shmtxCreate(&acceptMutex, (ProcessMutexShare *)shmForAMtx.getAddr()) == ERROR)
-        {
-            LOG_CRIT << "create acceptmutex failed";
-            return 1;
-        }
+        LOG_INFO << "Use epoll";
+        cycle->eventProccessor = new Epoller();
+    }
+    else
+    {
+        LOG_INFO << "Use poll";
+        cycle->eventProccessor = new Poller();
     }
 
     masterProcessCycle(cyclePtr);
@@ -191,6 +174,7 @@ void init()
     logger_wake = getValue(config, "logger_wake", 1);
     only_worker = getValue(config, "only_worker", 0);
     enable_logger = getValue(config, "enable_logger", 1);
+    use_epoll = getValue(config, "use_epoll", 1);
 
     nlohmann::json servers = config["servers"];
 

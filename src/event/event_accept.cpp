@@ -4,12 +4,10 @@
 #include "../event/epoller.h"
 #include "../global.h"
 #include "../utils/utils_declaration.h"
-#include "event.h"
 
 sharedMemory shmForAMtx;
 ProcessMutex acceptMutex;
 extern Cycle *cyclePtr;
-extern Epoller epoller;
 
 int shmtxCreate(ProcessMutex *mtx, ProcessMutexShare *addr)
 {
@@ -140,7 +138,7 @@ int acceptexTryLock(Cycle *cycle)
 
         for (auto &listen : cycle->listening_)
         {
-            if (epoller.addFd(listen->fd_.getFd(), EPOLLIN | EPOLLET, listen) == 0)
+            if (cyclePtr->eventProccessor->addFd(listen->fd_.getFd(), EVENTS(IN | ET), listen) == 0)
             {
                 LOG_CRIT << "Addfd failed, " << strerror(errno) << " " << acceptMutexHeld;
                 shmtxUnlock(&acceptMutex);
@@ -157,7 +155,7 @@ int acceptexTryLock(Cycle *cycle)
     {
         for (auto &listen : cycle->listening_)
         {
-            if (epoller.delFd(listen->fd_.getFd()) == 0)
+            if (cyclePtr->eventProccessor->delFd(listen->fd_.getFd()) == 0)
             {
                 LOG_CRIT << "accept mutex delfd failed, errno:" << errno;
                 return -1;

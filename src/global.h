@@ -7,9 +7,10 @@
 
 extern int process_n;
 extern unsigned long logger_wake;
-extern int only_worker;
-extern int enable_logger;
-extern int is_daemon;
+extern bool only_worker;
+extern bool enable_logger;
+extern bool use_epoll;
+extern bool is_daemon;
 extern bool isChild;
 extern bool quit;
 extern bool restart;

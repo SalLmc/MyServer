@@ -6,6 +6,8 @@
 #include "../buffer/buffer.h"
 #include "../log/logger.h"
 #include "../timer/timer.h"
+#include "../event/epoller.h"
+#include "../event/poller.h"
 
 #define OK 0
 #define ERROR -1
@@ -120,6 +122,7 @@ class Cycle
     std::vector<Connection *> listening_;
     std::vector<ServerAttribute> servers_;
     Logger *logger_;
+    EventProcessor *eventProccessor;
     HeapTimer timer_;
 };
 

@@ -3,13 +3,11 @@
 
 #include "../headers.h"
 
+#include "event.h"
+
 #define POST_EVENTS 1
 
-class Event;
-
-void process_posted_events(std::list<Event *> *events);
-
-class Epoller
+class Epoller : public EventProcessor
 {
   public:
     Epoller(int max_event = 1024);
@@ -17,8 +15,8 @@ class Epoller
 
     int setEpollFd(int fd);
     int getFd();
-    bool addFd(int fd, uint32_t events, void *ctx);
-    bool modFd(int fd, uint32_t events, void *ctx);
+    bool addFd(int fd, EVENTS events, void *ctx);
+    bool modFd(int fd, EVENTS events, void *ctx);
     bool delFd(int fd);
     int processEvents(int flags = 0, int timeout_ms = -1);
 
