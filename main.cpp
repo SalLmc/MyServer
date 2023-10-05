@@ -24,15 +24,6 @@ int main(int argc, char *argv[])
 {
     umask(0);
 
-    struct rlimit new_rlim;
-    new_rlim.rlim_cur = 4096;
-    new_rlim.rlim_max = 4096;
-    if (setrlimit(RLIMIT_NOFILE, &new_rlim) != 0)
-    {
-        printf("set new fd amount failed\n");
-        return 1;
-    }
-
     system("cat /proc/cpuinfo | grep cores | uniq | awk '{print $NF'} > cores");
     {
         int num = readNumberFromFile<int>("cores");
@@ -94,6 +85,7 @@ int main(int argc, char *argv[])
         if (pid != ERROR && kill(pid, 0) == 0)
         {
             LOG_CRIT << "server is running!";
+            printf("Server is running!\n");
             return 1;
         }
     }
@@ -138,26 +130,6 @@ int main(int argc, char *argv[])
     {
         LOG_INFO << "Use poll";
         cycle->eventProccessor = new Poller();
-    }
-
-    // accept mutex
-    if (useAcceptMutex)
-    {
-        if (shmForAMtx.createShared(sizeof(ProcessMutexShare)) == ERROR)
-        {
-            LOG_CRIT << "create shm for acceptmutex failed";
-            return 1;
-        }
-
-        ProcessMutexShare *share = (ProcessMutexShare *)shmForAMtx.getAddr();
-        share->lock = 0;
-        share->wait = 0;
-
-        if (shmtxCreate(&acceptMutex, (ProcessMutexShare *)shmForAMtx.getAddr()) == ERROR)
-        {
-            LOG_CRIT << "create acceptmutex failed";
-            return 1;
-        }
     }
 
     masterProcessCycle(cyclePtr);

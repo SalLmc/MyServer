@@ -170,15 +170,13 @@ void workerProcessCycle(Cycle *cycle)
     {
         epoller->setEpollFd(epoll_create1(0));
     }
-    if (!useAcceptMutex)
+
+    for (auto &listen : cycle->listening_)
     {
-        for (auto &listen : cycle->listening_)
+        // use LT on listenfd
+        if (cyclePtr->eventProccessor->addFd(listen->fd_.getFd(), EVENTS(IN), listen) == 0)
         {
-            // use LT on listenfd
-            if (cyclePtr->eventProccessor->addFd(listen->fd_.getFd(), EVENTS(IN), listen) == 0)
-            {
-                LOG_CRIT << "Listenfd add failed, errno:" << strerror(errno);
-            }
+            LOG_CRIT << "Listenfd add failed, errno:" << strerror(errno);
         }
     }
 
@@ -209,17 +207,6 @@ void workerProcessCycle(Cycle *cycle)
 void processEventsAndTimers(Cycle *cycle)
 {
     int flags = 0;
-    if (useAcceptMutex)
-    {
-        if (acceptexTryLock(cycle) == -1)
-        {
-            return;
-        }
-        if (acceptMutexHeld)
-        {
-            flags |= POST_EVENTS;
-        }
-    }
 
     unsigned long long nextTick = cycle->timer_.GetNextTick();
     nextTick = ((nextTick == (unsigned long long)-1) ? -1 : (nextTick - getTickMs()));
@@ -231,11 +218,6 @@ void processEventsAndTimers(Cycle *cycle)
     }
 
     process_posted_events(&posted_accept_events);
-
-    if (acceptMutexHeld)
-    {
-        shmtxUnlock(&acceptMutex);
-    }
 
     cycle->timer_.Tick();
 
