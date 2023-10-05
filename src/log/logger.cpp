@@ -13,10 +13,6 @@ LogLine::LogLine()
 
 LogLine::LogLine(Level level, char const *file, char const *function, unsigned int line) : level(level)
 {
-    if (!enable_logger)
-    {
-        return;
-    }
     // level
     switch (level)
     {
@@ -63,110 +59,66 @@ LogLine::LogLine(Level level, char const *file, char const *function, unsigned i
 
 LogLine &LogLine::operator<<(int8_t arg)
 {
-    if (!enable_logger)
-    {
-        return *this;
-    }
     sprintf(buffer_ + pos, "%d", arg);
     pos += strlen(buffer_ + pos);
     return *this;
 }
 LogLine &LogLine::operator<<(uint8_t arg)
 {
-    if (!enable_logger)
-    {
-        return *this;
-    }
     sprintf(buffer_ + pos, "%d", arg);
     pos += strlen(buffer_ + pos);
     return *this;
 }
 LogLine &LogLine::operator<<(int16_t arg)
 {
-    if (!enable_logger)
-    {
-        return *this;
-    }
     sprintf(buffer_ + pos, "%d", arg);
     pos += strlen(buffer_ + pos);
     return *this;
 }
 LogLine &LogLine::operator<<(uint16_t arg)
 {
-    if (!enable_logger)
-    {
-        return *this;
-    }
     sprintf(buffer_ + pos, "%d", arg);
     pos += strlen(buffer_ + pos);
     return *this;
 }
 LogLine &LogLine::operator<<(int32_t arg)
 {
-    if (!enable_logger)
-    {
-        return *this;
-    }
     sprintf(buffer_ + pos, "%d", arg);
     pos += strlen(buffer_ + pos);
     return *this;
 }
 LogLine &LogLine::operator<<(uint32_t arg)
 {
-    if (!enable_logger)
-    {
-        return *this;
-    }
     sprintf(buffer_ + pos, "%d", arg);
     pos += strlen(buffer_ + pos);
     return *this;
 }
 LogLine &LogLine::operator<<(int64_t arg)
 {
-    if (!enable_logger)
-    {
-        return *this;
-    }
     sprintf(buffer_ + pos, "%ld", arg);
     pos += strlen(buffer_ + pos);
     return *this;
 }
 LogLine &LogLine::operator<<(uint64_t arg)
 {
-    if (!enable_logger)
-    {
-        return *this;
-    }
     sprintf(buffer_ + pos, "%ld", arg);
     pos += strlen(buffer_ + pos);
     return *this;
 }
 LogLine &LogLine::operator<<(std::string &arg)
 {
-    if (!enable_logger)
-    {
-        return *this;
-    }
     strcpy(buffer_ + pos, arg.c_str());
     pos += arg.size();
     return *this;
 }
 LogLine &LogLine::operator<<(std::string &&arg)
 {
-    if (!enable_logger)
-    {
-        return *this;
-    }
     strcpy(buffer_ + pos, arg.c_str());
     pos += arg.size();
     return *this;
 }
 LogLine &LogLine::operator<<(const char *arg)
 {
-    if (!enable_logger)
-    {
-        return *this;
-    }
     strcpy(buffer_ + pos, arg);
     pos += strlen(buffer_ + pos);
     return *this;
@@ -227,14 +179,11 @@ void Logger::wakeup()
 }
 Logger &Logger::operator+=(LogLine &line)
 {
-    if (enable_logger)
+    std::unique_lock<std::mutex> ulock(mutex_);
+    ls_.push_back(std::move(line));
+    if (ls_.size() >= logger_wake)
     {
-        std::unique_lock<std::mutex> ulock(mutex_);
-        ls_.push_back(std::move(line));
-        if (ls_.size() >= logger_wake)
-        {
-            wakeup();
-        }
+        wakeup();
     }
 
     return *this;

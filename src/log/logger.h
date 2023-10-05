@@ -5,6 +5,8 @@
 
 #include "../global.h"
 
+extern bool enable_logger;
+
 enum class Level
 {
     INFO,
@@ -101,9 +103,17 @@ class Logger
     std::thread writeThread;
 };
 
-#define LOG_INFO __LOG_INFO
-#define LOG_WARN __LOG_WARN
-#define LOG_CRIT __LOG_CRIT
+#define LOG_INFO                                                                                                       \
+    if (enable_logger)                                                                                                 \
+    __LOG_INFO
+
+#define LOG_WARN                                                                                                       \
+    if (enable_logger)                                                                                                 \
+    __LOG_WARN
+
+#define LOG_CRIT                                                                                                       \
+    if (enable_logger)                                                                                                 \
+    __LOG_CRIT
 
 #define __LOG_INFO __LOG_INFO_INNER(*cyclePtr->logger_)
 #define __LOG_WARN __LOG_WARN_INNER(*cyclePtr->logger_)
