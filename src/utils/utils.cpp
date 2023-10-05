@@ -56,7 +56,7 @@ failed:
 
 int writePid2File()
 {
-    Fd filefd(open("pid_file", O_CREAT | O_RDWR, 0666));
+    Fd filefd(open("pid_file", O_CREAT | O_RDWR | O_TRUNC, 0666));
     if (filefd.getFd() < 0)
     {
         return ERROR;
@@ -65,7 +65,7 @@ int writePid2File()
     pid_t pid = getpid();
     char buffer[100];
     memset(buffer, '\0', sizeof(buffer));
-    int len = sprintf(buffer, "%d\n", pid);
+    int len = sprintf(buffer, "%d", pid);
     write(filefd.getFd(), buffer, len);
     return OK;
 }
