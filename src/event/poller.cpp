@@ -18,7 +18,16 @@ bool Poller::addFd(int fd, EVENTS events, void *ctx)
 {
     pollfd now = {fd, events2poll(events), 0};
     PollCtx pctx(now, ctx);
-    fdCtxMap_.insert({fd, pctx});
+
+    if (!fdCtxMap_.count(fd))
+    {
+        fdCtxMap_.insert({fd, pctx});
+    }
+    else
+    {
+        LOG_WARN << "fd:" << fd << " exists";
+    }
+
     return 1;
 }
 
@@ -27,8 +36,14 @@ bool Poller::modFd(int fd, EVENTS events, void *ctx)
     pollfd now = {fd, events2poll(events), 0};
     PollCtx pctx(now, ctx);
 
-    fdCtxMap_.erase(fd);
-    fdCtxMap_.insert({fd, pctx});
+    if (fdCtxMap_.count(fd))
+    {
+        fdCtxMap_[fd] = pctx;
+    }
+    else
+    {
+        LOG_WARN << "fd:" << fd << " doesn't exist";
+    }
 
     return 1;
 }
@@ -73,7 +88,7 @@ int Poller::processEvents(int flags, int timeout_ms)
             goto recover;
         }
 
-        if ((revents & EPOLLIN) && c->read_.handler)
+        if ((revents & POLLIN) && c->read_.handler)
         {
             c->read_.handler(&c->read_);
         }
@@ -83,7 +98,7 @@ int Poller::processEvents(int flags, int timeout_ms)
             goto recover;
         }
 
-        if ((revents & EPOLLOUT) && c->write_.handler)
+        if ((revents & POLLOUT) && c->write_.handler)
         {
             c->write_.handler(&c->write_);
         }
