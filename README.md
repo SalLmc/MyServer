@@ -1,8 +1,6 @@
 # README
 
-## config
-
-### default
+## Config
 
 | Config            | Description                                         | Default                    |
 | ----------------- | --------------------------------------------------- | -------------------------- |
@@ -21,7 +19,7 @@
 | server.try_files  | Files to show                                       | {}                         |
 | server.auth_path  | uri need to be authenticated                        | {}                         |
 
-### example
+### Example
 
 ```json
 {
@@ -61,4 +59,24 @@
         }
     ]
 }
+```
+
+## Usage
+
+### Start
+
+```shell
+make && sudo ./main
+```
+
+### Stop
+
+```shell
+sudo ./main -s stop
+```
+
+### Restart
+
+```shell
+sudo ./restart.sh
 ```
