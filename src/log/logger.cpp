@@ -35,9 +35,10 @@ LogLine::LogLine(Level level, char const *file, char const *function, unsigned i
     auto shortTime = timeStamp_ / 1000;
     std::time_t time_t = shortTime;
     auto lctime = std::localtime(&time_t);
-    strftime(buffer_ + pos, 23, "[%Y-%m-%d %H:%M:%S] ", lctime);
-
-    pos += 22;
+    strftime(buffer_ + pos, 21, "[%Y-%m-%d %H:%M:%S", lctime);
+    pos += 20;
+    sprintf(buffer_ + pos, ".%lld] ", timeStamp_ % 1000);
+    pos += 6;
 
     // pid
     sprintf(buffer_ + pos, "<%d> ", getpid());
@@ -46,16 +47,16 @@ LogLine::LogLine(Level level, char const *file, char const *function, unsigned i
     // file
     strcpy(buffer_ + pos, file);
     pos += strlen(buffer_ + pos);
-    buffer_[pos++] = ' ';
-
-    // function
-    strcpy(buffer_ + pos, function);
-    pos += strlen(buffer_ + pos);
     buffer_[pos++] = ':';
 
     // line
     sprintf(buffer_ + pos, "%d ", line);
     pos += strlen(buffer_ + pos);
+
+    // function
+    sprintf(buffer_ + pos, "{%s}", function);
+    pos += strlen(buffer_ + pos);
+    buffer_[pos++] = ' ';
 }
 
 LogLine &LogLine::operator<<(int8_t arg)
