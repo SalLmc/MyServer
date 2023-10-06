@@ -24,6 +24,7 @@ std::string UrlEncode(const std::string &str, char ignore);
 std::string UrlDecode(const std::string &str);
 std::string fd2Path(int fd);
 bool isMatch(std::string src, std::string pattern);
+void mkdir_r(const char *path, mode_t mode);
 
 /* signal.cpp */
 

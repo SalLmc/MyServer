@@ -1,9 +1,10 @@
 .*/
-log/
+/log/
 
-test/*d
-test/*o
-test/*test
+/test/*
+!/test/*.cpp
+!/test/*.h
+!/test/*.hpp
 
 *.o
 *.so
