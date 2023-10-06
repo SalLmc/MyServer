@@ -5,7 +5,7 @@
 
 // extern HeapMemory heap;
 
-#include "src/headers.h"
+#include "../src/headers.h"
 
 class Test
 {

@@ -1,16 +1,18 @@
 .*/
 log/
 
+test/*d
+test/*o
+test/*test
+
 *.o
 *.so
 *.a
 *.gch
 *.d
 
-todo.md
-
 main
-*test
+todo.md
 pid_file
 authcode_*
 cores

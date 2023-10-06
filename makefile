@@ -1,5 +1,5 @@
 PROGS = libmy.so main \
-		signal_test log_test timer_test memory_test test
+		test/signal_test test/log_test test/timer_test test/memory_test test/test
 		
 PRE_HEADER = src/headers.h.gch
 
@@ -32,25 +32,27 @@ libmy.so: $(CPP_OBJECTS)
 main: main.o
 	$(BUILDEXEWITHLIB)
 
-signal_test: signal_test.o
+test/signal_test: test/signal_test.o
 	$(BUILDEXEWITHLIB)
 
-log_test: log_test.o
+test/log_test: test/log_test.o
 	$(BUILDEXEWITHLIB)
 
-timer_test: timer_test.o
+test/timer_test: test/timer_test.o
 	$(BUILDEXEWITHLIB)
 
-memory_test: memory_test.o
+test/memory_test: test/memory_test.o
 	$(BUILDEXEWITHLIB)
 
-test: test.o
+test/test: test/test.o
 	$(BUILDEXEWITHLIB)
 
 -include $(INCLUDE_FILES)
 
 clean:
-	rm -f $(PROGS) $(CPP_OBJECTS) $(INCLUDE_FILES) *.o cores
+	rm -f $(PROGS)
+	find ./ -name "*.o" -type f -exec echo {} \; -exec rm -f {} \;
+	find ./ -name "*.d" -type f -exec echo {} \; -exec rm -f {} \;
 
 %.o: %.cpp
 	$(CC) $(FLAGS) -c $< -o $@

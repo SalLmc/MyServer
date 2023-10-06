@@ -1,10 +1,10 @@
-#include "src/headers.h"
+#include "../src/headers.h"
 
-#include "src/core/core.h"
-#include "src/event/epoller.h"
-#include "src/http/http.h"
-#include "src/utils/utils_declaration.h"
-#include "src/global.h"
+#include "../src/core/core.h"
+#include "../src/event/epoller.h"
+#include "../src/http/http.h"
+#include "../src/utils/utils_declaration.h"
+#include "../src/global.h"
 
 std::unordered_map<std::string, std::string> mp;
 
