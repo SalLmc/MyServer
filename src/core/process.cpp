@@ -70,11 +70,6 @@ void masterProcessCycle(Cycle *cycle)
             signalWorkerProcesses(SIGINT);
             break;
         }
-        if (restart)
-        {
-            LOG_INFO << "Restart";
-            signalWorkerProcesses(SIGUSR1);
-        }
     }
     LOG_INFO << "Quit";
 }
@@ -194,10 +189,6 @@ void workerProcessCycle(Cycle *cycle)
         if (quit)
         {
             break;
-        }
-        if (restart)
-        {
-            LOG_INFO << "Worker Restart";
         }
     }
 

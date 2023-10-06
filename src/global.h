@@ -19,7 +19,6 @@ extern int processes;
 extern long cores;
 extern bool isChild;
 extern bool quit;
-extern bool restart;
 extern int slot;
 extern bool useAcceptMutex;
 extern bool acceptMutexHeld;

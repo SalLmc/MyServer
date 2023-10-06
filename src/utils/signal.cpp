@@ -3,8 +3,7 @@
 #include "../global.h"
 #include "utils_declaration.h"
 
-SignalWrapper signals[] = {
-    {SIGINT, signal_handler, "stop"}, {SIGUSR1, signal_handler, "reload"}, {SIGPIPE, SIG_IGN, ""}, {0, NULL, ""}};
+SignalWrapper signals[] = {{SIGINT, signal_handler, "stop"}, {SIGPIPE, SIG_IGN, ""}, {0, NULL, ""}};
 
 void signal_handler(int sig)
 {
@@ -13,8 +12,7 @@ void signal_handler(int sig)
     case SIGINT:
         quit = 1;
         break;
-    case SIGUSR1:
-        restart = 1;
+    default:
         break;
     }
 }

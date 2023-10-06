@@ -44,10 +44,6 @@ int main(int argc, char *argv[])
         {
             break;
         }
-        if (restart)
-        {
-            printf("restart\n");
-        }
     }
     printf("quit\n");
 }
