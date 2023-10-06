@@ -70,8 +70,8 @@ class HeapMemory
 
     void hFree(void *ptr)
     {
-        free(ptr);
         ptrs_.remove(AnyPtr(ptr));
+        free(ptr);
     }
 
     template <typename T, typename... Args> T *hNew(Args &&...args)
@@ -83,8 +83,8 @@ class HeapMemory
 
     template <typename T> void hDelete(T *ptr)
     {
-        delete ptr;
         ptrs_.remove(AnyPtr(ptr));
+        delete ptr;
     }
 
     std::list<AnyPtr> ptrs_;

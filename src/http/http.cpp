@@ -562,7 +562,7 @@ int readRequestHeader(std::shared_ptr<Request> r)
         return ERROR;
     }
 
-    int n = c->readBuffer_.now->len - c->readBuffer_.now->pos;
+    int n;
     if (!c->readBuffer_.allRead())
     {
         return 1;

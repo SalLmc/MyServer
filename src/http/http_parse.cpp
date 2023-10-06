@@ -1414,7 +1414,6 @@ int parseChunked(std::shared_ptr<Request> r)
     int rc;
     int once = 0;
     int left;
-    int err_line;
 
     ChunkedInfo *ctx = &r->request_body.chunkedInfo;
     auto &buffer = r->c->readBuffer_;
@@ -1460,13 +1459,11 @@ int parseChunked(std::shared_ptr<Request> r)
                 ctx->size = c - 'a' + 10;
                 break;
             }
-            err_line = __LINE__;
             goto invalid;
 
         case ChunkedState::sw_chunk_size:
             if (ctx->size > MAX_OFF_T_VALUE / 16)
             {
-                err_line = __LINE__;
                 goto invalid;
             }
 
@@ -1501,7 +1498,6 @@ int parseChunked(std::shared_ptr<Request> r)
                     state = ChunkedState::sw_last_chunk_extension;
                     break;
                 default:
-                    err_line = __LINE__;
                     goto invalid;
                 }
 
@@ -1522,7 +1518,6 @@ int parseChunked(std::shared_ptr<Request> r)
                 state = ChunkedState::sw_chunk_extension;
                 break;
             default:
-                err_line = __LINE__;
                 goto invalid;
             }
 
@@ -1545,7 +1540,6 @@ int parseChunked(std::shared_ptr<Request> r)
                 state = ChunkedState::sw_chunk_data;
                 break;
             }
-            err_line = __LINE__;
             goto invalid;
 
         case ChunkedState::sw_chunk_data:
@@ -1562,7 +1556,6 @@ int parseChunked(std::shared_ptr<Request> r)
                 state = ChunkedState::sw_chunk_start;
                 break;
             default:
-                err_line = __LINE__;
                 goto invalid;
             }
             break;
@@ -1573,7 +1566,6 @@ int parseChunked(std::shared_ptr<Request> r)
                 state = ChunkedState::sw_chunk_start;
                 break;
             }
-            err_line = __LINE__;
             goto invalid;
 
         case ChunkedState::sw_last_chunk_extension:
@@ -1593,7 +1585,6 @@ int parseChunked(std::shared_ptr<Request> r)
                 state = ChunkedState::sw_trailer;
                 break;
             }
-            err_line = __LINE__;
             goto invalid;
 
         case ChunkedState::sw_trailer:
@@ -1614,7 +1605,6 @@ int parseChunked(std::shared_ptr<Request> r)
             {
                 goto done;
             }
-            err_line = __LINE__;
             goto invalid;
 
         case ChunkedState::sw_trailer_header:
@@ -1634,7 +1624,6 @@ int parseChunked(std::shared_ptr<Request> r)
                 state = ChunkedState::sw_trailer;
                 break;
             }
-            err_line = __LINE__;
             goto invalid;
         }
     }
@@ -1695,8 +1684,6 @@ done:
     return DONE;
 
 invalid:
-
-    printf("Error at %d, %d\n", err_line, once);
     return ERROR;
 }
 

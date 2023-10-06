@@ -155,7 +155,7 @@ unsigned char FromHex(unsigned char x)
     }
     else
     {
-        // assert(0);
+        return x;
     }
     return y;
 }
