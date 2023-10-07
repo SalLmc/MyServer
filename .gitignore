@@ -6,7 +6,11 @@
 *.a
 *.gch
 *.d
-*test
+
+
+/test/*
+!/test/*.cpp
+!/test/*.h
 
 main
 todo.md
