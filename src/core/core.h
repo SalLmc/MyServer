@@ -4,10 +4,10 @@
 #include "../headers.h"
 
 #include "../buffer/buffer.h"
-#include "../log/logger.h"
-#include "../timer/timer.h"
 #include "../event/epoller.h"
 #include "../event/poller.h"
+#include "../log/logger.h"
+#include "../timer/timer.h"
 
 #define OK 0
 #define ERROR -1

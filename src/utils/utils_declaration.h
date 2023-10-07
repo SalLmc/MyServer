@@ -13,9 +13,8 @@ int getOption(int argc, char *argv[], std::unordered_map<std::string, std::strin
 int writePid2File();
 std::string mtime2str(timespec *mtime);
 std::string byte2properstr(off_t bytes);
-std::string getIp(std::string addr);
-int getPort(std::string addr);
-std::string getNewUri(std::string addr);
+std::pair<std::string, int> getServer(std::string addr);
+std::string getLeftUri(std::string addr);
 unsigned char ToHex(unsigned char x);
 unsigned char FromHex(unsigned char x);
 // space to %20

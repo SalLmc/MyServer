@@ -11,6 +11,7 @@
 #include <cstring>
 #include <dirent.h>
 #include <errno.h>
+#include <exception>
 #include <fcntl.h>
 #include <fstream>
 #include <functional>

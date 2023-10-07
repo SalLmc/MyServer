@@ -104,33 +104,198 @@ std::string byte2properstr(off_t bytes)
     }
 }
 
-// @param addr is like http://xxx.xxx.xxx.xx/ or https://xxx.xxx.xxx.xx:8080/
-std::string getIp(std::string addr)
+static std::pair<std::pair<int, int>, std::pair<int, int>> getServerInner(std::string addr)
 {
-    auto first = addr.find_first_of(':');
-    auto last = addr.find_last_of(':');
-    if (first == last)
+    // [l, r]
+    int ipl = 0, ipr = 0;
+    int pl = 0, pr = 0;
+    bool hasPort = 0;
+    enum class State
     {
-        return addr.substr(first + 3, addr.length() - 1 - first - 3);
-    }
-    return addr.substr(first + 3, last - first - 3);
-}
-// @param addr is like http://xxx.xxx.xxx.xx/ or https://xxx.xxx.xxx.xx:8080/
-int getPort(std::string addr)
-{
-    auto first = addr.find_first_of(':');
-    auto last = addr.find_last_of(':');
-    if (first == last)
+        PROTOCOL,
+        COLON0,
+        SLASH0,
+        SLASH1,
+        ADDR,
+        COLON1,
+        PORT,
+        END
+    };
+    State st = State::PROTOCOL;
+    for (decltype(addr.length()) i = 0; i < addr.length() && st != State::END;)
     {
-        return 80;
+        char now = addr[i];
+        switch (st)
+        {
+        case State::PROTOCOL:
+            if ('a' <= now && now <= 'z')
+            {
+                i++;
+            }
+            else if (now == ':')
+            {
+                st = State::COLON0;
+            }
+            else
+            {
+                throw std::runtime_error("Error when parsing protocol");
+            }
+            break;
+        case State::COLON0:
+            if (now == ':')
+            {
+                st = State::SLASH0;
+                i++;
+            }
+            else
+            {
+                throw std::runtime_error("Error when parsing colon0");
+            }
+            break;
+        case State::SLASH0:
+            if (now == '/')
+            {
+                st = State::SLASH1;
+                i++;
+            }
+            else
+            {
+                throw std::runtime_error("Error when parsing stash0");
+            }
+            break;
+        case State::SLASH1:
+            if (now == '/')
+            {
+                st = State::ADDR;
+                i++;
+                ipl = i;
+            }
+            else
+            {
+                throw std::runtime_error("Error when parsing stash1");
+            }
+            break;
+        case State::ADDR:
+            if (now == ':')
+            {
+                st = State::COLON1;
+                ipr = i - 1;
+            }
+            else if (now == '/')
+            {
+                st = State::END;
+                ipr = i - 1;
+                i++;
+            }
+            else if (i == addr.length() - 1)
+            {
+                st = State::END;
+                ipr = i;
+                i++;
+            }
+            else
+            {
+                i++;
+            }
+            break;
+        case State::COLON1:
+            if (now == ':')
+            {
+                st = State::PORT;
+                i++;
+                pl = i;
+            }
+            else
+            {
+                throw std::runtime_error("Error when parsing colon1");
+            }
+            break;
+        case State::PORT:
+            if ('0' <= now && now <= '9')
+            {
+                if (i == addr.length() - 1)
+                {
+                    st = State::END;
+                    hasPort = 1;
+                    pr = i;
+                    i++;
+                }
+                else
+                {
+                    i++;
+                }
+            }
+            else if (now == '/')
+            {
+                st = State::END;
+                hasPort = 1;
+                pr = i - 1;
+                i++;
+            }
+            else
+            {
+                throw std::runtime_error("Error when parsing port");
+            }
+            break;
+        case State::END:
+            break;
+        default:
+            break;
+        }
     }
-    return std::stoi(addr.substr(last + 1, addr.length() - 1 - last - 1));
+
+    if (ipl <= ipr && pl <= pr && st == State::END)
+    {
+        if (!hasPort)
+        {
+            pl = ipl;
+            pr = ipr;
+        }
+        return std::make_pair(std::make_pair(ipl, ipr), std::make_pair(pl, pr));
+    }
+    else
+    {
+        throw std::runtime_error("Wrong format");
+    }
 }
-// @param addr is like http://xxx.xxx.xxx.xx/ or https://xxx.xxx.xxx.xx:8080/ttt/
-std::string getNewUri(std::string addr)
+
+// @param addr is like http://xxx.xxx.xxx.xx/ or https://xxx.xxx.xxx.xx:8080/
+std::pair<std::string, int> getServer(std::string addr)
 {
-    auto first = addr.find_first_of('/', 8);
-    return addr.substr(first, addr.length() - first);
+    auto ans = getServerInner(addr);
+
+    std::string ip = "";
+    int port = 80;
+
+    bool hasPort = 1;
+    if (ans.first.first == ans.second.first && ans.first.second == ans.second.second)
+    {
+        hasPort = 0;
+    }
+
+    ip = addr.substr(ans.first.first, ans.first.second - ans.first.first + 1);
+
+    if (hasPort)
+    {
+        std::string sPort = addr.substr(ans.second.first, ans.second.second - ans.second.first + 1);
+        port = std::stoi(sPort);
+    }
+
+    return std::make_pair(ip, port);
+}
+
+std::string getLeftUri(std::string addr)
+{
+    auto ans = getServerInner(addr);
+    decltype(addr.length()) left = ans.second.second + 1;
+    if (left == addr.length())
+    {
+        return "/";
+    }
+    else
+    {
+        return addr.substr(left, addr.length() - left + 1);
+    }
 }
 
 unsigned char ToHex(unsigned char x)

@@ -423,12 +423,25 @@ int initUpstream(std::shared_ptr<Request> r)
     // setup upstream server
     auto &server = cyclePtr->servers_[r->c->server_idx_];
     std::string addr = server.to;
-    std::string ip = getIp(addr);
-    int port = getPort(addr);
+
+    std::string ip = "";
+    int port = 80;
+
+    try
+    {
+        auto ipAndPort = getServer(addr);
+        ip = ipAndPort.first;
+        port = ipAndPort.second;
+    }
+    catch (const std::exception &e)
+    {
+        LOG_WARN << e.what();
+        return ERROR;
+    }
 
     // replace uri
     std::string fullUri = std::string(r->uri_start, r->uri_end);
-    std::string newUri = ("/" + fullUri).replace(1, server.from.length(), "");
+    std::string newUri = getLeftUri(addr) + fullUri.replace(0, server.from.length(), "");
 
     // setup connection
     Connection *upc = cyclePtr->pool_->getNewConnection();

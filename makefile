@@ -1,5 +1,5 @@
 PROGS = libmy.so main \
-		test/signal_test test/log_test test/timer_test test/memory_test test/test
+		test/signal_test test/log_test test/timer_test test/memory_test test/proxy_pass_test test/test
 		
 PRE_HEADER = src/headers.h.gch
 
@@ -42,6 +42,9 @@ test/timer_test: test/timer_test.o
 	$(BUILDEXEWITHLIB)
 
 test/memory_test: test/memory_test.o
+	$(BUILDEXEWITHLIB)
+
+test/proxy_pass_test: test/proxy_pass_test.o
 	$(BUILDEXEWITHLIB)
 
 test/test: test/test.o
