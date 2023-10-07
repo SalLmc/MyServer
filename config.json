@@ -13,6 +13,8 @@
         {
             "port": 1479,
             "root": "/mnt/d/A_File",
+            "from":"/api/",
+            "to":"http://localhost/",
             "index": "sdfsdf",
             "auto_index": 1
         }

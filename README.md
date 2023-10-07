@@ -49,21 +49,20 @@ Use Nginx style
             "index": "index.html"
         },
         {
-            "port": 1479,
-            "root": "/home/sallmc/Notes",
-            "index": "sdfsdf",
-            "auto_index": 1,
-            "auth_path": [
-                "*"
-            ]
-        },
-        {
             "port": 1480,
             "root": "/home/sallmc/blog/public",
             "index": "index.html",
             "auth_path": [
                 "/Notes/*"
             ]
+        },
+        {
+            "port": 8081,
+            "root": "/mnt/d/A_File",
+            "from":"/api/",
+            "to":"http://localhost/",
+            "index": "sdfsdf",
+            "auto_index": 1
         },
         {
             "port": 8082,
