@@ -7,7 +7,6 @@
 *.gch
 *.d
 
-
 /test/*
 !/test/*.cpp
 !/test/*.h
