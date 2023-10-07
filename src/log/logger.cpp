@@ -37,7 +37,7 @@ LogLine::LogLine(Level level, char const *file, char const *function, unsigned i
     auto lctime = std::localtime(&time_t);
     strftime(buffer_ + pos, 21, "[%Y-%m-%d %H:%M:%S", lctime);
     pos += 20;
-    sprintf(buffer_ + pos, ".%lld] ", timeStamp_ % 1000);
+    sprintf(buffer_ + pos, ".%03lld] ", timeStamp_ % 1000);
     pos += 6;
 
     // pid
