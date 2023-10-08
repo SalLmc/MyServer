@@ -60,7 +60,7 @@ void masterProcessCycle(Cycle *cycle)
     }
 
     // logger
-    cycle->logger_ = new Logger("log/", "master", 1);
+    cycle->logger_ = new Logger("log/", "master");
     LOG_INFO << "Looping";
     for (;;)
     {
@@ -140,7 +140,7 @@ void workerProcessCycle(Cycle *cycle)
     // log
     char name[20];
     sprintf(name, "worker_%d", slot);
-    cycle->logger_ = new Logger("log/", name, 1);
+    cycle->logger_ = new Logger("log/", name);
 
     // sig
     sigset_t set;

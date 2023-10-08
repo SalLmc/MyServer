@@ -126,9 +126,8 @@ LogLine &LogLine::operator<<(const char *arg)
     return *this;
 }
 
-Logger::Logger(const char *path, const char *name, unsigned int size_mb)
-    : filePath_(path), fileName_(name), maxFileSize_(size_mb), state(State::INIT),
-      writeThread(&Logger::write2File, this)
+Logger::Logger(const char *path, const char *name)
+    : filePath_(path), fileName_(name), state(State::INIT), writeThread(&Logger::write2File, this)
 {
     std::string folder(filePath_);
     folder.append(fileName_);

@@ -3,7 +3,7 @@
 #include "../src/utils/utils_declaration.h"
 int main()
 {
-    Logger logger("log/", "test", 1);
+    Logger logger("log/", "test");
 
     std::string from = "/webapp/";
     std::string to = "http://localhost:x/sdfsdf/dfg";

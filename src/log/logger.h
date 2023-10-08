@@ -69,7 +69,7 @@ class Logger
 {
   public:
     Logger() = delete;
-    Logger(const char *path, const char *name, unsigned int size_mb);
+    Logger(const char *path, const char *name);
     ~Logger();
     Logger &operator+=(LogLine &line);
 
@@ -80,7 +80,6 @@ class Logger
 
     const char *filePath_;
     const char *fileName_;
-    unsigned int maxFileSize_;
 
   private:
     enum class State

@@ -10,7 +10,7 @@ extern ConnectionPool cPool;
 int main(int argc, char *argv[])
 {
 
-    Cycle cycle(&cPool, new Logger("log/", "startup", 10));
+    Cycle cycle(&cPool, new Logger("log/", "startup"));
 
     for (int i = 0; i < 10; i++)
         __LOG_CRIT_INNER(*cycle.logger_) << "start";
@@ -21,14 +21,14 @@ int main(int argc, char *argv[])
     switch (fork())
     {
     case 0:
-        cycle.logger_ = new Logger("log/", "child", 10);
+        cycle.logger_ = new Logger("log/", "child");
         for (int i = 0; i < 10; i++)
             __LOG_CRIT_INNER(*cycle.logger_) << "child";
         printf("CHILD END\n");
         break;
 
     default:
-        cycle.logger_ = new Logger("log/", "father", 10);
+        cycle.logger_ = new Logger("log/", "father");
         for (int i = 0; i < 10; i++)
             __LOG_CRIT_INNER(*cycle.logger_) << "father";
         printf("FATHER END\n");

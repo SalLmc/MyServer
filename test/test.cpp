@@ -6,7 +6,7 @@ using namespace std;
 
 int main()
 {
-    Logger logger("log/", "test", 1);
+    Logger logger("log/", "test");
     string ip = "127.0.0.1";
     int port = 8080;
     int fd = socket(AF_INET, SOCK_STREAM, 0);

@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    std::unique_ptr<Cycle> cycle(new Cycle(&cPool, new Logger("log/", "startup", 1)));
+    std::unique_ptr<Cycle> cycle(new Cycle(&cPool, new Logger("log/", "startup")));
     cyclePtr = cycle.get();
 
     if (getOption(argc, argv, &mp) == ERROR)
@@ -110,7 +110,7 @@ int main(int argc, char *argv[])
 
         if (cycle->logger_ == NULL)
         {
-            cycle->logger_ = new Logger("log/", "startup", 1);
+            cycle->logger_ = new Logger("log/", "startup");
         }
     }
 
