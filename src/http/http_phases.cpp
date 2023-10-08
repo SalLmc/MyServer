@@ -183,8 +183,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
     // proxy_pass
     if (server.from != "")
     {
-        std::string checkUri = uri + ((uri.back() == '/') ? "" : "/");
-        if (checkUri.find(server.from) != std::string::npos)
+        if (uri.find(server.from) != std::string::npos)
         {
             r->now_proxy_pass = 1;
             return PHASE_NEXT;

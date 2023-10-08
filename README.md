@@ -23,7 +23,7 @@
 
 Use Nginx style
 
-| location | proxy_pass                 | Request             | Received by upstream |
+| from     | to                         | Request             | Received by upstream |
 | -------- | -------------------------- | ------------------- | -------------------- |
 | /webapp/ | http://localhost:5000/api/ | /webapp/foo?bar=baz | /api/foo?bar=baz     |
 | /webapp/ | http://localhost:5000/api  | /webapp/foo?bar=baz | /apifoo?bar=baz      |

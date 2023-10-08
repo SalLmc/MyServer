@@ -10,6 +10,7 @@
 /test/*
 !/test/*.cpp
 !/test/*.h
+!/test/makefile
 
 main
 todo.md
