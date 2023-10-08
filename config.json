@@ -1,9 +1,10 @@
 {
     "logger_wake": 1,
-    "enable_logger": 0,
+    "enable_logger": 1,
     "daemon": 1,
     "only_worker": 0,
     "use_epoll": 0,
+    "processes": 1,
     "servers": [
         {
             "port": 80,
@@ -13,8 +14,8 @@
         {
             "port": 1479,
             "root": "/mnt/d/A_File",
-            "from":"/api/",
-            "to":"http://localhost/",
+            "from": "/api/",
+            "to": "http://localhost/",
             "index": "sdfsdf",
             "auto_index": 1
         }

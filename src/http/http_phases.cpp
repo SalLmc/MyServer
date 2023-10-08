@@ -442,6 +442,8 @@ int initUpstream(std::shared_ptr<Request> r)
     std::string fullUri = std::string(r->uri_start, r->uri_end);
     std::string newUri = getLeftUri(addr) + fullUri.replace(0, server.from.length(), "");
 
+    LOG_INFO << "Upstream to: " << ip << ":" << port << newUri;
+
     // setup connection
     Connection *upc = cyclePtr->pool_->getNewConnection();
 
@@ -465,14 +467,14 @@ int initUpstream(std::shared_ptr<Request> r)
     upc->addr_.sin_port = htons(port);
     if (connect(upc->fd_.getFd(), (struct sockaddr *)&upc->addr_, sizeof(upc->addr_)) < 0)
     {
-        LOG_WARN << "CONNECT ERR, FINALIZE CONNECTION";
+        LOG_WARN << "CONNECT ERR, FINALIZE CONNECTION, errro: " << strerror(errno);
         finalizeConnection(upc);
         finalizeRequest(r);
         return ERROR;
     }
     setnonblocking(upc->fd_.getFd());
 
-    LOG_INFO << "Upstream to: " << ip << ":" << port << newUri << " with FD:" << upc->fd_.getFd();
+    LOG_INFO << "Upstream connect";
 
     // setup upstream
     std::shared_ptr<Upstream> ups(new Upstream());
