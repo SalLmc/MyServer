@@ -19,6 +19,7 @@
 #include <list>
 #include <memory>
 #include <mutex>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <poll.h>
 #include <queue>

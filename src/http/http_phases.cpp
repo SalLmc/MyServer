@@ -417,20 +417,30 @@ int initUpstream(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Initing upstream";
 
-    // printf("%s\n", std::string(r->request_start, r->request_start + r->request_length).c_str());
+    bool isDomain = 0;
 
     // setup upstream server
     auto &server = cyclePtr->servers_[r->c->server_idx_];
     std::string addr = server.to;
 
-    std::string ip = "";
+    std::string ip;
+    std::string domain;
     int port = 80;
 
     try
     {
-        auto ipAndPort = getServer(addr);
-        ip = ipAndPort.first;
-        port = ipAndPort.second;
+        auto upstreamInfo = getServer(addr);
+        if (isHostname(upstreamInfo.first))
+        {
+            ip = getIpByDomain(upstreamInfo.first);
+            isDomain = 1;
+            domain = upstreamInfo.first;
+        }
+        else
+        {
+            ip = upstreamInfo.first;
+        }
+        port = upstreamInfo.second;
     }
     catch (const std::exception &e)
     {
@@ -442,7 +452,7 @@ int initUpstream(std::shared_ptr<Request> r)
     std::string fullUri = std::string(r->uri_start, r->uri_end);
     std::string newUri = getLeftUri(addr) + fullUri.replace(0, server.from.length(), "");
 
-    LOG_INFO << "Upstream to: " << ip << ":" << port << newUri;
+    LOG_INFO << "Upstream to " << server.to << " -> " << ip << ":" << port << newUri;
 
     // setup connection
     Connection *upc = cyclePtr->pool_->getNewConnection();
@@ -455,6 +465,7 @@ int initUpstream(std::shared_ptr<Request> r)
     }
 
     upc->fd_ = socket(AF_INET, SOCK_STREAM, 0);
+
     if (upc->fd_.getFd() < 0)
     {
         LOG_WARN << "open fd failed";
@@ -462,9 +473,11 @@ int initUpstream(std::shared_ptr<Request> r)
         finalizeRequest(r);
         return ERROR;
     }
+
     upc->addr_.sin_family = AF_INET;
     inet_pton(AF_INET, ip.c_str(), &upc->addr_.sin_addr);
     upc->addr_.sin_port = htons(port);
+
     if (connect(upc->fd_.getFd(), (struct sockaddr *)&upc->addr_, sizeof(upc->addr_)) < 0)
     {
         LOG_WARN << "CONNECT ERR, FINALIZE CONNECTION, errro: " << strerror(errno);
@@ -472,9 +485,10 @@ int initUpstream(std::shared_ptr<Request> r)
         finalizeRequest(r);
         return ERROR;
     }
+
     setnonblocking(upc->fd_.getFd());
 
-    LOG_INFO << "Upstream connect";
+    LOG_INFO << "Upstream connected";
 
     // setup upstream
     std::shared_ptr<Upstream> ups(new Upstream());
@@ -487,12 +501,28 @@ int initUpstream(std::shared_ptr<Request> r)
     auto &wb = upc->writeBuffer_;
     wb.append(r->method_name.toString() + " " + newUri + " HTTP/1.1\r\n");
     auto &in = r->headers_in;
+
+    // headers
+    bool needRewriteHost = 0;
     for (auto &x : in.headers)
     {
+        if (isDomain && (x.name == "Host" || x.name == "host"))
+        {
+            needRewriteHost = 1;
+            continue;
+        }
         std::string thisHeader = x.name + ": " + x.value + "\r\n";
         wb.append(thisHeader);
     }
+    if (needRewriteHost)
+    {
+        wb.append("Host: ");
+        wb.append(domain);
+        wb.append("\r\n");
+    }
     wb.append("\r\n");
+
+    // body
     for (auto &x : r->request_body.lbody)
     {
         wb.append(x.toString());

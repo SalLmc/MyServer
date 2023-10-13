@@ -443,3 +443,23 @@ void mkdir_r(const char *path, mode_t mode)
         }
     mkdir(tmp, mode);
 }
+
+std::string getIpByDomain(std::string &domain)
+{
+    hostent *host_info = gethostbyname2(domain.c_str(), AF_INET);
+    struct in_addr ipv4;
+    ipv4.s_addr = *(unsigned int *)host_info->h_addr_list[0];
+    return std::string(inet_ntoa(ipv4));
+}
+
+bool isHostname(const std::string &str)
+{
+    std::regex hostnameRegex("^[a-zA-Z0-9.-]+");
+    return std::regex_match(str, hostnameRegex);
+}
+
+bool isIPAddress(const std::string &str)
+{
+    struct sockaddr_in sa;
+    return inet_pton(AF_INET, str.c_str(), &(sa.sin_addr)) != 0;
+}
