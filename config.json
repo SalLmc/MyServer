@@ -1,5 +1,5 @@
 {
-    "logger_wake": 1,
+    "logger_threshold": 100,
     "enable_logger": 1,
     "daemon": 1,
     "only_worker": 0,
@@ -10,8 +10,8 @@
             "port": 80,
             "root": "static",
             "index": "index.html",
-            "from": "/bilibili/",
-            "to": "http://www.bilibili.com/"
+            "from": "/bing/",
+            "to": "http://cn.bing.com/"
         },
         {
             "port": 1479,

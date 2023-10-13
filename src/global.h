@@ -8,7 +8,7 @@
 // config
 
 extern bool enable_logger;
-extern unsigned long logger_wake;
+extern unsigned long logger_threshold;
 extern bool is_daemon;
 extern bool only_worker;
 extern bool use_epoll;

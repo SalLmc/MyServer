@@ -3,7 +3,8 @@
 #include "../utils/utils_declaration.h"
 #include "logger.h"
 
-extern unsigned long logger_wake;
+bool enable_logger = 1;
+unsigned long logger_threshold = 1;
 
 LogLine::LogLine()
 {
@@ -185,7 +186,7 @@ Logger &Logger::operator+=(LogLine &line)
 {
     std::unique_lock<std::mutex> ulock(mutex_);
     ls_.push_back(std::move(line));
-    if (ls_.size() >= logger_wake)
+    if (ls_.size() >= logger_threshold)
     {
         wakeup();
     }

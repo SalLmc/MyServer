@@ -4,7 +4,7 @@
 
 | Config            | Description                                         | Default                    |
 | ----------------- | --------------------------------------------------- | -------------------------- |
-| logger_wake       | The threshold to wake up the logger                 | 1                          |
+| logger_threshold       | The threshold to wake up the logger                 | 1                          |
 | enable_logger     | True to enable logger                               | true                       |
 | daemon            | True to daemonize                                   | false                      |
 | only_worker       | True to have only one worker process, used in debug | false                      |
@@ -37,7 +37,7 @@ Use Nginx style
 
 ```json
 {
-    "logger_wake": 1,
+    "logger_threshold": 1,
     "enable_logger": 0,
     "daemon": 1,
     "only_worker": 0,

@@ -171,7 +171,7 @@ void init()
     nlohmann::json config = nlohmann::json::parse(f);
 
     processes = getValue(config, "processes", cores);
-    logger_wake = getValue(config, "logger_wake", 1);
+    logger_threshold = getValue(config, "logger_threshold", 1);
     only_worker = getValue(config, "only_worker", 0);
     enable_logger = getValue(config, "enable_logger", 1);
     use_epoll = getValue(config, "use_epoll", 1);

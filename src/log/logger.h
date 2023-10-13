@@ -3,8 +3,6 @@
 
 #include "../headers.h"
 
-#include "../global.h"
-
 extern bool enable_logger;
 
 enum class Level

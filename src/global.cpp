@@ -2,8 +2,6 @@
 
 // config
 
-bool enable_logger = 1;
-unsigned long logger_wake = 1;
 bool is_daemon = 0;
 bool only_worker = 0;
 bool use_epoll = 1;
