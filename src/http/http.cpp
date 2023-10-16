@@ -181,6 +181,8 @@ Connection *addListen(Cycle *cycle, int port)
         goto bad;
     }
 
+    LOG_INFO << "listen to " << port;
+
     return listenC;
 
 bad:
@@ -248,7 +250,7 @@ int newConnection(Event *ev)
 
         newc->read_.handler = waitRequest;
 
-        if (cyclePtr->eventProccessor->addFd(newc->fd_.getFd(), EVENTS(IN | ET), newc) == 0)
+        if (cyclePtr->multiplexer->addFd(newc->fd_.getFd(), EVENTS(IN | ET), newc) == 0)
         {
             LOG_WARN << "Add client fd failed, FD:" << newc->fd_.getFd();
         }
@@ -857,13 +859,13 @@ int writeResponse(Event *ev)
         if (buffer.allRead() != 1)
         {
             r->c->write_.handler = writeResponse;
-            cyclePtr->eventProccessor->modFd(ev->c->fd_.getFd(), EVENTS(IN | OUT | ET), ev->c);
+            cyclePtr->multiplexer->modFd(ev->c->fd_.getFd(), EVENTS(IN | OUT | ET), ev->c);
             return PHASE_QUIT;
         }
     }
 
     r->c->write_.handler = blockWriting;
-    cyclePtr->eventProccessor->modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
+    cyclePtr->multiplexer->modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
 
     if (r->headers_out.restype == RES_FILE)
     {
@@ -1051,7 +1053,7 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
     r->request_length += preRead;
 
     r->c->read_.handler = readRequestBodyInner;
-    cyclePtr->eventProccessor->modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
+    cyclePtr->multiplexer->modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
 
     r->c->write_.handler = blockWriting;
 
@@ -1146,11 +1148,11 @@ int sendfileEvent(Event *ev)
     if (filebody.file_size - filebody.offset > 0)
     {
         r->c->write_.handler = sendfileEvent;
-        cyclePtr->eventProccessor->modFd(r->c->fd_.getFd(), EVENTS(IN | OUT | ET), r->c);
+        cyclePtr->multiplexer->modFd(r->c->fd_.getFd(), EVENTS(IN | OUT | ET), r->c);
         return AGAIN;
     }
 
-    cyclePtr->eventProccessor->modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
+    cyclePtr->multiplexer->modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
     r->c->write_.handler = blockWriting;
     filebody.filefd.closeFd();
 
@@ -1195,12 +1197,12 @@ int sendStrEvent(Event *ev)
     if (bodysize - offset > 0)
     {
         r->c->write_.handler = sendStrEvent;
-        cyclePtr->eventProccessor->modFd(r->c->fd_.getFd(), EVENTS(IN | OUT | ET), r->c);
+        cyclePtr->multiplexer->modFd(r->c->fd_.getFd(), EVENTS(IN | OUT | ET), r->c);
         return AGAIN;
     }
 
     offset = 0;
-    cyclePtr->eventProccessor->modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
+    cyclePtr->multiplexer->modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
     r->c->write_.handler = blockWriting;
 
     LOG_INFO << "SENDSTR RESPONSED";

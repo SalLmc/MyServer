@@ -122,7 +122,7 @@ class Cycle
     std::vector<Connection *> listening_;
     std::vector<ServerAttribute> servers_;
     Logger *logger_;
-    EventProcessor *eventProccessor;
+    Multiplexer *multiplexer;
     HeapTimer timer_;
 };
 

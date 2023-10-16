@@ -57,10 +57,10 @@ enum EVENTS
 #define ET ET
 };
 
-class EventProcessor
+class Multiplexer
 {
   public:
-    virtual ~EventProcessor(){};
+    virtual ~Multiplexer(){};
     virtual bool addFd(int fd, EVENTS events, void *ctx) = 0;
     virtual bool modFd(int fd, EVENTS events, void *ctx) = 0;
     virtual bool delFd(int fd) = 0;

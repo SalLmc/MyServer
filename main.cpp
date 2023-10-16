@@ -124,12 +124,12 @@ int main(int argc, char *argv[])
     if (use_epoll)
     {
         LOG_INFO << "Use epoll";
-        cycle->eventProccessor = new Epoller();
+        cycle->multiplexer = new Epoller();
     }
     else
     {
         LOG_INFO << "Use poll";
-        cycle->eventProccessor = new Poller();
+        cycle->multiplexer = new Poller();
     }
 
     masterProcessCycle(cyclePtr);

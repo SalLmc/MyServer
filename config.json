@@ -14,7 +14,7 @@
             "to": "http://cn.bing.com/"
         },
         {
-            "port": 1479,
+            "port": 9999,
             "root": "/mnt/d/A_File",
             "index": "sdfsdf",
             "auto_index": 1

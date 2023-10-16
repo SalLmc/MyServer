@@ -138,7 +138,7 @@ int acceptexTryLock(Cycle *cycle)
 
         for (auto &listen : cycle->listening_)
         {
-            if (cyclePtr->eventProccessor->addFd(listen->fd_.getFd(), EVENTS(IN | ET), listen) == 0)
+            if (cyclePtr->multiplexer->addFd(listen->fd_.getFd(), EVENTS(IN | ET), listen) == 0)
             {
                 LOG_CRIT << "Addfd failed, " << strerror(errno) << " " << acceptMutexHeld;
                 shmtxUnlock(&acceptMutex);
@@ -155,7 +155,7 @@ int acceptexTryLock(Cycle *cycle)
     {
         for (auto &listen : cycle->listening_)
         {
-            if (cyclePtr->eventProccessor->delFd(listen->fd_.getFd()) == 0)
+            if (cyclePtr->multiplexer->delFd(listen->fd_.getFd()) == 0)
             {
                 LOG_CRIT << "accept mutex delfd failed, errno:" << errno;
                 return -1;

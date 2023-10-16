@@ -7,7 +7,7 @@
 
 #define POST_EVENTS 1
 
-class Epoller : public EventProcessor
+class Epoller : public Multiplexer
 {
   public:
     Epoller(int max_event = 1024);

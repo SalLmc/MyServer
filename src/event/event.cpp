@@ -23,7 +23,7 @@ int setEventTimeout(void *ev)
     if (thisev->c->quit)
     {
         int fd = thisev->c->fd_.getFd();
-        cyclePtr->eventProccessor->delFd(fd);
+        cyclePtr->multiplexer->delFd(fd);
         cyclePtr->pool_->recoverConnection(thisev->c);
         LOG_INFO << "Connection recover, FD:" << fd;
     }

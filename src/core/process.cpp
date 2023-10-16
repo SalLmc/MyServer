@@ -161,7 +161,7 @@ void workerProcessCycle(Cycle *cycle)
     }
 
     // epoll
-    Epoller *epoller = dynamic_cast<Epoller *>(cyclePtr->eventProccessor);
+    Epoller *epoller = dynamic_cast<Epoller *>(cyclePtr->multiplexer);
     if (epoller)
     {
         epoller->setEpollFd(epoll_create1(0));
@@ -170,7 +170,7 @@ void workerProcessCycle(Cycle *cycle)
     for (auto &listen : cycle->listening_)
     {
         // use LT on listenfd
-        if (cyclePtr->eventProccessor->addFd(listen->fd_.getFd(), EVENTS(IN), listen) == 0)
+        if (cyclePtr->multiplexer->addFd(listen->fd_.getFd(), EVENTS(IN), listen) == 0)
         {
             LOG_CRIT << "Listenfd add failed, errno:" << strerror(errno);
         }
@@ -203,7 +203,7 @@ void processEventsAndTimers(Cycle *cycle)
     unsigned long long nextTick = cycle->timer_.GetNextTick();
     nextTick = ((nextTick == (unsigned long long)-1) ? -1 : (nextTick - getTickMs()));
 
-    int ret = cyclePtr->eventProccessor->processEvents(flags, nextTick);
+    int ret = cyclePtr->multiplexer->processEvents(flags, nextTick);
     if (ret == -1)
     {
         LOG_WARN << "process events errno: " << strerror(errno);

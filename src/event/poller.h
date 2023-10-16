@@ -20,7 +20,7 @@ class PollCtx
     void *ctx;
 };
 
-class Poller : public EventProcessor
+class Poller : public Multiplexer
 {
   public:
     Poller();
