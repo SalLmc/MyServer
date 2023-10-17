@@ -39,8 +39,6 @@ int readRequestBodyInner(Event *ev);
 int sendfileEvent(Event *ev);
 int sendStrEvent(Event *ev);
 
-#define PARSE_HEADER_DONE 1
-
 enum class HeaderState
 {
     sw_start = 0,
@@ -373,7 +371,7 @@ class Upstream
 
 #define HTTP_INTERNAL_SERVER_ERROR 500
 
-#define SPLIT "; "
+#define SEMICOLON_SPLIT "; "
 
 #define UTF_8 "charset=utf-8"
 

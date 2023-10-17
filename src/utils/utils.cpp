@@ -463,3 +463,13 @@ bool isIPAddress(const std::string &str)
     struct sockaddr_in sa;
     return inet_pton(AF_INET, str.c_str(), &(sa.sin_addr)) != 0;
 }
+
+std::string toLower(std::string &src)
+{
+    std::string ans;
+    for (auto &c : src)
+    {
+        ans += tolower(c);
+    }
+    return ans;
+}

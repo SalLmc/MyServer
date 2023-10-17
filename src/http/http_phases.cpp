@@ -21,7 +21,7 @@ int testPhaseHandler(std::shared_ptr<Request> r)
 
     r->headers_out.str_body.append("HELLO");
 
-    r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"] + SPLIT + UTF_8));
+    r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"] + SEMICOLON_SPLIT + UTF_8));
     r->headers_out.headers.emplace_back("Content-Length", std::to_string(r->headers_out.str_body.length()));
     r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
 
@@ -127,25 +127,18 @@ int authAccessHandler(std::shared_ptr<Request> r)
         auth.append(authc);
     }
 
-    std::string args = std::string(r->args.data, r->args.data + r->args.len);
+    // std::string args = std::string(r->args.data, r->args.data + r->args.len);
 
-    if (args.find("code=" + auth) != std::string::npos)
-    {
-        ok = 1;
-    }
+    // if (args.find("code=" + auth) != std::string::npos)
+    // {
+    //     ok = 1;
+    // }
 
     if (!ok)
     {
         if (r->headers_in.header_name_value_map.count("code"))
         {
             if (r->headers_in.header_name_value_map["code"].value == auth)
-            {
-                ok = 1;
-            }
-        }
-        else if (r->headers_in.header_name_value_map.count("Code"))
-        {
-            if (r->headers_in.header_name_value_map["Code"].value == auth)
             {
                 ok = 1;
             }
@@ -165,7 +158,7 @@ int authAccessHandler(std::shared_ptr<Request> r)
     str.append("<body>\n\t<center>\n\t\t<h1>401 "
                "Unauthorized</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
 
-    r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"] + SPLIT + UTF_8));
+    r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"] + SEMICOLON_SPLIT + UTF_8));
     r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
     r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
 
@@ -207,7 +200,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
                        "Forbidden</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
 
             r->headers_out.headers.emplace_back("Content-Type",
-                                                std::string(exten_content_type_map["html"] + SPLIT + UTF_8));
+                                                std::string(exten_content_type_map["html"] + SEMICOLON_SPLIT + UTF_8));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
             r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
@@ -220,7 +213,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
             r->headers_out.file_body.file_size = st.st_size;
 
             r->headers_out.headers.emplace_back("Content-Type",
-                                                std::string(exten_content_type_map["html"] + SPLIT + UTF_8));
+                                                std::string(exten_content_type_map["html"] + SEMICOLON_SPLIT + UTF_8));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(st.st_size));
             r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
@@ -316,9 +309,9 @@ int contentAccessHandler(std::shared_ptr<Request> r)
 fileok:
     if (fd.getFd() >= 0)
     {
-        if (r->headers_in.header_name_value_map.count("If-None-Match"))
+        if (r->headers_in.header_name_value_map.count("if-none-match"))
         {
-            std::string browser_etag = r->headers_in.header_name_value_map["If-None-Match"].value;
+            std::string browser_etag = r->headers_in.header_name_value_map["if-none-match"].value;
             if (matchEtag(fd.getFd(), browser_etag))
             {
                 r->headers_out.status = HTTP_NOT_MODIFIED;
@@ -361,7 +354,7 @@ autoindex:
                        "Found</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
 
             r->headers_out.headers.emplace_back("Content-Type",
-                                                std::string(exten_content_type_map["html"] + SPLIT + UTF_8));
+                                                std::string(exten_content_type_map["html"] + SEMICOLON_SPLIT + UTF_8));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
             r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
@@ -374,7 +367,7 @@ autoindex:
             r->headers_out.file_body.file_size = st.st_size;
 
             r->headers_out.headers.emplace_back("Content-Type",
-                                                std::string(exten_content_type_map["html"] + SPLIT + UTF_8));
+                                                std::string(exten_content_type_map["html"] + SEMICOLON_SPLIT + UTF_8));
             r->headers_out.headers.emplace_back("Content-Length", std::to_string(st.st_size));
             r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
         }
@@ -719,7 +712,7 @@ int staticContentHandler(std::shared_ptr<Request> r)
     std::string exten = std::string(r->exten.data, r->exten.data + r->exten.len);
     if (exten_content_type_map.count(exten))
     {
-        r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map[exten]) + SPLIT + UTF_8);
+        r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map[exten]) + SEMICOLON_SPLIT + UTF_8);
     }
     else
     {
@@ -820,7 +813,7 @@ resposne:
     std::string exten = std::string(r->exten.data, r->exten.data + r->exten.len);
     if (exten_content_type_map.count(exten))
     {
-        r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map[exten] + SPLIT + UTF_8));
+        r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map[exten] + SEMICOLON_SPLIT + UTF_8));
     }
     else
     {

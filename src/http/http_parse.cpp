@@ -1403,7 +1403,7 @@ header_done:
     // r->c->readBuffer_.retrieveUntil((char *)(p + 1));
     r->headerState = HeaderState::sw_start;
 
-    return PARSE_HEADER_DONE;
+    return DONE;
 }
 
 #define MAX_OFF_T_VALUE 9223372036854775807LL

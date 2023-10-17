@@ -46,6 +46,7 @@ void mkdir_r(const char *path, mode_t mode);
 std::string getIpByDomain(std::string &domain);
 bool isHostname(const std::string &str);
 bool isIPAddress(const std::string &str);
+std::string toLower(std::string &src);
 
 // signal.cpp
 

@@ -490,7 +490,7 @@ int processRequestHeaders(Event *ev)
                                                std::string(r->header_start, r->header_end));
 
             Header &now = r->headers_in.headers.back();
-            r->headers_in.header_name_value_map[now.name] = now;
+            r->headers_in.header_name_value_map[toLower(now.name)] = now;
 
             // LOG_INFO << "header:< " << now.name << ", " << now.value << " >";
 
@@ -505,7 +505,7 @@ int processRequestHeaders(Event *ev)
             continue;
         }
 
-        if (rc == PARSE_HEADER_DONE)
+        if (rc == DONE)
         {
 
             /* a whole header has been parsed successfully */
@@ -522,10 +522,7 @@ int processRequestHeaders(Event *ev)
                 break;
             }
 
-            LOG_INFO << "Host: "
-                     << (r->headers_in.header_name_value_map.count("Host")
-                             ? r->headers_in.header_name_value_map["Host"].value
-                             : r->headers_in.header_name_value_map["host"].value);
+            LOG_INFO << "Host: " << r->headers_in.header_name_value_map["host"].value;
 
             LOG_INFO << "Port: " << cyclePtr->servers_[r->c->server_idx_].port;
 
@@ -665,7 +662,7 @@ int processRequestHeader(std::shared_ptr<Request> r, int need_host)
 {
     auto &mp = r->headers_in.header_name_value_map;
 
-    if (mp.count("Host") || mp.count("host"))
+    if (mp.count("host"))
     {
     }
     else if (need_host)
@@ -675,27 +672,27 @@ int processRequestHeader(std::shared_ptr<Request> r, int need_host)
         return ERROR;
     }
 
-    if (mp.count("Content-Length"))
+    if (mp.count("content-length"))
     {
-        r->headers_in.content_length = atoi(mp["Content-Length"].value.c_str());
+        r->headers_in.content_length = atoi(mp["content-length"].value.c_str());
     }
     else
     {
         r->headers_in.content_length = 0;
     }
 
-    if (mp.count("Transfer-Encoding"))
+    if (mp.count("transfer-encoding"))
     {
-        r->headers_in.chunked = (0 == strcmp("chunked", mp["Transfer-Encoding"].value.c_str()));
+        r->headers_in.chunked = (0 == strcmp("chunked", mp["transfer-encoding"].value.c_str()));
     }
     else
     {
         r->headers_in.chunked = 0;
     }
 
-    if (mp.count("Connection"))
+    if (mp.count("connection"))
     {
-        auto &type = mp["Connection"].value;
+        auto &type = mp["connection"].value;
         bool alive = (!strcmp("keep-alive", type.c_str())) || (!strcmp("Keep-Alive", type.c_str()));
         r->headers_in.connection_type = alive ? CONNECTION_KEEP_ALIVE : CONNECTION_CLOSE;
     }
@@ -752,7 +749,7 @@ int processHeaders(std::shared_ptr<Request> upsr)
             upsr->headers_in.headers.emplace_back(std::string(upsr->header_name_start, upsr->header_name_end),
                                                   std::string(upsr->header_start, upsr->header_end));
             Header &now = upsr->headers_in.headers.back();
-            upsr->headers_in.header_name_value_map[now.name] = now;
+            upsr->headers_in.header_name_value_map[toLower(now.name)] = now;
             continue;
         }
 
@@ -762,7 +759,7 @@ int processHeaders(std::shared_ptr<Request> upsr)
             return AGAIN;
         }
 
-        if (ret == PARSE_HEADER_DONE)
+        if (ret == DONE)
         {
             LOG_INFO << "Upstream header done";
             processRequestHeader(upsr, 0);

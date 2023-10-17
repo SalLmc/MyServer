@@ -9,6 +9,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstring>
+#include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
 #include <exception>
