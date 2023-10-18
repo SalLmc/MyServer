@@ -160,3 +160,7 @@ Upstream::Upstream()
     c4client = NULL;
     process_handler = NULL;
 }
+
+HttpCode::HttpCode(int code, std::string &&str) : code(code), str(str)
+{
+}

@@ -21,7 +21,8 @@ int testPhaseHandler(std::shared_ptr<Request> r)
 
     r->headers_out.str_body.append("HELLO");
 
-    r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"] + SEMICOLON_SPLIT + UTF_8));
+    r->headers_out.headers.emplace_back("Content-Type",
+                                        std::string(exten_content_type_map["html"] + SEMICOLON_SPLIT + UTF_8));
     r->headers_out.headers.emplace_back("Content-Length", std::to_string(r->headers_out.str_body.length()));
     r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
 
@@ -150,17 +151,7 @@ int authAccessHandler(std::shared_ptr<Request> r)
         return PHASE_CONTINUE;
     }
 
-    r->headers_out.status = HTTP_UNAUTHORIZED;
-    r->headers_out.status_line = "HTTP/1.1 401 Unauthorized\r\n";
-    r->headers_out.restype = RES_STR;
-    auto &str = r->headers_out.str_body;
-    str.append("<html>\n<head>\n\t<title>401 Unauthorized</title>\n</head>\n");
-    str.append("<body>\n\t<center>\n\t\t<h1>401 "
-               "Unauthorized</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
-
-    r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map["html"] + SEMICOLON_SPLIT + UTF_8));
-    r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
-    r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
+    setErrorResponse(r, HTTP_UNAUTHORIZED);
 
     return doResponse(r);
 }
@@ -186,38 +177,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
     // method check
     if (r->method != Method::GET)
     {
-        r->headers_out.status = HTTP_FORBIDDEN;
-        r->headers_out.status_line = "HTTP/1.1 403 Forbidden\r\n";
-
-        std::string _403_path = "/home/sallmc/VSCode/MyServer/static/403.html";
-        Fd _403fd(open(_403_path.c_str(), O_RDONLY));
-        if (_403fd.getFd() < 0)
-        {
-            r->headers_out.restype = RES_STR;
-            auto &str = r->headers_out.str_body;
-            str.append("<html>\n<head>\n\t<title>403 Forbidden</title>\n</head>\n");
-            str.append("<body>\n\t<center>\n\t\t<h1>403 "
-                       "Forbidden</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
-
-            r->headers_out.headers.emplace_back("Content-Type",
-                                                std::string(exten_content_type_map["html"] + SEMICOLON_SPLIT + UTF_8));
-            r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
-            r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
-        }
-        else
-        {
-            r->headers_out.restype = RES_FILE;
-            struct stat st;
-            fstat(_403fd.getFd(), &st);
-            r->headers_out.file_body.filefd.reset(std::move(_403fd));
-            r->headers_out.file_body.file_size = st.st_size;
-
-            r->headers_out.headers.emplace_back("Content-Type",
-                                                std::string(exten_content_type_map["html"] + SEMICOLON_SPLIT + UTF_8));
-            r->headers_out.headers.emplace_back("Content-Length", std::to_string(st.st_size));
-            r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
-        }
-
+        setErrorResponse(r, HTTP_FORBIDDEN);
         return doResponse(r);
     }
 
@@ -226,6 +186,12 @@ int contentAccessHandler(std::shared_ptr<Request> r)
 
     if (fd.getFd() < 0)
     {
+        if (open(server.root.c_str(), O_RDONLY) < 0)
+        {
+            LOG_WARN << "can't open server root location";
+            setErrorResponse(r, HTTP_INTERNAL_SERVER_ERROR);
+            return doResponse(r);
+        }
         goto send404;
     }
 
@@ -340,38 +306,7 @@ autoindex:
     if (server.auto_index == 0)
     {
     send404:
-        r->headers_out.status = HTTP_NOT_FOUND;
-        r->headers_out.status_line = "HTTP/1.1 404 Not Found\r\n";
-
-        std::string _404_path = "/home/sallmc/VSCode/MyServer/static/404.html";
-        Fd _404fd(open(_404_path.c_str(), O_RDONLY));
-        if (_404fd.getFd() < 0)
-        {
-            r->headers_out.restype = RES_STR;
-            auto &str = r->headers_out.str_body;
-            str.append("<html>\n<head>\n\t<title>404 Not Found</title>\n</head>\n");
-            str.append("<body>\n\t<center>\n\t\t<h1>404 Not "
-                       "Found</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
-
-            r->headers_out.headers.emplace_back("Content-Type",
-                                                std::string(exten_content_type_map["html"] + SEMICOLON_SPLIT + UTF_8));
-            r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
-            r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
-        }
-        else
-        {
-            r->headers_out.restype = RES_FILE;
-            struct stat st;
-            fstat(_404fd.getFd(), &st);
-            r->headers_out.file_body.filefd.reset(std::move(_404fd));
-            r->headers_out.file_body.file_size = st.st_size;
-
-            r->headers_out.headers.emplace_back("Content-Type",
-                                                std::string(exten_content_type_map["html"] + SEMICOLON_SPLIT + UTF_8));
-            r->headers_out.headers.emplace_back("Content-Length", std::to_string(st.st_size));
-            r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
-        }
-
+        setErrorResponse(r, HTTP_NOT_FOUND);
         return doResponse(r);
     }
     else
@@ -712,7 +647,8 @@ int staticContentHandler(std::shared_ptr<Request> r)
     std::string exten = std::string(r->exten.data, r->exten.data + r->exten.len);
     if (exten_content_type_map.count(exten))
     {
-        r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map[exten]) + SEMICOLON_SPLIT + UTF_8);
+        r->headers_out.headers.emplace_back("Content-Type",
+                                            std::string(exten_content_type_map[exten]) + SEMICOLON_SPLIT + UTF_8);
     }
     else
     {
@@ -756,26 +692,8 @@ int autoIndexHandler(std::shared_ptr<Request> r)
     // can't open dir
     if (directory.dir == NULL)
     {
-        LOG_WARN << "auto index directory open failed";
-        out.status = HTTP_INTERNAL_SERVER_ERROR;
-        out.status_line = "HTTP/1.1 500 Internal Server Error\r\n";
-        out.str_body.append("<html>\r\n"
-                            "<head>\r\n"
-                            "\t<title>500 Internal Server Error</title>\r\n"
-                            "</head>\r\n");
-
-        out.str_body.append("</head>\r\n"
-                            "<body>\r\n"
-                            "</head>\r\n"
-                            "<body>\r\n"
-                            "\t<center>\r\n"
-                            "\t\t<h1>500 Internal Server Error</h1>\r\n"
-                            "\t</center>\r\n"
-                            "\t<hr>\t\n"
-                            "\t<center>MyServer</center>\r\n"
-                            "</body>\r\n"
-                            "</html>\r\n");
-        goto resposne;
+        setErrorResponse(r, HTTP_INTERNAL_SERVER_ERROR);
+        return doResponse(r);
     }
 
     directory.getInfos(root + subpath);
@@ -808,17 +726,9 @@ int autoIndexHandler(std::shared_ptr<Request> r)
 
     out.str_body.append(tail);
 
-resposne:
     // headers
-    std::string exten = std::string(r->exten.data, r->exten.data + r->exten.len);
-    if (exten_content_type_map.count(exten))
-    {
-        r->headers_out.headers.emplace_back("Content-Type", std::string(exten_content_type_map[exten] + SEMICOLON_SPLIT + UTF_8));
-    }
-    else
-    {
-        r->headers_out.headers.emplace_back("Content-Type", "application/octet-stream");
-    }
+    r->headers_out.headers.emplace_back("Content-Type",
+                                        std::string(exten_content_type_map["html"] + SEMICOLON_SPLIT + UTF_8));
     r->headers_out.headers.emplace_back("Content-Length", std::to_string(out.str_body.length()));
     r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
 

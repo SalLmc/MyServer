@@ -130,6 +130,21 @@ std::unordered_map<std::string, std::string> exten_content_type_map = {
     {"md", "text/markdown"},
 };
 
+std::unordered_map<int, HttpCode> http_code_map = {
+    {200, {200, "200 OK"}},
+#define HTTP_OK 200
+    {304, {304, "304 Not Modified"}},
+#define HTTP_NOT_MODIFIED 304
+    {401, {401, "401 Unauthorized"}},
+#define HTTP_UNAUTHORIZED 401
+    {403, {403, "403 Forbidden"}},
+#define HTTP_FORBIDDEN 403
+    {404, {404, "404 Not Found"}},
+#define HTTP_NOT_FOUND 404
+    {500, {500, "500 Internal Server Error"}},
+#define HTTP_INTERNAL_SERVER_ERROR 500
+};
+
 int initListen(Cycle *cycle, int port)
 {
     Connection *listen = addListen(cycle, port);
@@ -1292,4 +1307,28 @@ bool matchEtag(int fd, std::string b_etag)
     {
         return 1;
     }
+}
+
+void setErrorResponse(std::shared_ptr<Request> r, int code)
+{
+    if (!http_code_map.count(code))
+    {
+        LOG_WARN << "Invalid code";
+        return setErrorResponse(r, HTTP_INTERNAL_SERVER_ERROR);
+    }
+
+    HttpCode &hc = http_code_map[code];
+    r->headers_out.status = code;
+    r->headers_out.status_line = "HTTP/1.1 " + hc.str + "\r\n";
+    r->headers_out.restype = RES_STR;
+    auto &str = r->headers_out.str_body;
+    str.append("<html>\n<head>\n\t<title>").append(hc.str).append("</title>\n</head>\n");
+    str.append("<body>\n\t<center>\n\t\t<h1>")
+        .append(hc.str)
+        .append("</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
+
+    r->headers_out.headers.emplace_back("Content-Type",
+                                        std::string(exten_content_type_map["html"] + SEMICOLON_SPLIT + UTF_8));
+    r->headers_out.headers.emplace_back("Content-Length", std::to_string(str.length()));
+    r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
 }

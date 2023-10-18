@@ -21,18 +21,6 @@ class PhaseHandler
 #define PHASE_CONTINUE AGAIN
 #define PHASE_QUIT DONE
 
-// #define HTTP_POST_READ_PHASE 0
-// #define HTTP_SERVER_REWRITE_PHASE 1
-// #define HTTP_FIND_CONFIG_PHASE 2
-// #define HTTP_REWRITE_PHASE 3
-// #define HTTP_POST_REWRITE_PHASE 4
-// #define HTTP_PREACCESS_PHASE 5
-// #define HTTP_ACCESS_PHASE 6
-// #define HTTP_POST_ACCESS_PHASE 7
-// #define HTTP_PRECONTENT_PHASE 8
-// #define HTTP_CONTENT_PHASE 9
-// #define HTTP_LOG_PHASE 10
-
 int genericPhaseChecker(std::shared_ptr<Request> r, PhaseHandler *ph);
 
 int passPhaseHandler(std::shared_ptr<Request> r);
@@ -48,6 +36,7 @@ int appendResponseLine(std::shared_ptr<Request> r);
 int appendResponseHeader(std::shared_ptr<Request> r);
 int appendResponseBody(std::shared_ptr<Request> r);
 
+void setErrorResponse(std::shared_ptr<Request> r, int code);
 int doResponse(std::shared_ptr<Request> r);
 
 int initUpstream(std::shared_ptr<Request> r);
