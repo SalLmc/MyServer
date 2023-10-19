@@ -27,9 +27,9 @@ class HeapTimer
     {
         Clear();
     }
-    void Adjust(int id, unsigned long long new_timeout_ms);
-    void Again(int id, unsigned long long new_timeout_ms);
-    void Add(int id, unsigned long long timeoutstamp_ms, const std::function<int(void *)> &cb, void *arg);
+    void Adjust(int id, unsigned long long newExpireMs);
+    void Again(int id, unsigned long long newExpireMs);
+    void Add(int id, unsigned long long expireTimestampMs, const std::function<int(void *)> &cb, void *arg);
     void Remove(int id); // remove node 
     void DoWork(int id); // delete node && trigger its callback
     void Clear();

@@ -2,34 +2,34 @@
 
 #include "buffer.h"
 
-Buffer::Buffer(int buff_size) : buffer_(buff_size), read_pos_(0), write_pos_(0)
+Buffer::Buffer(int buff_size) : buffer_(buff_size), readPos_(0), writePos_(0)
 {
 }
 
 size_t Buffer::readableBytes() const
 {
-    return write_pos_ - read_pos_;
+    return writePos_ - readPos_;
 }
 size_t Buffer::writableBytes() const
 {
-    return buffer_.size() - write_pos_;
+    return buffer_.size() - writePos_;
 }
 size_t Buffer::prependableBytes() const
 {
-    return read_pos_;
+    return readPos_;
 }
 const char *Buffer::peek() const
 {
-    return beginPtr() + read_pos_;
+    return beginPtr() + readPos_;
 }
 char *Buffer::peek()
 {
-    return beginPtr() + read_pos_;
+    return beginPtr() + readPos_;
 }
 void Buffer::retrieve(size_t len)
 {
     assert(len <= readableBytes());
-    read_pos_ += len;
+    readPos_ += len;
 }
 void Buffer::retrieveUntil(const char *end)
 {
@@ -39,8 +39,8 @@ void Buffer::retrieveUntil(const char *end)
 void Buffer::retrieveAll()
 {
     bzero(&buffer_[0], buffer_.size());
-    read_pos_ = 0;
-    write_pos_ = 0;
+    readPos_ = 0;
+    writePos_ = 0;
 }
 std::string Buffer::retrieveAllToStr()
 {
@@ -55,15 +55,15 @@ std::string Buffer::allToStr()
 }
 const char *Buffer::beginWriteConst() const
 {
-    return beginPtr() + write_pos_;
+    return beginPtr() + writePos_;
 }
 char *Buffer::beginWrite()
 {
-    return beginPtr() + write_pos_;
+    return beginPtr() + writePos_;
 }
 void Buffer::hasWritten(size_t len)
 {
-    write_pos_ += len;
+    writePos_ += len;
 }
 void Buffer::append(const char *str, size_t len)
 {
@@ -99,7 +99,7 @@ ssize_t Buffer::readFd(int fd, int *saveErrno)
     iovec iov[2];
     const size_t writable = writableBytes();
     // readv
-    iov[0].iov_base = beginPtr() + write_pos_;
+    iov[0].iov_base = beginPtr() + writePos_;
     iov[0].iov_len = writable;
     iov[1].iov_base = buff;
     iov[1].iov_len = sizeof(buff);
@@ -111,11 +111,11 @@ ssize_t Buffer::readFd(int fd, int *saveErrno)
     }
     else if (static_cast<size_t>(len) <= writable)
     {
-        write_pos_ += len;
+        writePos_ += len;
     }
     else
     {
-        write_pos_ = buffer_.size();
+        writePos_ = buffer_.size();
         append(buff, len - writable);
     }
     return len;
@@ -145,7 +145,7 @@ ssize_t Buffer::writeFd(int fd, int *saveErrno)
         *saveErrno = errno;
         return len;
     }
-    read_pos_ += len;
+    readPos_ += len;
     return len;
 }
 ssize_t Buffer::sendFd(int fd, int *saveErrno, int flags)
@@ -157,7 +157,7 @@ ssize_t Buffer::sendFd(int fd, int *saveErrno, int flags)
         *saveErrno = errno;
         return len;
     }
-    read_pos_ += len;
+    readPos_ += len;
     return len;
 }
 char *Buffer::beginPtr()
@@ -184,7 +184,7 @@ void Buffer::makeSpace(size_t len)
     //     write_pos_ = read_pos_ + readable;
     //     assert(readable == readableBytes());
     // }
-    buffer_.resize(write_pos_ + len + 1);
+    buffer_.resize(writePos_ + len + 1);
 }
 
 LinkedBufferNode::LinkedBufferNode(size_t size)

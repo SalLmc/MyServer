@@ -64,7 +64,7 @@ class Multiplexer
     virtual bool addFd(int fd, EVENTS events, void *ctx) = 0;
     virtual bool modFd(int fd, EVENTS events, void *ctx) = 0;
     virtual bool delFd(int fd) = 0;
-    virtual int processEvents(int flags, int timeout_ms) = 0;
+    virtual int processEvents(int flags, int timeoutMs) = 0;
 };
 
 uint32_t events2epoll(EVENTS events);

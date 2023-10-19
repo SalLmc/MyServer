@@ -69,7 +69,7 @@ Event::Event(Connection *cc) : c(cc), type(NORMAL), timeout(NOT_TIMEOUT)
 {
 }
 
-Connection::Connection() : read_(this), write_(this), idx_(-1), server_idx_(-1), data_(NULL), ups_(NULL), quit(0)
+Connection::Connection() : read_(this), write_(this), idx_(-1), server_idx_(-1), request_(NULL), upstream_(NULL), quit(0)
 {
 }
 
@@ -142,14 +142,14 @@ void ConnectionPool::recoverConnection(Connection *c)
     c->readBuffer_.init();
     c->writeBuffer_.init();
 
-    c->data_.reset();
-    c->ups_.reset();
+    c->request_.reset();
+    c->upstream_.reset();
 }
 
-ServerAttribute::ServerAttribute(int portt, std::string &&roott, std::string &&indexx, std::string &&from,
-                                 std::string &&to, bool auto_indexx, std::vector<std::string> &&tryfiles,
+ServerAttribute::ServerAttribute(int port, std::string &&root, std::string &&index, std::string &&from,
+                                 std::string &&to, bool auto_index, std::vector<std::string> &&tryfiles,
                                  std::vector<std::string> &&auth_path)
-    : port(portt), root(roott), index(indexx), from(from), to(to), auto_index(auto_indexx), try_files(tryfiles),
+    : port(port), root(root), index(index), from(from), to(to), auto_index(auto_index), try_files(tryfiles),
       auth_path(auth_path)
 {
 }
@@ -205,8 +205,8 @@ void *sharedMemory::getAddr()
     return addr_;
 }
 
-FileInfo::FileInfo(std::string &&namee, unsigned char typee, off_t size_bytee, timespec mtimee)
-    : name(namee), type(typee), size_byte(size_bytee), mtime(mtimee)
+FileInfo::FileInfo(std::string &&name, unsigned char type, off_t size_byte, timespec mtime)
+    : name(name), type(type), size_byte(size_byte), mtime(mtime)
 {
 }
 

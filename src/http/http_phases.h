@@ -10,8 +10,8 @@ class PhaseHandler
 {
   public:
     PhaseHandler() = default;
-    PhaseHandler(std::function<int(std::shared_ptr<Request>, PhaseHandler *)> checkerr,
-                 std::vector<std::function<int(std::shared_ptr<Request>)>> &&handlerss);
+    PhaseHandler(std::function<int(std::shared_ptr<Request>, PhaseHandler *)> checker,
+                 std::vector<std::function<int(std::shared_ptr<Request>)>> &&handlers);
     std::function<int(std::shared_ptr<Request>, PhaseHandler *)> checker;
     std::vector<std::function<int(std::shared_ptr<Request>)>> handlers;
 };
@@ -40,8 +40,8 @@ void setErrorResponse(std::shared_ptr<Request> r, int code);
 int doResponse(std::shared_ptr<Request> r);
 
 int initUpstream(std::shared_ptr<Request> r);
-int send2upstream(Event *upc_ev);
-int upstreamRecv(Event *upc_ev);
-int upsResponse2Client(Event *upc_ev);
+int send2Upstream(Event *upcEv);
+int recvFromUpstream(Event *upcEv);
+int send2Client(Event *upcEv);
 
 #endif

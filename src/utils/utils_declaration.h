@@ -26,23 +26,23 @@ template <class T> T readNumberFromFile(const char *file_name)
 
 // utils.cpp
 
-int setnonblocking(int fd);
+int setNonblocking(int fd);
 unsigned long long getTickMs();
 int getOption(int argc, char *argv[], std::unordered_map<std::string, std::string> *mp);
 int writePid2File();
-std::string mtime2str(timespec *mtime);
-std::string byte2properstr(off_t bytes);
+std::string mtime2Str(timespec *mtime);
+std::string byte2ProperStr(off_t bytes);
 std::pair<std::string, int> getServer(std::string addr);
 std::string getLeftUri(std::string addr);
-unsigned char ToHex(unsigned char x);
-unsigned char FromHex(unsigned char x);
+unsigned char toHex(unsigned char x);
+unsigned char fromHex(unsigned char x);
 // space to %20
-std::string UrlEncode(const std::string &str, char ignore);
+std::string urlEncode(const std::string &str, char ignore);
 // %20 to space
-std::string UrlDecode(const std::string &str);
+std::string urlDecode(const std::string &str);
 std::string fd2Path(int fd);
 bool isMatch(std::string src, std::string pattern);
-void mkdir_r(const char *path, mode_t mode);
+void recursiveMkdir(const char *path, mode_t mode);
 std::string getIpByDomain(std::string &domain);
 bool isHostname(const std::string &str);
 bool isIPAddress(const std::string &str);
@@ -56,10 +56,10 @@ struct SignalWrapper
     __sighandler_t handler;
     std::string command;
 };
-void signal_handler(int sig);
+void signalHandler(int sig);
 // return 0 for success, -1 for failure
-int init_signals();
+int initSignals();
 // return 0 for success, -1 for failure, -2 for invalid command
-int send_signal(pid_t pid, std::string command);
+int sendSignal(pid_t pid, std::string command);
 
 #endif

@@ -128,14 +128,14 @@ LogLine &LogLine::operator<<(const char *arg)
 }
 
 Logger::Logger(const char *path, const char *name)
-    : filePath_(path), fileName_(name), state(State::INIT), writeThread(&Logger::write2File, this)
+    : filePath_(path), fileName_(name), state_(State::INIT), writeThread_(&Logger::write2File, this)
 {
     std::string folder(filePath_);
     folder.append(fileName_);
 
     if (access(folder.data(), W_OK | R_OK | X_OK | F_OK) != 0)
     {
-        mkdir_r(folder.data(), 0777);
+        recursiveMkdir(folder.data(), 0777);
     }
 
     char info[100] = {0};
@@ -150,18 +150,18 @@ Logger::Logger(const char *path, const char *name)
     error_ = open(error, O_RDWR | O_CREAT | O_TRUNC, 0666);
 
     assert(info_ >= 0 && warn_ >= 0 && error_ >= 0);
-    state.store(State::ACTIVE);
+    state_.store(State::ACTIVE);
 }
 Logger::~Logger()
 {
-    state.store(State::SHUTDOWN);
+    state_.store(State::SHUTDOWN);
 
     {
         std::unique_lock<std::mutex> ulock(mutex_);
         cond_.notify_all();
     }
 
-    writeThread.join();
+    writeThread_.join();
     if (info_ != -1)
     {
         close(info_);
@@ -196,15 +196,15 @@ Logger &Logger::operator+=(LogLine &line)
 
 void Logger::write2File()
 {
-    while (state.load() == State::INIT)
+    while (state_.load() == State::INIT)
     {
         asm_pause();
     }
 
-    while (state.load() == State::ACTIVE)
+    while (state_.load() == State::ACTIVE)
     {
         std::unique_lock<std::mutex> ulock(mutex_);
-        while (ls_.empty() && state.load() == State::ACTIVE)
+        while (ls_.empty() && state_.load() == State::ACTIVE)
         {
             cond_.wait(ulock);
         }

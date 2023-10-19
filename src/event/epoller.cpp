@@ -9,8 +9,8 @@ extern Cycle *cyclePtr;
 std::list<Event *> posted_accept_events;
 std::list<Event *> posted_events;
 
-Epoller::Epoller(int max_event)
-    : epollfd_(-1), size_(max_event), events_((epoll_event *)malloc(sizeof(epoll_event) * size_))
+Epoller::Epoller(int maxEvent)
+    : epollfd_(-1), size_(maxEvent), events_((epoll_event *)malloc(sizeof(epoll_event) * size_))
 {
 }
 
@@ -67,9 +67,9 @@ bool Epoller::delFd(int fd)
     return epoll_ctl(epollfd_, EPOLL_CTL_DEL, fd, &event) == 0;
 }
 
-int Epoller::processEvents(int flags, int timeout_ms)
+int Epoller::processEvents(int flags, int timeoutMs)
 {
-    int ret = epoll_wait(epollfd_, events_, size_, timeout_ms);
+    int ret = epoll_wait(epollfd_, events_, size_, timeoutMs);
     if (ret == -1)
     {
         return -1;

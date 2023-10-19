@@ -15,16 +15,16 @@ u_char exten_save[16];
 
 int testPhaseHandler(std::shared_ptr<Request> r)
 {
-    r->headers_out.status = HTTP_OK;
-    r->headers_out.status_line = "HTTP/1.1 200 OK\r\n";
-    r->headers_out.restype = RES_STR;
+    r->outHeaders.status = HTTP_OK;
+    r->outHeaders.statusLine = "HTTP/1.1 200 OK\r\n";
+    r->outHeaders.restype = RES_STR;
 
-    r->headers_out.str_body.append("HELLO");
+    r->outHeaders.strBody.append("HELLO");
 
-    r->headers_out.headers.emplace_back("Content-Type",
+    r->outHeaders.headers.emplace_back("Content-Type",
                                         std::string(exten_content_type_map["html"] + SEMICOLON_SPLIT + UTF_8));
-    r->headers_out.headers.emplace_back("Content-Length", std::to_string(r->headers_out.str_body.length()));
-    r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
+    r->outHeaders.headers.emplace_back("Content-Length", std::to_string(r->outHeaders.strBody.length()));
+    r->outHeaders.headers.emplace_back("Connection", "Keep-Alive");
 
     return doResponse(r);
 }
@@ -37,9 +37,9 @@ std::vector<PhaseHandler> phases{{genericPhaseChecker, {logPhaseHandler}},
 
                                  {genericPhaseChecker, {endPhaseHandler}}};
 
-PhaseHandler::PhaseHandler(std::function<int(std::shared_ptr<Request>, PhaseHandler *)> checkerr,
-                           std::vector<std::function<int(std::shared_ptr<Request>)>> &&handlerss)
-    : checker(checkerr), handlers(handlerss)
+PhaseHandler::PhaseHandler(std::function<int(std::shared_ptr<Request>, PhaseHandler *)> checker,
+                           std::vector<std::function<int(std::shared_ptr<Request>)>> &&handlers)
+    : checker(checker), handlers(handlers)
 {
 }
 
@@ -55,7 +55,7 @@ int genericPhaseChecker(std::shared_ptr<Request> r, PhaseHandler *ph)
         ret = ph->handlers[i](r);
         if (ret == PHASE_NEXT)
         {
-            r->at_phase++;
+            r->atPhase++;
             return OK;
         }
         if (ret == PHASE_ERR)
@@ -137,9 +137,9 @@ int authAccessHandler(std::shared_ptr<Request> r)
 
     if (!ok)
     {
-        if (r->headers_in.header_name_value_map.count("code"))
+        if (r->inHeaders.headerNameValueMap.count("code"))
         {
-            if (r->headers_in.header_name_value_map["code"].value == auth)
+            if (r->inHeaders.headerNameValueMap["code"].value == auth)
             {
                 ok = 1;
             }
@@ -169,7 +169,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
     {
         if (uri.find(server.from) != std::string::npos)
         {
-            r->now_proxy_pass = 1;
+            r->nowProxyPass = 1;
             return PHASE_NEXT;
         }
     }
@@ -275,29 +275,29 @@ int contentAccessHandler(std::shared_ptr<Request> r)
 fileok:
     if (fd.getFd() >= 0)
     {
-        if (r->headers_in.header_name_value_map.count("if-none-match"))
+        if (r->inHeaders.headerNameValueMap.count("if-none-match"))
         {
-            std::string browser_etag = r->headers_in.header_name_value_map["if-none-match"].value;
+            std::string browser_etag = r->inHeaders.headerNameValueMap["if-none-match"].value;
             if (matchEtag(fd.getFd(), browser_etag))
             {
-                r->headers_out.status = HTTP_NOT_MODIFIED;
-                r->headers_out.status_line = "HTTP/1.1 304 Not Modified\r\n";
-                r->headers_out.restype = RES_EMPTY;
-                r->headers_out.headers.emplace_back("Etag", std::move(browser_etag));
+                r->outHeaders.status = HTTP_NOT_MODIFIED;
+                r->outHeaders.statusLine = "HTTP/1.1 304 Not Modified\r\n";
+                r->outHeaders.restype = RES_EMPTY;
+                r->outHeaders.headers.emplace_back("Etag", std::move(browser_etag));
                 return PHASE_NEXT;
             }
         }
 
-        r->headers_out.status = HTTP_OK;
-        r->headers_out.status_line = "HTTP/1.1 200 OK\r\n";
-        r->headers_out.restype = RES_FILE;
+        r->outHeaders.status = HTTP_OK;
+        r->outHeaders.statusLine = "HTTP/1.1 200 OK\r\n";
+        r->outHeaders.restype = RES_FILE;
 
         struct stat st;
         fstat(fd.getFd(), &st);
-        r->headers_out.file_body.file_size = st.st_size;
+        r->outHeaders.fileBody.fileSize = st.st_size;
 
         // close fd after sendfile in writeResponse
-        r->headers_out.file_body.filefd.reset(std::move(fd));
+        r->outHeaders.fileBody.filefd.reset(std::move(fd));
 
         return PHASE_NEXT;
     }
@@ -311,9 +311,9 @@ autoindex:
     }
     else
     {
-        r->headers_out.status = HTTP_OK;
-        r->headers_out.status_line = "HTTP/1.1 200 OK\r\n";
-        r->headers_out.restype = RES_AUTO_INDEX;
+        r->outHeaders.status = HTTP_OK;
+        r->outHeaders.statusLine = "HTTP/1.1 200 OK\r\n";
+        r->outHeaders.restype = RES_AUTO_INDEX;
         return PHASE_NEXT;
     }
 }
@@ -322,11 +322,11 @@ int proxyPassHandler(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Proxy pass handler, FD:" << r->c->fd_.getFd();
 
-    if (r->now_proxy_pass != 1)
+    if (r->nowProxyPass != 1)
     {
         return PHASE_NEXT;
     }
-    r->now_proxy_pass = 0;
+    r->nowProxyPass = 0;
 
     LOG_INFO << "Need proxy pass";
 
@@ -377,7 +377,7 @@ int initUpstream(std::shared_ptr<Request> r)
     }
 
     // replace uri
-    std::string fullUri = std::string(r->uri_start, r->uri_end);
+    std::string fullUri = std::string(r->uriStart, r->uriEnd);
     std::string newUri = getLeftUri(addr) + fullUri.replace(0, server.from.length(), "");
 
     LOG_INFO << "Upstream to " << server.to << " -> " << ip << ":" << port << newUri;
@@ -414,21 +414,21 @@ int initUpstream(std::shared_ptr<Request> r)
         return ERROR;
     }
 
-    setnonblocking(upc->fd_.getFd());
+    setNonblocking(upc->fd_.getFd());
 
     LOG_INFO << "Upstream connected";
 
     // setup upstream
     std::shared_ptr<Upstream> ups(new Upstream());
-    r->c->ups_ = ups;
-    upc->ups_ = ups;
-    ups->c4client = r->c;
-    ups->c4upstream = upc;
+    r->c->upstream_ = ups;
+    upc->upstream_ = ups;
+    ups->client = r->c;
+    ups->upstream = upc;
 
     // setup send content
     auto &wb = upc->writeBuffer_;
-    wb.append(r->method_name.toString() + " " + newUri + " HTTP/1.1\r\n");
-    auto &in = r->headers_in;
+    wb.append(r->methodName.toString() + " " + newUri + " HTTP/1.1\r\n");
+    auto &in = r->inHeaders;
 
     // headers
     bool needRewriteHost = 0;
@@ -451,7 +451,7 @@ int initUpstream(std::shared_ptr<Request> r)
     wb.append("\r\n");
 
     // body
-    for (auto &x : r->request_body.lbody)
+    for (auto &x : r->requestBody.listBody)
     {
         wb.append(x.toString());
     }
@@ -461,17 +461,17 @@ int initUpstream(std::shared_ptr<Request> r)
     {
         LOG_CRIT << "epoller addfd failed, error:" << strerror(errno);
     }
-    return send2upstream(&upc->write_);
+    return send2Upstream(&upc->write_);
 }
 
-int upstreamRecv(Event *upc_ev)
+int recvFromUpstream(Event *upc_ev)
 {
     int n;
     int ret;
     Connection *upc = upc_ev->c;
-    std::shared_ptr<Upstream> ups = upc->ups_;
-    std::shared_ptr<Request> cr = ups->c4client->data_;
-    std::shared_ptr<Request> upsr = ups->c4upstream->data_;
+    std::shared_ptr<Upstream> ups = upc->upstream_;
+    std::shared_ptr<Request> cr = ups->client->request_;
+    std::shared_ptr<Request> upsr = ups->upstream->request_;
 
     while (1)
     {
@@ -499,7 +499,7 @@ int upstreamRecv(Event *upc_ev)
         else
         {
             // processStatusLine->processHeaders->processBody
-            ret = ups->process_handler(upsr);
+            ret = ups->processHandler(upsr);
             if (ret == AGAIN)
             {
                 continue;
@@ -525,12 +525,12 @@ int upstreamRecv(Event *upc_ev)
     // printf("\n");
 
     upsr->c->writeBuffer_.append("HTTP/1.1 " + std::string(ups->ctx.status.start, ups->ctx.status.end) + "\r\n");
-    for (auto &x : upsr->headers_in.headers)
+    for (auto &x : upsr->inHeaders.headers)
     {
         upsr->c->writeBuffer_.append(x.name + ": " + x.value + "\r\n");
     }
     upsr->c->writeBuffer_.append("\r\n");
-    for (auto &x : upsr->request_body.lbody)
+    for (auto &x : upsr->requestBody.listBody)
     {
         upsr->c->writeBuffer_.append(x.toString());
     }
@@ -544,14 +544,14 @@ int upstreamRecv(Event *upc_ev)
     // }
     // printf("\n");
 
-    return upsResponse2Client(&upc->write_);
+    return send2Client(&upc->write_);
 }
 
-int send2upstream(Event *upc_ev)
+int send2Upstream(Event *upc_ev)
 {
     Connection *upc = upc_ev->c;
-    std::shared_ptr<Upstream> ups = upc->ups_;
-    std::shared_ptr<Request> cr = upc->ups_->c4client->data_;
+    std::shared_ptr<Upstream> ups = upc->upstream_;
+    std::shared_ptr<Request> cr = upc->upstream_->client->request_;
     int ret = 0;
 
     for (; upc->writeBuffer_.allRead() != 1;)
@@ -569,7 +569,7 @@ int send2upstream(Event *upc_ev)
             {
                 if (cyclePtr->multiplexer->modFd(upc->fd_.getFd(), EVENTS(IN | OUT | ET), upc))
                 {
-                    upc->write_.handler = send2upstream;
+                    upc->write_.handler = send2Upstream;
                     return AGAIN;
                 }
             }
@@ -603,42 +603,42 @@ int send2upstream(Event *upc_ev)
     }
 
     upc->write_.handler = blockWriting;
-    upc->read_.handler = upstreamRecv;
+    upc->read_.handler = recvFromUpstream;
 
-    ups->process_handler = processStatusLine;
+    ups->processHandler = processStatusLine;
     std::shared_ptr<Request> upsr(new Request());
-    upsr->c = ups->c4upstream;
-    ups->c4upstream->data_ = upsr;
+    upsr->c = ups->upstream;
+    ups->upstream->request_ = upsr;
 
     LOG_INFO << "Send client data to upstream complete";
 
-    return upstreamRecv(&upc->read_);
+    return recvFromUpstream(&upc->read_);
 }
 
 int staticContentHandler(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Static content handler, FD:" << r->c->fd_.getFd();
-    if (r->headers_out.restype == RES_FILE)
+    if (r->outHeaders.restype == RES_FILE)
     {
         LOG_INFO << "RES_FILE";
-        r->headers_out.content_length = r->headers_out.file_body.file_size;
-        std::string etag = cacheControl(r->headers_out.file_body.filefd.getFd());
+        r->outHeaders.contentLength = r->outHeaders.fileBody.fileSize;
+        std::string etag = cacheControl(r->outHeaders.fileBody.filefd.getFd());
         if (etag != "")
         {
-            r->headers_out.headers.emplace_back("Etag", std::move(etag));
+            r->outHeaders.headers.emplace_back("Etag", std::move(etag));
         }
     }
-    else if (r->headers_out.restype == RES_STR)
+    else if (r->outHeaders.restype == RES_STR)
     {
         LOG_INFO << "RES_STR";
-        r->headers_out.content_length = r->headers_out.str_body.length();
+        r->outHeaders.contentLength = r->outHeaders.strBody.length();
     }
-    else if (r->headers_out.restype == RES_EMPTY)
+    else if (r->outHeaders.restype == RES_EMPTY)
     {
         LOG_INFO << "RES_EMTPY";
-        r->headers_out.content_length = 0;
+        r->outHeaders.contentLength = 0;
     }
-    else if (r->headers_out.restype == RES_AUTO_INDEX)
+    else if (r->outHeaders.restype == RES_AUTO_INDEX)
     {
         LOG_INFO << "RES_AUTO_INDEX";
         return PHASE_CONTINUE;
@@ -647,15 +647,15 @@ int staticContentHandler(std::shared_ptr<Request> r)
     std::string exten = std::string(r->exten.data, r->exten.data + r->exten.len);
     if (exten_content_type_map.count(exten))
     {
-        r->headers_out.headers.emplace_back("Content-Type",
+        r->outHeaders.headers.emplace_back("Content-Type",
                                             std::string(exten_content_type_map[exten]) + SEMICOLON_SPLIT + UTF_8);
     }
     else
     {
-        r->headers_out.headers.emplace_back("Content-Type", "application/octet-stream");
+        r->outHeaders.headers.emplace_back("Content-Type", "application/octet-stream");
     }
-    r->headers_out.headers.emplace_back("Content-Length", std::to_string(r->headers_out.content_length));
-    r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
+    r->outHeaders.headers.emplace_back("Content-Length", std::to_string(r->outHeaders.contentLength));
+    r->outHeaders.headers.emplace_back("Connection", "Keep-Alive");
 
     return doResponse(r);
 }
@@ -663,21 +663,21 @@ int staticContentHandler(std::shared_ptr<Request> r)
 int autoIndexHandler(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Auto index handler, FD:" << r->c->fd_.getFd();
-    if (r->headers_out.restype != RES_AUTO_INDEX)
+    if (r->outHeaders.restype != RES_AUTO_INDEX)
     {
         LOG_WARN << "Pass auto index handler";
         return PHASE_NEXT;
     }
 
     // setup
-    r->headers_out.restype = RES_STR;
+    r->outHeaders.restype = RES_STR;
 
     exten_save[0] = 'h', exten_save[1] = 't', exten_save[2] = 'm', exten_save[3] = 'l', exten_save[4] = '\0';
     r->exten.data = exten_save;
     r->exten.len = 4;
 
     // auto index
-    auto &out = r->headers_out;
+    auto &out = r->outHeaders;
     auto &server = cyclePtr->servers_[r->c->server_idx_];
 
     static char title[] = "<html>" CRLF "<head><title>Index of ";
@@ -698,39 +698,39 @@ int autoIndexHandler(std::shared_ptr<Request> r)
 
     directory.getInfos(root + subpath);
 
-    out.str_body.append(title);
-    out.str_body.append(header);
-    out.str_body.append(subpath);
-    out.str_body.append("</h1>" CRLF "<hr>" CRLF);
-    out.str_body.append("<pre><a href=\"../\">../</a>" CRLF);
+    out.strBody.append(title);
+    out.strBody.append(header);
+    out.strBody.append(subpath);
+    out.strBody.append("</h1>" CRLF "<hr>" CRLF);
+    out.strBody.append("<pre><a href=\"../\">../</a>" CRLF);
 
     for (auto &x : directory.infos)
     {
-        out.str_body.append("<a href=\"");
-        out.str_body.append(UrlEncode(x.name, '/'));
-        out.str_body.append("\">");
-        out.str_body.append(x.name);
-        out.str_body.append("</a>\t\t\t\t");
-        out.str_body.append(mtime2str(&x.mtime));
-        out.str_body.append("\t");
+        out.strBody.append("<a href=\"");
+        out.strBody.append(urlEncode(x.name, '/'));
+        out.strBody.append("\">");
+        out.strBody.append(x.name);
+        out.strBody.append("</a>\t\t\t\t");
+        out.strBody.append(mtime2Str(&x.mtime));
+        out.strBody.append("\t");
         if (x.type == DT_DIR)
         {
-            out.str_body.append("-");
+            out.strBody.append("-");
         }
         else
         {
-            out.str_body.append(byte2properstr(x.size_byte));
+            out.strBody.append(byte2ProperStr(x.size_byte));
         }
-        out.str_body.append(CRLF);
+        out.strBody.append(CRLF);
     }
 
-    out.str_body.append(tail);
+    out.strBody.append(tail);
 
     // headers
-    r->headers_out.headers.emplace_back("Content-Type",
+    r->outHeaders.headers.emplace_back("Content-Type",
                                         std::string(exten_content_type_map["html"] + SEMICOLON_SPLIT + UTF_8));
-    r->headers_out.headers.emplace_back("Content-Length", std::to_string(out.str_body.length()));
-    r->headers_out.headers.emplace_back("Connection", "Keep-Alive");
+    r->outHeaders.headers.emplace_back("Content-Length", std::to_string(out.strBody.length()));
+    r->outHeaders.headers.emplace_back("Connection", "Keep-Alive");
 
     return doResponse(r);
 }
@@ -738,16 +738,16 @@ int autoIndexHandler(std::shared_ptr<Request> r)
 int appendResponseLine(std::shared_ptr<Request> r)
 {
     auto &writebuffer = r->c->writeBuffer_;
-    auto &out = r->headers_out;
+    auto &out = r->outHeaders;
 
-    writebuffer.append(out.status_line);
+    writebuffer.append(out.statusLine);
 
     return OK;
 }
 int appendResponseHeader(std::shared_ptr<Request> r)
 {
     auto &writebuffer = r->c->writeBuffer_;
-    auto &out = r->headers_out;
+    auto &out = r->outHeaders;
 
     for (auto &x : out.headers)
     {
@@ -761,7 +761,7 @@ int appendResponseHeader(std::shared_ptr<Request> r)
 int appendResponseBody(std::shared_ptr<Request> r)
 {
     // auto &writebuffer = r->c->writeBuffer_;
-    auto &out = r->headers_out;
+    auto &out = r->outHeaders;
 
     if (out.restype == RES_EMPTY)
     {
@@ -804,13 +804,13 @@ int doResponse(std::shared_ptr<Request> r)
     return writeResponse(&r->c->write_);
 }
 
-int upsResponse2Client(Event *upc_ev)
+int send2Client(Event *upc_ev)
 {
     Connection *upc = upc_ev->c;
-    std::shared_ptr<Upstream> ups = upc->ups_;
-    Connection *c = ups->c4client;
-    std::shared_ptr<Request> cr = c->data_;
-    std::shared_ptr<Request> upsr = upc->data_;
+    std::shared_ptr<Upstream> ups = upc->upstream_;
+    Connection *c = ups->client;
+    std::shared_ptr<Request> cr = c->request_;
+    std::shared_ptr<Request> upsr = upc->request_;
     int ret = 0;
 
     LOG_INFO << "Write to client, FD:" << c->fd_.getFd();
@@ -830,7 +830,7 @@ int upsResponse2Client(Event *upc_ev)
             {
                 if (cyclePtr->multiplexer->modFd(upc->fd_.getFd(), EVENTS(IN | OUT | ET), upc))
                 {
-                    upc->write_.handler = upsResponse2Client;
+                    upc->write_.handler = send2Client;
                     return AGAIN;
                 }
             }
@@ -862,7 +862,7 @@ int upsResponse2Client(Event *upc_ev)
     LOG_INFO << "PROXYPASS RESPONSED";
 
     finalizeRequest(upsr);
-    if (cr->headers_in.connection_type == CONNECTION_KEEP_ALIVE)
+    if (cr->inHeaders.connectionType == CONNECTION_KEEP_ALIVE)
     {
         keepAliveRequest(cr);
     }

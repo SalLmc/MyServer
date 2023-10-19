@@ -92,12 +92,12 @@ class Logger
     int warn_ = -1;
     int error_ = -1;
 
-    std::atomic<State> state;
+    std::atomic<State> state_;
 
     std::mutex mutex_;
     std::condition_variable cond_;
 
-    std::thread writeThread;
+    std::thread writeThread_;
 };
 
 #define LOG_INFO                                                                                                       \

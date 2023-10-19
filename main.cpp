@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    if (init_signals() == -1)
+    if (initSignals() == -1)
     {
         LOG_CRIT << "init signals failed";
         return 1;
@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
         pid_t pid = readNumberFromFile<pid_t>("pid_file");
         if (pid != -1)
         {
-            int ret = send_signal(pid, signal);
+            int ret = sendSignal(pid, signal);
             if (ret == 0)
             {
                 return 0;
