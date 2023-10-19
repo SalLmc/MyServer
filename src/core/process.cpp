@@ -151,6 +151,13 @@ void workerProcessCycle(Cycle *cycle)
         exit(1);
     }
 
+    // log fd
+    struct rlimit rlim;
+    if (getrlimit(RLIMIT_NOFILE, &rlim) == 0)
+    {
+        LOG_INFO << "max fd: " << rlim.rlim_max;
+    }
+
     // listen
     for (auto &x : cyclePtr->servers_)
     {
