@@ -148,7 +148,7 @@ std::unordered_map<int, HttpCode> http_code_map = {
 int initListen(Cycle *cycle, int port)
 {
     Connection *listen = addListen(cycle, port);
-    listen->server_idx_ = cycle->listening_.size();
+    listen->serverIdx_ = cycle->listening_.size();
 
     cycle->listening_.push_back(listen);
 
@@ -259,7 +259,7 @@ int newConnection(Event *ev)
             return 1;
         }
 
-        newc->server_idx_ = ev->c->server_idx_;
+        newc->serverIdx_ = ev->c->serverIdx_;
 
         setNonblocking(newc->fd_.getFd());
 
@@ -539,7 +539,7 @@ int processRequestHeaders(Event *ev)
 
             LOG_INFO << "Host: " << r->inHeaders.headerNameValueMap["host"].value;
 
-            LOG_INFO << "Port: " << cyclePtr->servers_[r->c->server_idx_].port;
+            LOG_INFO << "Port: " << cyclePtr->servers_[r->c->serverIdx_].port;
 
             processRequest(r);
 

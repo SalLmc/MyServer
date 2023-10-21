@@ -72,7 +72,7 @@ class Connection
     LinkedBuffer readBuffer_;
     LinkedBuffer writeBuffer_;
     int idx_;
-    int server_idx_;
+    int serverIdx_;
     std::shared_ptr<Request> request_;
     std::shared_ptr<Upstream> upstream_;
 

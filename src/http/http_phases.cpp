@@ -99,7 +99,7 @@ int logPhaseHandler(std::shared_ptr<Request> r)
 int authAccessHandler(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Auth access handler, FD:" << r->c->fd_.getFd();
-    auto &server = cyclePtr->servers_[r->c->server_idx_];
+    auto &server = cyclePtr->servers_[r->c->serverIdx_];
 
     bool need_auth = 0;
     for (std::string path : server.auth_path)
@@ -159,7 +159,7 @@ int authAccessHandler(std::shared_ptr<Request> r)
 int contentAccessHandler(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Content access handler, FD:" << r->c->fd_.getFd();
-    auto &server = cyclePtr->servers_[r->c->server_idx_];
+    auto &server = cyclePtr->servers_[r->c->serverIdx_];
     std::string uri = std::string(r->uri.data, r->uri.data + r->uri.len);
     std::string path;
     Fd fd;
@@ -348,7 +348,7 @@ int initUpstream(std::shared_ptr<Request> r)
     bool isDomain = 0;
 
     // setup upstream server
-    auto &server = cyclePtr->servers_[r->c->server_idx_];
+    auto &server = cyclePtr->servers_[r->c->serverIdx_];
     std::string addr = server.to;
 
     std::string ip;
@@ -678,7 +678,7 @@ int autoIndexHandler(std::shared_ptr<Request> r)
 
     // auto index
     auto &out = r->outHeaders;
-    auto &server = cyclePtr->servers_[r->c->server_idx_];
+    auto &server = cyclePtr->servers_[r->c->serverIdx_];
 
     static char title[] = "<html>" CRLF "<head><title>Index of ";
     static char header[] = "</title></head>" CRLF "<body>" CRLF "<h1>Index of ";

@@ -69,7 +69,7 @@ Event::Event(Connection *cc) : c(cc), type(NORMAL), timeout(NOT_TIMEOUT)
 {
 }
 
-Connection::Connection() : read_(this), write_(this), idx_(-1), server_idx_(-1), request_(NULL), upstream_(NULL), quit(0)
+Connection::Connection() : read_(this), write_(this), idx_(-1), serverIdx_(-1), request_(NULL), upstream_(NULL), quit(0)
 {
 }
 
