@@ -141,6 +141,7 @@ void workerProcessCycle(Cycle *cycle)
     char name[20];
     sprintf(name, "worker_%d", slot);
     cycle->logger_ = new Logger("log/", name);
+    cycle->logger_->threshold_ = logger_threshold;
 
     // sig
     sigset_t set;

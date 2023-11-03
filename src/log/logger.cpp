@@ -4,7 +4,6 @@
 #include "logger.h"
 
 bool enable_logger = 1;
-unsigned long logger_threshold = 1;
 
 LogLine::LogLine()
 {
@@ -128,7 +127,7 @@ LogLine &LogLine::operator<<(const char *arg)
 }
 
 Logger::Logger(const char *path, const char *name)
-    : filePath_(path), fileName_(name), state_(State::INIT), writeThread_(&Logger::write2File, this)
+    : filePath_(path), fileName_(name), threshold_(1), state_(State::INIT), writeThread_(&Logger::write2File, this)
 {
     std::string folder(filePath_);
     folder.append(fileName_);
@@ -182,14 +181,19 @@ void Logger::wakeup()
         cond_.notify_one();
     }
 }
+void Logger::tryWakeup()
+{
+    if (ls_.size() >= threshold_)
+    {
+        wakeup();
+    }
+}
 Logger &Logger::operator+=(LogLine &line)
 {
     std::unique_lock<std::mutex> ulock(mutex_);
     ls_.push_back(std::move(line));
-    if (ls_.size() >= logger_threshold)
-    {
-        wakeup();
-    }
+
+    tryWakeup();
 
     return *this;
 }

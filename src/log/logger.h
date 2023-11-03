@@ -75,9 +75,12 @@ class Logger
     void write2File();
 
     void wakeup();
+    void tryWakeup();
 
     const char *filePath_;
     const char *fileName_;
+
+    unsigned long threshold_;
 
   private:
     enum class State
@@ -86,6 +89,7 @@ class Logger
         ACTIVE,
         SHUTDOWN
     };
+
     std::list<LogLine> ls_;
 
     int info_ = -1;
