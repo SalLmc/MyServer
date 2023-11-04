@@ -4,7 +4,7 @@
 
 | Config            | Description                                         | Default                    |
 | ----------------- | --------------------------------------------------- | -------------------------- |
-| logger_threshold       | The threshold to wake up the logger                 | 1                          |
+| logger_threshold  | The threshold to wake up the logger                 | 1                          |
 | enable_logger     | True to enable logger                               | true                       |
 | daemon            | True to daemonize                                   | false                      |
 | only_worker       | True to have only one worker process, used in debug | false                      |

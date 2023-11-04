@@ -439,7 +439,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 state = RequestState::sw_uri;
                 break;
             case '%':
-                r->quoted_uri = 1;
+                r->quotedUri = 1;
                 state = RequestState::sw_uri;
                 break;
             case '/':
@@ -498,7 +498,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 r->httpMinor = 9;
                 goto done;
             case '%':
-                r->quoted_uri = 1;
+                r->quotedUri = 1;
                 state = RequestState::sw_uri;
                 break;
             case '?':
@@ -978,7 +978,7 @@ int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
             break;
 
         case sw_quoted:
-            r->quoted_uri = 1;
+            r->quotedUri = 1;
 
             if (ch >= '0' && ch <= '9')
             {
@@ -1118,14 +1118,17 @@ args:
     return OK;
 }
 
+// GET /example/path HTTP/1.1\r\n
+// Host: www.example.com\r\n
+// User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)\r\n
+// Accept-Language: en-US,en;q=0.5\r\n
+// Connection: keep-alive\r\n
+// \r\n
 int parseHeaderLine(std::shared_ptr<Request> r, int allow_underscores)
 {
     u_char c, ch, *p;
-    // unsigned long hash;
-    unsigned long i;
 
-    /* the last '\0' is not needed because string is zero terminated */
-
+    // the last '\0' is not needed because string is zero terminated
     static u_char lowcase[] = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
                               "\0\0\0\0\0\0\0\0\0\0\0\0\0-\0\0"
                               "0123456789\0\0\0\0\0\0"
@@ -1137,8 +1140,6 @@ int parseHeaderLine(std::shared_ptr<Request> r, int allow_underscores)
                               "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
 
     HeaderState &state = r->headerState;
-    // hash = r->header_hash;
-    i = r->lowcaseIndex;
     auto &buffer = r->c->readBuffer_;
 
     for (p = buffer.now->start + buffer.now->pos; p < buffer.now->start + buffer.now->len; p++)
@@ -1147,31 +1148,29 @@ int parseHeaderLine(std::shared_ptr<Request> r, int allow_underscores)
 
         switch (state)
         {
-
-        /* first char */
-        case HeaderState::sw_start:
+        case HeaderState::START:
             r->headerNameStart = p;
             r->invalidHeader = 0;
 
+            // switch between normal character and line-ender
+            // may end with \n or \r\n
             switch (ch)
             {
             case CR:
-                r->headerEnd = p;
-                state = HeaderState::sw_header_almost_done;
+                r->headerValueEnd = p;
+                state = HeaderState::HEADERS_DONE;
                 break;
             case LF:
-                r->headerEnd = p;
+                r->headerValueEnd = p;
                 goto header_done;
             default:
-                state = HeaderState::sw_name;
+                state = HeaderState::NAME;
 
                 c = lowcase[ch];
 
+                // continue if current char is valid
                 if (c)
                 {
-                    // hash = ngx_hash(0, c);
-                    r->lowcaseHeader[0] = c;
-                    i = 1;
                     break;
                 }
 
@@ -1179,43 +1178,33 @@ int parseHeaderLine(std::shared_ptr<Request> r, int allow_underscores)
                 {
                     if (allow_underscores)
                     {
-                        // hash = ngx_hash(0, ch);
-                        r->lowcaseHeader[0] = ch;
-                        i = 1;
                     }
                     else
                     {
-                        // hash = 0;
-                        i = 0;
                         r->invalidHeader = 1;
                     }
-
                     break;
                 }
 
+                // invalid char, check ascii table to learn more
+                // unlike invalid header, we need to return ERROR right away
                 if (ch <= 0x20 || ch == 0x7f || ch == ':')
                 {
-                    r->headerEnd = p;
+                    r->headerValueEnd = p;
                     return ERROR;
                 }
 
-                // hash = 0;
-                i = 0;
                 r->invalidHeader = 1;
 
                 break;
             }
             break;
 
-        /* header name */
-        case HeaderState::sw_name:
+        case HeaderState::NAME:
             c = lowcase[ch];
 
             if (c)
             {
-                // hash = ngx_hash(hash, c);
-                r->lowcaseHeader[i++] = c;
-                i &= (32 - 1);
                 break;
             }
 
@@ -1223,53 +1212,42 @@ int parseHeaderLine(std::shared_ptr<Request> r, int allow_underscores)
             {
                 if (allow_underscores)
                 {
-                    // hash = ngx_hash(hash, ch);
-                    r->lowcaseHeader[i++] = ch;
-                    i &= (32 - 1);
                 }
                 else
                 {
                     r->invalidHeader = 1;
                 }
-
                 break;
             }
 
             if (ch == ':')
             {
                 r->headerNameEnd = p;
-                state = HeaderState::sw_space_before_value;
+                state = HeaderState::SPACE0;
                 break;
             }
 
+            // we can just set invalidHeader when encountering CR or LF
             if (ch == CR)
             {
                 r->headerNameEnd = p;
-                r->headerStart = p;
-                r->headerEnd = p;
-                state = HeaderState::sw_almost_done;
+                r->headerValueStart = p;
+                r->headerValueEnd = p;
+                state = HeaderState::LINE_DONE;
                 break;
             }
 
             if (ch == LF)
             {
                 r->headerNameEnd = p;
-                r->headerStart = p;
-                r->headerEnd = p;
+                r->headerValueStart = p;
+                r->headerValueEnd = p;
                 goto done;
             }
 
-            // /* IIS may send the duplicate "HTTP/1.1 ..." lines */
-            // if (ch == '/' && r->upstream && p - r->header_name_start == 4 &&
-            //     ngx_strncmp(r->header_name_start, "HTTP", 4) == 0)
-            // {
-            //     state = sw_ignore_line;
-            //     break;
-            // }
-
             if (ch <= 0x20 || ch == 0x7f)
             {
-                r->headerEnd = p;
+                r->headerValueEnd = p;
                 return ERROR;
             }
 
@@ -1277,86 +1255,83 @@ int parseHeaderLine(std::shared_ptr<Request> r, int allow_underscores)
 
             break;
 
-        /* space* before header value */
-        case HeaderState::sw_space_before_value:
+        // space before header value
+        case HeaderState::SPACE0:
             switch (ch)
             {
             case ' ':
                 break;
             case CR:
-                r->headerStart = p;
-                r->headerEnd = p;
-                state = HeaderState::sw_almost_done;
+                r->headerValueStart = p;
+                r->headerValueEnd = p;
+                state = HeaderState::LINE_DONE;
                 break;
             case LF:
-                r->headerStart = p;
-                r->headerEnd = p;
+                r->headerValueStart = p;
+                r->headerValueEnd = p;
                 goto done;
             case '\0':
-                r->headerEnd = p;
+                r->headerValueEnd = p;
                 return ERROR;
             default:
-                r->headerStart = p;
-                state = HeaderState::sw_value;
+                r->headerValueStart = p;
+                state = HeaderState::VALUE;
                 break;
             }
             break;
 
-        /* header value */
-        case HeaderState::sw_value:
+        case HeaderState::VALUE:
             switch (ch)
             {
             case ' ':
-                r->headerEnd = p;
-                state = HeaderState::sw_space_after_value;
+                r->headerValueEnd = p;
+                state = HeaderState::SPACE1;
                 break;
             case CR:
-                r->headerEnd = p;
-                state = HeaderState::sw_almost_done;
+                r->headerValueEnd = p;
+                state = HeaderState::LINE_DONE;
                 break;
             case LF:
-                r->headerEnd = p;
+                r->headerValueEnd = p;
                 goto done;
             case '\0':
-                r->headerEnd = p;
+                r->headerValueEnd = p;
                 return ERROR;
             }
             break;
 
-        /* space* before end of header line */
-        case HeaderState::sw_space_after_value:
+        // space before end of header line
+        case HeaderState::SPACE1:
             switch (ch)
             {
             case ' ':
                 break;
             case CR:
-                state = HeaderState::sw_almost_done;
+                state = HeaderState::LINE_DONE;
                 break;
             case LF:
                 goto done;
             case '\0':
-                r->headerEnd = p;
+                r->headerValueEnd = p;
                 return ERROR;
             default:
-                state = HeaderState::sw_value;
+                state = HeaderState::VALUE;
                 break;
             }
             break;
 
-        /* ignore header line */
-        case HeaderState::sw_ignore_line:
+        case HeaderState::IGNORE:
             switch (ch)
             {
             case LF:
-                state = HeaderState::sw_start;
+                state = HeaderState::START;
                 break;
             default:
                 break;
             }
             break;
 
-        /* end of header line */
-        case HeaderState::sw_almost_done:
+        case HeaderState::LINE_DONE:
             switch (ch)
             {
             case LF:
@@ -1368,8 +1343,7 @@ int parseHeaderLine(std::shared_ptr<Request> r, int allow_underscores)
             }
             break;
 
-        /* end of header */
-        case HeaderState::sw_header_almost_done:
+        case HeaderState::HEADERS_DONE:
             switch (ch)
             {
             case LF:
@@ -1381,27 +1355,20 @@ int parseHeaderLine(std::shared_ptr<Request> r, int allow_underscores)
     }
 
     buffer.now->pos = p - buffer.now->start;
-    // r->c->readBuffer_.retrieveUntil((char *)p);
-    // r->header_hash = hash;
-    r->lowcaseIndex = i;
 
     return AGAIN;
 
 done:
 
     buffer.now->pos = p + 1 - buffer.now->start;
-    // r->c->readBuffer_.retrieveUntil((char *)(p + 1));
-    r->headerState = HeaderState::sw_start;
-    // r->header_hash = hash;
-    r->lowcaseIndex = i;
+    r->headerState = HeaderState::START;
 
     return OK;
 
 header_done:
 
     buffer.now->pos = p + 1 - buffer.now->start;
-    // r->c->readBuffer_.retrieveUntil((char *)(p + 1));
-    r->headerState = HeaderState::sw_start;
+    r->headerState = HeaderState::START;
 
     return DONE;
 }
@@ -1630,12 +1597,12 @@ int parseChunked(std::shared_ptr<Request> r)
 
 data:
 
-    if (rc==OK)
+    if (rc == OK)
     {
         ctx->dataOffset = ctx->size;
     }
 
-    if (rc==OK) // right after chunked size, we need to add the chunk size too!
+    if (rc == OK) // right after chunked size, we need to add the chunk size too!
     {
         left = pos - buffer.now->start -
                buffer.now->pos; // only add "SIZE\r\n", *pos supposed to be the first byte of data

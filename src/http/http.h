@@ -41,14 +41,14 @@ int sendStrEvent(Event *ev);
 
 enum class HeaderState
 {
-    sw_start = 0,
-    sw_name,
-    sw_space_before_value,
-    sw_value,
-    sw_space_after_value,
-    sw_ignore_line,
-    sw_almost_done,
-    sw_header_almost_done
+    START = 0,
+    NAME,
+    SPACE0,
+    VALUE,
+    SPACE1,
+    IGNORE,
+    LINE_DONE,
+    HEADERS_DONE
 };
 
 enum class RequestState
@@ -100,21 +100,6 @@ enum class Method
     PROPPATCH
 };
 
-enum class HttpState
-{
-    INITING_REQUEST_STATE,
-    READING_REQUEST_STATE,
-    PROCESS_REQUEST_STATE,
-
-    CONNECT_UPSTREAM_STATE,
-    WRITING_UPSTREAM_STATE,
-    READING_UPSTREAM_STATE,
-
-    WRITING_REQUEST_STATE,
-    LINGERING_CLOSE_STATE,
-    KEEPALIVE_STATE
-};
-
 enum class ChunkedState
 {
     sw_chunk_start = 0,
@@ -153,7 +138,7 @@ class Header
 {
   public:
     Header() = default;
-    Header(std::string &&namee, std::string &&valuee);
+    Header(std::string &&name, std::string &&value);
     std::string name;
     std::string value;
     // unsigned long offset;
@@ -162,7 +147,7 @@ class Header
 #define CONNECTION_CLOSE 0
 #define CONNECTION_KEEP_ALIVE 1
 
-class Headers_in
+class InfoRecv
 {
   public:
     std::list<Header> headers;
@@ -177,11 +162,11 @@ class Headers_in
 #define RES_EMPTY 2
 #define RES_AUTO_INDEX 3
 
-class Headers_out
+class InfoSend
 {
   public:
     std::list<Header> headers;
-    std::unordered_map<std::string, Header> header_name_value_map;
+    std::unordered_map<std::string, Header> headerNameValueMap;
     unsigned long contentLength;
     unsigned chunked : 1;
 
@@ -233,15 +218,14 @@ class Request
     RequestBody requestBody;
 
     Method method;
-    HttpState httpState;
-    HeaderState headerState = HeaderState::sw_start;
+    HeaderState headerState = HeaderState::START;
     RequestState requestState = RequestState::sw_start;
     ResponseState responseState = ResponseState::sw_start;
 
     uintptr_t httpVersion;
 
-    Headers_in inHeaders;
-    Headers_out outHeaders;
+    InfoRecv inInfo;
+    InfoSend outInfo;
 
     str_t protocol;
     str_t methodName;
@@ -258,27 +242,24 @@ class Request
 
     int atPhase;
 
-    /* URI with "/." and on Win32 with "//" */
+    // URI with "/." and on Win32 with "//"
     unsigned complexUri : 1;
-    /* URI with "%" */
-    unsigned quoted_uri : 1;
-    /* URI with "+" */
+    // URI with "%"
+    unsigned quotedUri : 1;
+    // URI with "+"
     unsigned plusInUri : 1;
-    /* URI with empty path */
+    // URI with empty path
     unsigned emptyPathInUri : 1;
     unsigned invalidHeader : 1;
     unsigned validUnparsedUri : 1;
 
     // used for parse http headers
     u_char *pos;
-    // uintptr_t header_hash;
-    uintptr_t lowcaseIndex;
-    u_char lowcaseHeader[32];
 
     u_char *headerNameStart;
     u_char *headerNameEnd;
-    u_char *headerStart;
-    u_char *headerEnd;
+    u_char *headerValueStart;
+    u_char *headerValueEnd;
 
     u_char *uriStart;
     u_char *uriEnd;

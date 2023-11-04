@@ -16,7 +16,7 @@ extern Cycle *cyclePtr;
 extern HeapMemory heap;
 extern std::vector<PhaseHandler> phases;
 
-std::unordered_map<std::string, std::string> exten_content_type_map = {
+std::unordered_map<std::string, std::string> extenContentTypeMap = {
     {"html", "text/html"},
     {"htm", "text/html"},
     {"shtml", "text/html"},
@@ -130,7 +130,7 @@ std::unordered_map<std::string, std::string> exten_content_type_map = {
     {"md", "text/markdown"},
 };
 
-std::unordered_map<int, HttpCode> http_code_map = {
+std::unordered_map<int, HttpCode> httpCodeMap = {
     {200, {200, "200 OK"}},
 #define HTTP_OK 200
     {304, {304, "304 Not Modified"}},
@@ -399,8 +399,7 @@ int processRequestLine(Event *ev)
             r->requestLine.data = r->requestStart;
             r->requestLength = r->c->readBuffer_.now->start + r->c->readBuffer_.now->pos - r->requestStart;
 
-            LOG_INFO << "request line:"
-                     << std::string(r->requestLine.data, r->requestLine.data + r->requestLine.len);
+            LOG_INFO << "request line:" << std::string(r->requestLine.data, r->requestLine.data + r->requestLine.len);
 
             r->methodName.len = r->methodEnd - r->requestStart + 1;
             r->methodName.data = r->requestLine.data;
@@ -493,51 +492,41 @@ int processRequestHeaders(Event *ev)
 
             if (r->invalidHeader)
             {
-
-                /* there was error while a header line parsing */
                 LOG_WARN << "Client sent invalid header line";
                 continue;
             }
 
-            /* a header line has been parsed successfully */
+            // a header line has been parsed successfully
 
-            r->inHeaders.headers.emplace_back(std::string(r->headerNameStart, r->headerNameEnd),
-                                               std::string(r->headerStart, r->headerEnd));
+            r->inInfo.headers.emplace_back(std::string(r->headerNameStart, r->headerNameEnd),
+                                              std::string(r->headerValueStart, r->headerValueEnd));
 
-            Header &now = r->inHeaders.headers.back();
-            r->inHeaders.headerNameValueMap[toLower(now.name)] = now;
+            Header &now = r->inInfo.headers.back();
+            r->inInfo.headerNameValueMap[toLower(now.name)] = now;
 
-            // LOG_INFO << "header:< " << now.name << ", " << now.value << " >";
-
-            // // TODO
-            // hh = ngx_hash_find(&cmcf->headers_in_hash, h->hash, h->lowcase_key, h->key.len);
-
-            // if (hh && hh->handler(r, h, hh->offset) != NGX_OK)
-            // {
-            //     break;
-            // }
-
+#ifdef LOG_HEADER
+            LOG_INFO << now.name << ": " << now.value;
+#endif
             continue;
         }
 
         if (rc == DONE)
         {
 
-            /* a whole header has been parsed successfully */
+            // all headers have been parsed successfully
 
             LOG_INFO << "http header done";
 
             r->requestLength += r->c->readBuffer_.now->start + r->c->readBuffer_.now->pos - r->headerNameStart;
 
-            r->httpState = HttpState::PROCESS_REQUEST_STATE;
-
             rc = processRequestHeader(r, 1);
+
             if (rc != OK)
             {
                 break;
             }
 
-            LOG_INFO << "Host: " << r->inHeaders.headerNameValueMap["host"].value;
+            LOG_INFO << "Host: " << r->inInfo.headerNameValueMap["host"].value;
 
             LOG_INFO << "Port: " << cyclePtr->servers_[r->c->serverIdx_].port;
 
@@ -617,7 +606,7 @@ int processRequestUri(std::shared_ptr<Request> r)
         r->uri.len = r->uriEnd - r->uriStart;
     }
 
-    if (r->complexUri || r->quoted_uri || r->emptyPathInUri)
+    if (r->complexUri || r->quotedUri || r->emptyPathInUri)
     {
 
         if (r->emptyPathInUri)
@@ -675,7 +664,7 @@ int processRequestUri(std::shared_ptr<Request> r)
 
 int processRequestHeader(std::shared_ptr<Request> r, int need_host)
 {
-    auto &mp = r->inHeaders.headerNameValueMap;
+    auto &mp = r->inInfo.headerNameValueMap;
 
     if (mp.count("host"))
     {
@@ -689,35 +678,35 @@ int processRequestHeader(std::shared_ptr<Request> r, int need_host)
 
     if (mp.count("content-length"))
     {
-        r->inHeaders.contentLength = atoi(mp["content-length"].value.c_str());
+        r->inInfo.contentLength = atoi(mp["content-length"].value.c_str());
     }
     else
     {
-        r->inHeaders.contentLength = 0;
+        r->inInfo.contentLength = 0;
     }
 
     if (mp.count("transfer-encoding"))
     {
-        r->inHeaders.chunked = (0 == strcmp("chunked", mp["transfer-encoding"].value.c_str()));
+        r->inInfo.chunked = (0 == strcmp("chunked", mp["transfer-encoding"].value.c_str()));
     }
     else
     {
-        r->inHeaders.chunked = 0;
+        r->inInfo.chunked = 0;
     }
 
     if (mp.count("connection"))
     {
         auto &type = mp["connection"].value;
         bool alive = (!strcmp("keep-alive", type.c_str())) || (!strcmp("Keep-Alive", type.c_str()));
-        r->inHeaders.connectionType = alive ? CONNECTION_KEEP_ALIVE : CONNECTION_CLOSE;
+        r->inInfo.connectionType = alive ? CONNECTION_KEEP_ALIVE : CONNECTION_CLOSE;
     }
     else if (r->httpVersion > 1000)
     {
-        r->inHeaders.connectionType = CONNECTION_KEEP_ALIVE;
+        r->inInfo.connectionType = CONNECTION_KEEP_ALIVE;
     }
     else
     {
-        r->inHeaders.connectionType = CONNECTION_CLOSE;
+        r->inInfo.connectionType = CONNECTION_CLOSE;
     }
 
     return OK;
@@ -761,10 +750,10 @@ int processHeaders(std::shared_ptr<Request> upsr)
         ret = parseHeaderLine(upsr, 1);
         if (ret == OK)
         {
-            upsr->inHeaders.headers.emplace_back(std::string(upsr->headerNameStart, upsr->headerNameEnd),
-                                                  std::string(upsr->headerStart, upsr->headerEnd));
-            Header &now = upsr->inHeaders.headers.back();
-            upsr->inHeaders.headerNameValueMap[toLower(now.name)] = now;
+            upsr->inInfo.headers.emplace_back(std::string(upsr->headerNameStart, upsr->headerNameEnd),
+                                                 std::string(upsr->headerValueStart, upsr->headerValueEnd));
+            Header &now = upsr->inInfo.headers.back();
+            upsr->inInfo.headerNameValueMap[toLower(now.name)] = now;
             continue;
         }
 
@@ -790,7 +779,7 @@ int processBody(std::shared_ptr<Request> upsr)
     int ret = 0;
 
     // no content-length && not chunked
-    if (upsr->inHeaders.contentLength == 0 && !upsr->inHeaders.chunked)
+    if (upsr->inInfo.contentLength == 0 && !upsr->inInfo.chunked)
     {
         LOG_INFO << "Upstream process body done";
         return OK;
@@ -879,11 +868,11 @@ int writeResponse(Event *ev)
     r->c->write_.handler = blockWriting;
     cyclePtr->multiplexer->modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
 
-    if (r->outHeaders.restype == RES_FILE)
+    if (r->outInfo.restype == RES_FILE)
     {
         sendfileEvent(&r->c->write_);
     }
-    else if (r->outHeaders.restype == RES_STR)
+    else if (r->outInfo.restype == RES_STR)
     {
         sendStrEvent(&r->c->write_);
     }
@@ -891,7 +880,7 @@ int writeResponse(Event *ev)
     {
         LOG_INFO << "RESPONSED";
 
-        if (r->inHeaders.connectionType == CONNECTION_KEEP_ALIVE)
+        if (r->inInfo.connectionType == CONNECTION_KEEP_ALIVE)
         {
             keepAliveRequest(r);
         }
@@ -919,7 +908,7 @@ int blockWriting(Event *ev)
 // @return OK AGAIN ERROR
 int processRequestBody(std::shared_ptr<Request> r)
 {
-    if (r->inHeaders.chunked)
+    if (r->inInfo.chunked)
     {
         return requestBodyChunked(r);
     }
@@ -937,7 +926,7 @@ int requestBodyLength(std::shared_ptr<Request> r)
 
     if (rb.rest == -1)
     {
-        rb.rest = r->inHeaders.contentLength;
+        rb.rest = r->inInfo.contentLength;
     }
 
     while (buffer.allRead() != 1)
@@ -1038,7 +1027,7 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
     auto &buffer = r->c->readBuffer_;
 
     // no content-length && not chunked
-    if (r->inHeaders.contentLength == 0 && !r->inHeaders.chunked)
+    if (r->inInfo.contentLength == 0 && !r->inInfo.chunked)
     {
         r->c->read_.handler = blockReading;
         if (post_handler)
@@ -1139,7 +1128,7 @@ int readRequestBodyInner(Event *ev)
 int sendfileEvent(Event *ev)
 {
     std::shared_ptr<Request> r = ev->c->request_;
-    auto &filebody = r->outHeaders.fileBody;
+    auto &filebody = r->outInfo.fileBody;
 
     ssize_t len =
         sendfile(r->c->fd_.getFd(), filebody.filefd.getFd(), &filebody.offset, filebody.fileSize - filebody.offset);
@@ -1170,7 +1159,7 @@ int sendfileEvent(Event *ev)
 
     LOG_INFO << "SENDFILE RESPONSED";
 
-    if (r->inHeaders.connectionType == CONNECTION_KEEP_ALIVE)
+    if (r->inInfo.connectionType == CONNECTION_KEEP_ALIVE)
     {
         keepAliveRequest(r);
     }
@@ -1185,7 +1174,7 @@ int sendfileEvent(Event *ev)
 int sendStrEvent(Event *ev)
 {
     std::shared_ptr<Request> r = ev->c->request_;
-    auto &strbody = r->outHeaders.strBody;
+    auto &strbody = r->outInfo.strBody;
 
     static int offset = 0;
     int bodysize = strbody.size();
@@ -1219,7 +1208,7 @@ int sendStrEvent(Event *ev)
 
     LOG_INFO << "SENDSTR RESPONSED";
 
-    if (r->inHeaders.connectionType == CONNECTION_KEEP_ALIVE)
+    if (r->inInfo.connectionType == CONNECTION_KEEP_ALIVE)
     {
         keepAliveRequest(r);
     }
@@ -1311,24 +1300,24 @@ bool matchEtag(int fd, std::string b_etag)
 
 void setErrorResponse(std::shared_ptr<Request> r, int code)
 {
-    if (!http_code_map.count(code))
+    if (!httpCodeMap.count(code))
     {
         LOG_WARN << "Invalid code";
         return setErrorResponse(r, HTTP_INTERNAL_SERVER_ERROR);
     }
 
-    HttpCode &hc = http_code_map[code];
-    r->outHeaders.status = code;
-    r->outHeaders.statusLine = "HTTP/1.1 " + hc.str + "\r\n";
-    r->outHeaders.restype = RES_STR;
-    auto &str = r->outHeaders.strBody;
+    HttpCode &hc = httpCodeMap[code];
+    r->outInfo.status = code;
+    r->outInfo.statusLine = "HTTP/1.1 " + hc.str + "\r\n";
+    r->outInfo.restype = RES_STR;
+    auto &str = r->outInfo.strBody;
     str.append("<html>\n<head>\n\t<title>").append(hc.str).append("</title>\n</head>\n");
     str.append("<body>\n\t<center>\n\t\t<h1>")
         .append(hc.str)
         .append("</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
 
-    r->outHeaders.headers.emplace_back("Content-Type",
-                                        std::string(exten_content_type_map["html"] + SEMICOLON_SPLIT + UTF_8));
-    r->outHeaders.headers.emplace_back("Content-Length", std::to_string(str.length()));
-    r->outHeaders.headers.emplace_back("Connection", "Keep-Alive");
+    r->outInfo.headers.emplace_back("Content-Type",
+                                       std::string(extenContentTypeMap["html"] + SEMICOLON_SPLIT + UTF_8));
+    r->outInfo.headers.emplace_back("Content-Length", std::to_string(str.length()));
+    r->outInfo.headers.emplace_back("Connection", "Keep-Alive");
 }

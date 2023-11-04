@@ -6,10 +6,8 @@
 
 extern HeapMemory heap;
 
-Header::Header(std::string &&namee, std::string &&valuee)
+Header::Header(std::string &&name, std::string &&value) : name(name), value(value)
 {
-    name = namee;
-    value = valuee;
 }
 
 ChunkedInfo::ChunkedInfo()
@@ -41,27 +39,27 @@ void Request::init()
     requestBody.chunkedInfo.length = 0;
     requestBody.chunkedInfo.dataOffset = 0;
 
-    headerState = HeaderState::sw_start;
+    headerState = HeaderState::START;
     requestState = RequestState::sw_start;
     responseState = ResponseState::sw_start;
 
-    inHeaders.chunked = 0;
-    inHeaders.connectionType = CONNECTION_CLOSE;
-    inHeaders.contentLength = 0;
-    inHeaders.headerNameValueMap.clear();
-    inHeaders.headers.clear();
+    inInfo.chunked = 0;
+    inInfo.connectionType = CONNECTION_CLOSE;
+    inInfo.contentLength = 0;
+    inInfo.headerNameValueMap.clear();
+    inInfo.headers.clear();
 
-    outHeaders.headers.clear();
-    outHeaders.header_name_value_map.clear();
-    outHeaders.contentLength = 0;
-    outHeaders.chunked = 0;
-    outHeaders.status = 0;
-    outHeaders.statusLine.clear();
-    outHeaders.strBody.clear();
-    outHeaders.fileBody.filefd.closeFd();
-    outHeaders.fileBody.fileSize = 0;
-    outHeaders.fileBody.offset = 0;
-    outHeaders.restype = RES_EMPTY;
+    outInfo.headers.clear();
+    outInfo.headerNameValueMap.clear();
+    outInfo.contentLength = 0;
+    outInfo.chunked = 0;
+    outInfo.status = 0;
+    outInfo.statusLine.clear();
+    outInfo.strBody.clear();
+    outInfo.fileBody.filefd.closeFd();
+    outInfo.fileBody.fileSize = 0;
+    outInfo.fileBody.offset = 0;
+    outInfo.restype = RES_EMPTY;
 
     protocol.data = NULL;
     methodName.data = NULL;
@@ -69,7 +67,7 @@ void Request::init()
     host.data = NULL;
     requestLine.data = NULL;
     args.data = NULL;
-    if (complexUri || quoted_uri || emptyPathInUri)
+    if (complexUri || quotedUri || emptyPathInUri)
     {
         heap.hFree(uri.data);
     }
@@ -91,7 +89,7 @@ void Request::init()
     atPhase = 0;
 
     complexUri = 0;
-    quoted_uri = 0;
+    quotedUri = 0;
     plusInUri = 0;
     emptyPathInUri = 0;
     invalidHeader = 0;
@@ -99,12 +97,10 @@ void Request::init()
 
     pos = NULL;
 
-    lowcaseIndex = 0;
-
     headerNameStart = NULL;
     headerNameEnd = NULL;
-    headerStart = NULL;
-    headerEnd = NULL;
+    headerValueStart = NULL;
+    headerValueEnd = NULL;
 
     uriStart = NULL;
     uriEnd = NULL;
