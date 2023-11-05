@@ -1124,7 +1124,7 @@ args:
 // Accept-Language: en-US,en;q=0.5\r\n
 // Connection: keep-alive\r\n
 // \r\n
-int parseHeaderLine(std::shared_ptr<Request> r, int allow_underscores)
+int parseHeaderLine(std::shared_ptr<Request> r, bool allowUnderscores)
 {
     u_char c, ch, *p;
 
@@ -1176,7 +1176,7 @@ int parseHeaderLine(std::shared_ptr<Request> r, int allow_underscores)
 
                 if (ch == '_')
                 {
-                    if (allow_underscores)
+                    if (allowUnderscores)
                     {
                     }
                     else
@@ -1210,7 +1210,7 @@ int parseHeaderLine(std::shared_ptr<Request> r, int allow_underscores)
 
             if (ch == '_')
             {
-                if (allow_underscores)
+                if (allowUnderscores)
                 {
                 }
                 else

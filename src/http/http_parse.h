@@ -32,7 +32,7 @@ class Status;
 int parseRequestLine(std::shared_ptr<Request> r);
 int processRequestUri(std::shared_ptr<Request> r);
 int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes);
-int parseHeaderLine(std::shared_ptr<Request> r, int allowUnderscores);
+int parseHeaderLine(std::shared_ptr<Request> r, bool allowUnderscores);
 int parseChunked(std::shared_ptr<Request> r);
 int parseStatusLine(std::shared_ptr<Request> r, Status *status);
 #endif

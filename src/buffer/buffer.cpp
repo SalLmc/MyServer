@@ -172,18 +172,6 @@ const char *Buffer::beginPtr() const
 }
 void Buffer::makeSpace(size_t len)
 {
-    // if (writableBytes() + prependableBytes() < len) // space is not enough
-    // {
-    //     buffer_.resize(write_pos_ + len + 1, 0);
-    // }
-    // else // move readable to prependable
-    // {
-    //     size_t readable = readableBytes();
-    //     std::copy(beginPtr() + read_pos_, beginPtr() + write_pos_, beginPtr());
-    //     read_pos_ = 0;
-    //     write_pos_ = read_pos_ + readable;
-    //     assert(readable == readableBytes());
-    // }
     buffer_.resize(writePos_ + len + 1);
 }
 
@@ -223,7 +211,6 @@ LinkedBuffer::LinkedBuffer()
 {
     nodes.emplace_back();
     now = &nodes.front();
-    // allread = 0;
 }
 
 void LinkedBuffer::init()
@@ -231,7 +218,6 @@ void LinkedBuffer::init()
     nodes.clear();
     nodes.emplace_back();
     now = &nodes.front();
-    // allread = 0;
 }
 
 bool LinkedBuffer::allRead()
@@ -240,7 +226,7 @@ bool LinkedBuffer::allRead()
     return back.pos == back.len;
 }
 
-// only send once
+// only recv once
 ssize_t LinkedBuffer::recvFd(int fd, int *saveErrno, int flags)
 {
     auto &nowr = nodes.back();
@@ -252,7 +238,6 @@ ssize_t LinkedBuffer::recvFd(int fd, int *saveErrno, int flags)
     }
     else if (n > 0)
     {
-        // allread = 0;
         nowr.len += n;
         if (nowr.len == NODE_SIZE)
         {
@@ -314,7 +299,6 @@ ssize_t LinkedBuffer::sendFd(int fd, int *saveErrno, int flags)
         {
             if (now->next == NULL)
             {
-                // allread = 1;
             }
             else
             {
@@ -327,10 +311,6 @@ ssize_t LinkedBuffer::sendFd(int fd, int *saveErrno, int flags)
 
 void LinkedBuffer::append(u_char *data, size_t len)
 {
-    // if (len > 0)
-    // {
-    //     allread = 0;
-    // }
     size_t copied = 0;
     auto now = &nodes.back();
 
@@ -347,7 +327,6 @@ void LinkedBuffer::append(u_char *data, size_t len)
                 auto newNode = &nodes.back();
                 now->next = newNode;
                 newNode->prev = now;
-
                 now = now->next;
             }
         }
@@ -379,7 +358,6 @@ void LinkedBuffer::append(const char *data, size_t len)
                 auto newNode = &nodes.back();
                 now->next = newNode;
                 newNode->prev = now;
-
                 now = now->next;
             }
         }
@@ -414,7 +392,6 @@ void LinkedBuffer::retrieve(size_t len)
             len -= now->len - now->pos;
             if (now->next == NULL)
             {
-                // allread = 1;
             }
             else
             {

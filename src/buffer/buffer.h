@@ -49,8 +49,8 @@ class Buffer
     std::atomic<std::size_t> writePos_;
 };
 
-// 5K
-#define NODE_SIZE 5120
+// 4K
+#define NODE_SIZE 4096
 
 class LinkedBufferNode
 {
