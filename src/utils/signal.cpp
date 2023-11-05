@@ -3,9 +3,9 @@
 #include "../global.h"
 #include "utils_declaration.h"
 
-SignalWrapper signals[] = {{SIGINT, signal_handler, "stop"}, {SIGPIPE, SIG_IGN, ""}, {0, NULL, ""}};
+SignalWrapper signals[] = {{SIGINT, signalHandler, "stop"}, {SIGPIPE, SIG_IGN, ""}, {0, NULL, ""}};
 
-void signal_handler(int sig)
+void signalHandler(int sig)
 {
     switch (sig)
     {
@@ -17,7 +17,7 @@ void signal_handler(int sig)
     }
 }
 
-int init_signals()
+int initSignals()
 {
     for (int i = 0; signals[i].sig != 0; i++)
     {
@@ -34,7 +34,7 @@ int init_signals()
     return 0;
 }
 
-int send_signal(pid_t pid, std::string command)
+int sendSignal(pid_t pid, std::string command)
 {
     int sent = 0;
     for (int i = 0; signals[i].sig != 0; i++)

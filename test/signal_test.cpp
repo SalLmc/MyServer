@@ -10,7 +10,7 @@ std::unordered_map<std::string, std::string> mp;
 
 int main(int argc, char *argv[])
 {
-    assert(init_signals() == 0);
+    assert(initSignals() == 0);
 
     sigset_t set;
     sigemptyset(&set);
@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
         pid_t pid = readNumberFromFile<pid_t>("pid_file");
         if (pid != -1)
         {
-            assert(send_signal(pid, signal) == 0);
+            assert(sendSignal(pid, signal) == 0);
             return 0;
         }
     }

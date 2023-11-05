@@ -3,7 +3,7 @@
 #include "../core/core.h"
 #include "utils_declaration.h"
 
-int setnonblocking(int fd)
+int setNonblocking(int fd)
 {
     int oldOption = fcntl(fd, F_GETFL);
     int newOption = oldOption | O_NONBLOCK;
@@ -70,7 +70,7 @@ int writePid2File()
     return OK;
 }
 
-std::string mtime2str(timespec *mtime)
+std::string mtime2Str(timespec *mtime)
 {
     char buf[21];
     buf[20] = '\0';
@@ -80,7 +80,7 @@ std::string mtime2str(timespec *mtime)
     return std::string(buf);
 }
 
-std::string byte2properstr(off_t bytes)
+std::string byte2ProperStr(off_t bytes)
 {
     int K = 1024;
     int M = 1024 * K;
@@ -104,6 +104,9 @@ std::string byte2properstr(off_t bytes)
     }
 }
 
+/// @brief get ip/hostname and port from a URI
+/// @param addr 
+/// @return < [ipLeft, ipRight], [portLeft, portRight] >. if addr doesn't have port, then portLeft == ipLeft && portRight == ipRight
 static std::pair<std::pair<int, int>, std::pair<int, int>> getServerInner(std::string addr)
 {
     // [l, r]
@@ -259,7 +262,6 @@ static std::pair<std::pair<int, int>, std::pair<int, int>> getServerInner(std::s
     }
 }
 
-// @param addr is like http://xxx.xxx.xxx.xx/ or https://xxx.xxx.xxx.xx:8080/
 std::pair<std::string, int> getServer(std::string addr)
 {
     auto ans = getServerInner(addr);
@@ -298,12 +300,12 @@ std::string getLeftUri(std::string addr)
     }
 }
 
-unsigned char ToHex(unsigned char x)
+unsigned char toHex(unsigned char x)
 {
     return x > 9 ? x + 55 : x + 48;
 }
 
-unsigned char FromHex(unsigned char x)
+unsigned char fromHex(unsigned char x)
 {
     unsigned char y;
     if (x >= 'A' && x <= 'Z')
@@ -325,7 +327,7 @@ unsigned char FromHex(unsigned char x)
     return y;
 }
 
-std::string UrlEncode(const std::string &str, char ignore)
+std::string urlEncode(const std::string &str, char ignore)
 {
     std::string strTemp = "";
     size_t length = str.length();
@@ -337,14 +339,14 @@ std::string UrlEncode(const std::string &str, char ignore)
         else
         {
             strTemp += '%';
-            strTemp += ToHex((unsigned char)str[i] >> 4);
-            strTemp += ToHex((unsigned char)str[i] % 16);
+            strTemp += toHex((unsigned char)str[i] >> 4);
+            strTemp += toHex((unsigned char)str[i] % 16);
         }
     }
     return strTemp;
 }
 
-std::string UrlDecode(const std::string &str)
+std::string urlDecode(const std::string &str)
 {
     std::string strTemp = "";
     size_t length = str.length();
@@ -354,8 +356,8 @@ std::string UrlDecode(const std::string &str)
         {
             if (i + 2 < length)
             {
-                unsigned char high = FromHex((unsigned char)str[++i]);
-                unsigned char low = FromHex((unsigned char)str[++i]);
+                unsigned char high = fromHex((unsigned char)str[++i]);
+                unsigned char low = fromHex((unsigned char)str[++i]);
                 strTemp += high * 16 + low;
             }
         }
@@ -424,7 +426,7 @@ bool isMatch(std::string src, std::string pattern)
     return dp[n][m];
 }
 
-void mkdir_r(const char *path, mode_t mode)
+void recursiveMkdir(const char *path, mode_t mode)
 {
     char tmp[256];
     char *p = NULL;
@@ -462,4 +464,14 @@ bool isIPAddress(const std::string &str)
 {
     struct sockaddr_in sa;
     return inet_pton(AF_INET, str.c_str(), &(sa.sin_addr)) != 0;
+}
+
+std::string toLower(std::string &src)
+{
+    std::string ans;
+    for (auto &c : src)
+    {
+        ans += tolower(c);
+    }
+    return ans;
 }

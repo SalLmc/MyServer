@@ -6,7 +6,7 @@
 class Buffer
 {
   public:
-    Buffer(int buff_size = 5120);
+    Buffer(int buffSize = 5120);
     ~Buffer() = default;
 
     size_t writableBytes() const;
@@ -45,8 +45,8 @@ class Buffer
     void makeSpace(size_t len);
 
     std::vector<char> buffer_;
-    std::atomic<std::size_t> read_pos_;
-    std::atomic<std::size_t> write_pos_;
+    std::atomic<std::size_t> readPos_;
+    std::atomic<std::size_t> writePos_;
 };
 
 // 5K

@@ -10,7 +10,7 @@
 class Epoller : public Multiplexer
 {
   public:
-    Epoller(int max_event = 1024);
+    Epoller(int maxEvent = 1024);
     ~Epoller();
 
     int setEpollFd(int fd);
@@ -18,7 +18,7 @@ class Epoller : public Multiplexer
     bool addFd(int fd, EVENTS events, void *ctx);
     bool modFd(int fd, EVENTS events, void *ctx);
     bool delFd(int fd);
-    int processEvents(int flags = 0, int timeout_ms = -1);
+    int processEvents(int flags = 0, int timeoutMs = -1);
 
   private:
     int epollfd_ = -1;

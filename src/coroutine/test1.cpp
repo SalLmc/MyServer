@@ -41,7 +41,7 @@ void *consume(void *)
     printf("consumer ends, quit:%d\n", quit);
 }
 
-void signal_handler(int sig)
+void signalHandler(int sig)
 {
     switch (sig)
     {
@@ -51,11 +51,11 @@ void signal_handler(int sig)
     }
 }
 
-int init_signals()
+int initSignals()
 {
     struct sigaction sa;
     memset(&sa, '\0', sizeof(sa));
-    sa.sa_handler = signal_handler;
+    sa.sa_handler = signalHandler;
     sa.sa_flags |= SA_RESTART;
     sigemptyset(&sa.sa_mask);
     if (sigaction(SIGINT, &sa, NULL) == -1)
@@ -67,7 +67,7 @@ int init_signals()
 
 int main()
 {
-    assert(init_signals() == 0);
+    assert(initSignals() == 0);
 
     cond = alloc_cond();
 

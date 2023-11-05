@@ -2,6 +2,7 @@
 
 // config
 
+unsigned long logger_threshold = 1;
 bool is_daemon = 0;
 bool only_worker = 0;
 bool use_epoll = 1;

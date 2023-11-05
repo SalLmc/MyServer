@@ -141,6 +141,7 @@ void workerProcessCycle(Cycle *cycle)
     char name[20];
     sprintf(name, "worker_%d", slot);
     cycle->logger_ = new Logger("log/", name);
+    cycle->logger_->threshold_ = logger_threshold;
 
     // sig
     sigset_t set;
@@ -149,6 +150,13 @@ void workerProcessCycle(Cycle *cycle)
     {
         LOG_CRIT << "sigprocmask failed";
         exit(1);
+    }
+
+    // log fd
+    struct rlimit rlim;
+    if (getrlimit(RLIMIT_NOFILE, &rlim) == 0)
+    {
+        LOG_INFO << "max fd: " << rlim.rlim_max;
     }
 
     // listen

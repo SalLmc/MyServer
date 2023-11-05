@@ -72,9 +72,9 @@ class Connection
     LinkedBuffer readBuffer_;
     LinkedBuffer writeBuffer_;
     int idx_;
-    int server_idx_;
-    std::shared_ptr<Request> data_;
-    std::shared_ptr<Upstream> ups_;
+    int serverIdx_;
+    std::shared_ptr<Request> request_;
+    std::shared_ptr<Upstream> upstream_;
 
     int quit;
 };
@@ -95,8 +95,8 @@ class ConnectionPool
 class ServerAttribute
 {
   public:
-    ServerAttribute(int portt, std::string &&roott, std::string &&indexx, std::string &&from, std::string &&to,
-                    bool auto_indexx, std::vector<std::string> &&tryfiles, std::vector<std::string> &&auth_path);
+    ServerAttribute(int port, std::string &&root, std::string &&index, std::string &&from, std::string &&to,
+                    bool auto_index, std::vector<std::string> &&tryfiles, std::vector<std::string> &&auth_path);
     ServerAttribute() = default;
 
     int port;
@@ -164,7 +164,7 @@ class str_t
 class FileInfo
 {
   public:
-    FileInfo(std::string &&namee, unsigned char typee, off_t size_bytee, timespec mtimee);
+    FileInfo(std::string &&name, unsigned char type, off_t size_byte, timespec mtime);
     bool operator<(FileInfo &other);
     std::string name;
     unsigned char type;
