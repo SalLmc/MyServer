@@ -59,12 +59,19 @@ class LinkedBufferNode
     ~LinkedBufferNode();
 
     void init(size_t size = NODE_SIZE);
+    size_t getSize();
+    size_t readableBytes();
+    size_t writableBytes();
     std::string toString();
+    // @return max(0, len-leftSpace)
+    size_t append(const u_char *data, size_t len);
+    size_t append(const char *data, size_t len);
 
     u_char *start;
     u_char *end;
 
-    size_t pos; // read begins at pos
+    // read begins at pos
+    size_t pos;
     size_t len;
 
     LinkedBufferNode *prev;
@@ -84,7 +91,7 @@ class LinkedBuffer
     ssize_t recvFd(int fd, int *saveErrno, int flags);
     ssize_t cRecvFd(int fd, int *saveErrno, int flags);
     ssize_t sendFd(int fd, int *saveErrno, int flags);
-    void append(u_char *data, size_t len);
+    void append(const u_char *data, size_t len);
     void append(const char *data, size_t len);
     void append(const std::string &str);
     void retrieve(size_t len);
