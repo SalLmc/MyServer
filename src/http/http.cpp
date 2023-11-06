@@ -381,7 +381,7 @@ int processRequestLine(Event *ev)
     {
         if (ret == AGAIN)
         {
-            int rett = readRequestHeader(r);
+            int rett = readRequest(r);
             if (rett == ERROR)
             {
                 LOG_WARN << "readRequestHeader ERROR";
@@ -409,7 +409,7 @@ int processRequestLine(Event *ev)
                 r->protocol.len = r->requestEnd - r->protocol.data;
             }
 
-            if (processRequestUri(r) != OK)
+            if (handleRequestUri(r) != OK)
             {
                 break;
             }
@@ -475,7 +475,7 @@ int processRequestHeaders(Event *ev)
                 }
             }
 
-            int ret = readRequestHeader(r);
+            int ret = readRequest(r);
             if (ret == ERROR)
             {
                 LOG_WARN << "Read request header failed";
@@ -519,7 +519,7 @@ int processRequestHeaders(Event *ev)
 
             r->requestLength += r->c->readBuffer_.now->start + r->c->readBuffer_.now->pos - r->headerNameStart;
 
-            rc = processRequestHeader(r, 1);
+            rc = handleRequestHeader(r, 1);
 
             if (rc != OK)
             {
@@ -554,7 +554,7 @@ int processRequestHeaders(Event *ev)
     return OK;
 }
 
-int readRequestHeader(std::shared_ptr<Request> r)
+int readRequest(std::shared_ptr<Request> r)
 {
     // LOG_INFO << "read request header";
     Connection *c = r->c;
@@ -595,7 +595,7 @@ int readRequestHeader(std::shared_ptr<Request> r)
     return n;
 }
 
-int processRequestUri(std::shared_ptr<Request> r)
+int handleRequestUri(std::shared_ptr<Request> r)
 {
     if (r->argsStart)
     {
@@ -662,14 +662,14 @@ int processRequestUri(std::shared_ptr<Request> r)
     return OK;
 }
 
-int processRequestHeader(std::shared_ptr<Request> r, int need_host)
+int handleRequestHeader(std::shared_ptr<Request> r, int needHost)
 {
     auto &mp = r->inInfo.headerNameValueMap;
 
     if (mp.count("host"))
     {
     }
-    else if (need_host)
+    else if (needHost)
     {
         LOG_WARN << "Client headers error";
         finalizeRequest(r);
@@ -726,7 +726,7 @@ int processRequest(std::shared_ptr<Request> r)
     return OK;
 }
 
-int processStatusLine(std::shared_ptr<Request> upsr)
+int processUpsStatusLine(std::shared_ptr<Request> upsr)
 {
     std::shared_ptr<Upstream> ups = upsr->c->upstream_;
 
@@ -736,11 +736,11 @@ int processStatusLine(std::shared_ptr<Request> upsr)
         return ret;
     }
 
-    ups->processHandler = processHeaders;
-    return processHeaders(upsr);
+    ups->processHandler = processUpsHeaders;
+    return processUpsHeaders(upsr);
 }
 
-int processHeaders(std::shared_ptr<Request> upsr)
+int processUpsHeaders(std::shared_ptr<Request> upsr)
 {
     std::shared_ptr<Upstream> ups = upsr->c->upstream_;
     int ret;
@@ -766,15 +766,15 @@ int processHeaders(std::shared_ptr<Request> upsr)
         if (ret == DONE)
         {
             LOG_INFO << "Upstream header done";
-            processRequestHeader(upsr, 0);
+            handleRequestHeader(upsr, 0);
 
-            ups->processHandler = processBody;
-            return processBody(upsr);
+            ups->processHandler = processUpsBody;
+            return processUpsBody(upsr);
         }
     }
 }
 
-int processBody(std::shared_ptr<Request> upsr)
+int processUpsBody(std::shared_ptr<Request> upsr)
 {
     int ret = 0;
 
@@ -910,16 +910,16 @@ int processRequestBody(std::shared_ptr<Request> r)
 {
     if (r->inInfo.chunked)
     {
-        return requestBodyChunked(r);
+        return processBodyChunked(r);
     }
     else
     {
-        return requestBodyLength(r);
+        return processBodyLength(r);
     }
 }
 
 // @return OK AGAIN ERROR
-int requestBodyLength(std::shared_ptr<Request> r)
+int processBodyLength(std::shared_ptr<Request> r)
 {
     auto &buffer = r->c->readBuffer_;
     auto &rb = r->requestBody;
@@ -964,7 +964,7 @@ int requestBodyLength(std::shared_ptr<Request> r)
 }
 
 // @return OK AGAIN ERROR
-int requestBodyChunked(std::shared_ptr<Request> r)
+int processBodyChunked(std::shared_ptr<Request> r)
 {
     auto &buffer = r->c->readBuffer_;
     auto &rb = r->requestBody;
@@ -1020,7 +1020,7 @@ int requestBodyChunked(std::shared_ptr<Request> r)
 }
 
 // @return OK AGAIN ERROR
-int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_ptr<Request>)> post_handler)
+int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_ptr<Request>)> postHandler)
 {
     int ret = 0;
     int preRead = 0;
@@ -1030,16 +1030,16 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
     if (r->inInfo.contentLength == 0 && !r->inInfo.chunked)
     {
         r->c->read_.handler = blockReading;
-        if (post_handler)
+        if (postHandler)
         {
             LOG_INFO << "To post_handler";
-            post_handler(r);
+            postHandler(r);
         }
         return OK;
     }
 
     r->requestBody.rest = -1;
-    r->requestBody.postHandler = post_handler;
+    r->requestBody.postHandler = postHandler;
 
     preRead = buffer.now->pos;
 
@@ -1118,7 +1118,7 @@ int readRequestBodyInner(Event *ev)
     r->c->read_.handler = blockReading;
     if (rb.postHandler)
     {
-        LOG_INFO << "To post_handler";
+        LOG_INFO << "To post handler";
         rb.postHandler(r);
     }
 

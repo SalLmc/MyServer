@@ -605,7 +605,7 @@ int send2Upstream(Event *upc_ev)
     upc->write_.handler = blockWriting;
     upc->read_.handler = recvFromUpstream;
 
-    ups->processHandler = processStatusLine;
+    ups->processHandler = processUpsStatusLine;
     std::shared_ptr<Request> upsr(new Request());
     upsr->c = ups->upstream;
     ups->upstream->request_ = upsr;
