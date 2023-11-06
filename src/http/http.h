@@ -9,35 +9,43 @@ class Request;
 
 int initListen(Cycle *cycle, int port);
 Connection *addListen(Cycle *cycle, int port);
-int keepAliveRequest(std::shared_ptr<Request> r);
-int finalizeConnection(Connection *c);
-int finalizeRequest(std::shared_ptr<Request> r);
-int readRequestHeader(std::shared_ptr<Request> r);
-int processRequestHeader(std::shared_ptr<Request> r, int needHost);
-int processRequest(std::shared_ptr<Request> r);
-int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_ptr<Request>)> postHandler);
-int processRequestBody(std::shared_ptr<Request> r);
-int requestBodyLength(std::shared_ptr<Request> r);
-int requestBodyChunked(std::shared_ptr<Request> r);
-int processStatusLine(std::shared_ptr<Request> upsr);
-int processHeaders(std::shared_ptr<Request> upsr);
-int processBody(std::shared_ptr<Request> upsr);
-std::string cacheControl(int fd);
-bool matchEtag(int fd, std::string browserEtag);
 
-// event handler
 int newConnection(Event *ev);
 int waitRequest(Event *ev);
 int keepAlive(Event *ev);
+
 int processRequestLine(Event *ev);
+int readRequest(std::shared_ptr<Request> r);
+int handleRequestUri(std::shared_ptr<Request> r);
 int processRequestHeaders(Event *ev);
-int blockReading(Event *ev);
-int blockWriting(Event *ev);
+int handleRequestHeader(std::shared_ptr<Request> r, int needHost);
+int processRequest(std::shared_ptr<Request> r);
+
 int runPhases(Event *ev);
-int writeResponse(Event *ev);
+
+int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_ptr<Request>)> postHandler);
 int readRequestBodyInner(Event *ev);
+int processRequestBody(std::shared_ptr<Request> r);
+int processBodyLength(std::shared_ptr<Request> r);
+int processBodyChunked(std::shared_ptr<Request> r);
+
+int processUpsStatusLine(std::shared_ptr<Request> upsr);
+int processUpsHeaders(std::shared_ptr<Request> upsr);
+int processUpsBody(std::shared_ptr<Request> upsr);
+
+int writeResponse(Event *ev);
 int sendfileEvent(Event *ev);
 int sendStrEvent(Event *ev);
+
+int keepAliveRequest(std::shared_ptr<Request> r);
+int finalizeRequest(std::shared_ptr<Request> r);
+int finalizeConnection(Connection *c);
+
+// others
+std::string cacheControl(int fd);
+bool matchEtag(int fd, std::string browserEtag);
+int blockReading(Event *ev);
+int blockWriting(Event *ev);
 
 enum class HeaderState
 {

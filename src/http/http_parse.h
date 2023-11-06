@@ -30,9 +30,9 @@ class Status;
         ((uint32_t *)m)[1] == ((c7 << 24) | (c6 << 16) | (c5 << 8) | c4) && m[8] == c8
 
 int parseRequestLine(std::shared_ptr<Request> r);
-int processRequestUri(std::shared_ptr<Request> r);
 int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes);
 int parseHeaderLine(std::shared_ptr<Request> r, bool allowUnderscores);
 int parseChunked(std::shared_ptr<Request> r);
 int parseStatusLine(std::shared_ptr<Request> r, Status *status);
+
 #endif
