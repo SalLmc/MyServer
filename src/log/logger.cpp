@@ -148,8 +148,10 @@ Logger::Logger(const char *path, const char *name)
     warn_ = open(warn, O_RDWR | O_CREAT | O_TRUNC, 0666);
     error_ = open(error, O_RDWR | O_CREAT | O_TRUNC, 0666);
 
-    assert(info_ >= 0 && warn_ >= 0 && error_ >= 0);
-    state_.store(State::ACTIVE);
+    if (info_ >= 0 && warn_ >= 0 && error_ >= 0)
+    {
+        state_.store(State::ACTIVE);
+    }
 }
 Logger::~Logger()
 {

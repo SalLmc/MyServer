@@ -217,11 +217,11 @@ void processEventsAndTimers(Cycle *cycle)
         LOG_WARN << "process events errno: " << strerror(errno);
     }
 
-    process_posted_events(&posted_accept_events);
+    processEventsList(&posted_accept_events);
 
     cycle->timer_.Tick();
 
-    process_posted_events(&posted_events);
+    processEventsList(&posted_events);
 }
 
 int logging(void *arg)
