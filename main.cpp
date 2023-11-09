@@ -10,12 +10,14 @@
 
 #include "src/utils/json.hpp"
 
-std::unordered_map<std::string, std::string> mp;
 extern ConnectionPool cPool;
 extern Cycle *cyclePtr;
 extern sharedMemory shmForAMtx;
 extern ProcessMutex acceptMutex;
 extern long cores;
+
+std::unordered_map<std::string, std::string> mp;
+std::unordered_map<std::string, std::string> extenContentTypeMap;
 
 void init();
 void daemonize();
@@ -167,8 +169,12 @@ ServerAttribute getServer(nlohmann::json config)
 
 void init()
 {
-    std::ifstream f("config.json");
-    nlohmann::json config = nlohmann::json::parse(f);
+    std::ifstream typesStream("types.json");
+    nlohmann::json types = nlohmann::json::parse(typesStream);
+    extenContentTypeMap = types.get<std::unordered_map<std::string, std::string>>();
+
+    std::ifstream configStream("config.json");
+    nlohmann::json config = nlohmann::json::parse(configStream);
 
     processes = getValue(config, "processes", cores);
     logger_threshold = getValue(config, "logger_threshold", 1);

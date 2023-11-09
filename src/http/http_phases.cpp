@@ -21,8 +21,7 @@ int testPhaseHandler(std::shared_ptr<Request> r)
 
     r->outInfo.strBody.append("HELLO");
 
-    r->outInfo.headers.emplace_back("Content-Type",
-                                        std::string(extenContentTypeMap["html"] + SEMICOLON_SPLIT + UTF_8));
+    r->outInfo.headers.emplace_back("Content-Type", std::string(extenContentTypeMap["html"] + SEMICOLON_SPLIT + UTF_8));
     r->outInfo.headers.emplace_back("Content-Length", std::to_string(r->outInfo.strBody.length()));
     r->outInfo.headers.emplace_back("Connection", "Keep-Alive");
 
@@ -647,8 +646,12 @@ int staticContentHandler(std::shared_ptr<Request> r)
     std::string exten = std::string(r->exten.data, r->exten.data + r->exten.len);
     if (extenContentTypeMap.count(exten))
     {
-        r->outInfo.headers.emplace_back("Content-Type",
-                                            std::string(extenContentTypeMap[exten]) + SEMICOLON_SPLIT + UTF_8);
+        std::string extenContent = extenContentTypeMap[exten];
+        if (exten == "html")
+        {
+            extenContent = extenContent + SEMICOLON_SPLIT + UTF_8;
+        }
+        r->outInfo.headers.emplace_back("Content-Type", std::move(extenContent));
     }
     else
     {
@@ -727,8 +730,7 @@ int autoIndexHandler(std::shared_ptr<Request> r)
     out.strBody.append(tail);
 
     // headers
-    r->outInfo.headers.emplace_back("Content-Type",
-                                        std::string(extenContentTypeMap["html"] + SEMICOLON_SPLIT + UTF_8));
+    r->outInfo.headers.emplace_back("Content-Type", std::string(extenContentTypeMap["html"] + SEMICOLON_SPLIT + UTF_8));
     r->outInfo.headers.emplace_back("Content-Length", std::to_string(out.strBody.length()));
     r->outInfo.headers.emplace_back("Connection", "Keep-Alive");
 

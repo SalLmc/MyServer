@@ -31,7 +31,7 @@ int setEventTimeout(void *ev)
     return 1;
 }
 
-void process_posted_events(std::list<Event *> *events)
+void processEventsList(std::list<Event *> *events)
 {
     while (!events->empty())
     {

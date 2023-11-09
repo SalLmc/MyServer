@@ -65,13 +65,13 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 {
 
                 case 3:
-                    if (ngx_str3_cmp(m, 'G', 'E', 'T', ' '))
+                    if (str4cmp(m, 'G', 'E', 'T', ' '))
                     {
                         r->method = Method::GET;
                         break;
                     }
 
-                    if (ngx_str3_cmp(m, 'P', 'U', 'T', ' '))
+                    if (str4cmp(m, 'P', 'U', 'T', ' '))
                     {
                         r->method = Method::PUT;
                         break;
@@ -83,25 +83,25 @@ int parseRequestLine(std::shared_ptr<Request> r)
                     if (m[1] == 'O')
                     {
 
-                        if (ngx_str3Ocmp(m, 'P', 'O', 'S', 'T'))
+                        if (str4cmp(m, 'P', 'O', 'S', 'T'))
                         {
                             r->method = Method::POST;
                             break;
                         }
 
-                        if (ngx_str3Ocmp(m, 'C', 'O', 'P', 'Y'))
+                        if (str4cmp(m, 'C', 'O', 'P', 'Y'))
                         {
                             r->method = Method::COPY;
                             break;
                         }
 
-                        if (ngx_str3Ocmp(m, 'M', 'O', 'V', 'E'))
+                        if (str4cmp(m, 'M', 'O', 'V', 'E'))
                         {
                             r->method = Method::MOVE;
                             break;
                         }
 
-                        if (ngx_str3Ocmp(m, 'L', 'O', 'C', 'K'))
+                        if (str4cmp(m, 'L', 'O', 'C', 'K'))
                         {
                             r->method = Method::LOCK;
                             break;
@@ -110,7 +110,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
                     else
                     {
 
-                        if (ngx_str4cmp(m, 'H', 'E', 'A', 'D'))
+                        if (str4cmp(m, 'H', 'E', 'A', 'D'))
                         {
                             r->method = Method::HEAD;
                             break;
@@ -120,19 +120,19 @@ int parseRequestLine(std::shared_ptr<Request> r)
                     break;
 
                 case 5:
-                    if (ngx_str5cmp(m, 'M', 'K', 'C', 'O', 'L'))
+                    if (str5cmp(m, 'M', 'K', 'C', 'O', 'L'))
                     {
                         r->method = Method::MKCOL;
                         break;
                     }
 
-                    if (ngx_str5cmp(m, 'P', 'A', 'T', 'C', 'H'))
+                    if (str5cmp(m, 'P', 'A', 'T', 'C', 'H'))
                     {
                         r->method = Method::PATCH;
                         break;
                     }
 
-                    if (ngx_str5cmp(m, 'T', 'R', 'A', 'C', 'E'))
+                    if (str5cmp(m, 'T', 'R', 'A', 'C', 'E'))
                     {
                         r->method = Method::TRACE;
                         break;
@@ -141,13 +141,13 @@ int parseRequestLine(std::shared_ptr<Request> r)
                     break;
 
                 case 6:
-                    if (ngx_str6cmp(m, 'D', 'E', 'L', 'E', 'T', 'E'))
+                    if (str6cmp(m, 'D', 'E', 'L', 'E', 'T', 'E'))
                     {
                         r->method = Method::DELETE;
                         break;
                     }
 
-                    if (ngx_str6cmp(m, 'U', 'N', 'L', 'O', 'C', 'K'))
+                    if (str6cmp(m, 'U', 'N', 'L', 'O', 'C', 'K'))
                     {
                         r->method = Method::UNLOCK;
                         break;
@@ -156,12 +156,12 @@ int parseRequestLine(std::shared_ptr<Request> r)
                     break;
 
                 case 7:
-                    if (ngx_str7_cmp(m, 'O', 'P', 'T', 'I', 'O', 'N', 'S', ' '))
+                    if (str8cmp(m, 'O', 'P', 'T', 'I', 'O', 'N', 'S', ' '))
                     {
                         r->method = Method::OPTIONS;
                     }
 
-                    if (ngx_str7_cmp(m, 'C', 'O', 'N', 'N', 'E', 'C', 'T', ' '))
+                    if (str8cmp(m, 'C', 'O', 'N', 'N', 'E', 'C', 'T', ' '))
                     {
                         r->method = Method::CONNECT;
                     }
@@ -169,7 +169,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
                     break;
 
                 case 8:
-                    if (ngx_str8cmp(m, 'P', 'R', 'O', 'P', 'F', 'I', 'N', 'D'))
+                    if (str8cmp(m, 'P', 'R', 'O', 'P', 'F', 'I', 'N', 'D'))
                     {
                         r->method = Method::PROPFIND;
                     }
@@ -177,7 +177,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
                     break;
 
                 case 9:
-                    if (ngx_str9cmp(m, 'P', 'R', 'O', 'P', 'P', 'A', 'T', 'C', 'H'))
+                    if (str9cmp(m, 'P', 'R', 'O', 'P', 'P', 'A', 'T', 'C', 'H'))
                     {
                         r->method = Method::PROPPATCH;
                     }

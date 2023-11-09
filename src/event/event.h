@@ -70,7 +70,7 @@ class Multiplexer
 uint32_t events2epoll(EVENTS events);
 short events2poll(EVENTS events);
 
-void process_posted_events(std::list<Event *> *events);
+void processEventsList(std::list<Event *> *events);
 
 int shmtxCreate(ProcessMutex *mtx, ProcessMutexShare *addr);
 // 1 for success, 0 for failure
