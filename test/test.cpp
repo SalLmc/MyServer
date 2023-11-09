@@ -5,14 +5,14 @@
 
 int main()
 {
-    LinkedBuffer buffer;
-    std::string a = "0123456789";
-    printf("%ld\n", a.size());
-    for (int i = 0; i < 1024; i++)
-    {
-        buffer.append(a);
-    }
+    std::unordered_map<std::string, std::string> mp;
+    
+    std::ifstream f("../types.json");
+    nlohmann::json types = nlohmann::json::parse(f);
+    mp = types.get<std::unordered_map<std::string, std::string>>();
 
-    // 2048
-    printf("%ld\n%ld\n", buffer.nodes.size(), buffer.nodes.back().readableBytes());
+    for (auto x : mp)
+    {
+        std::cout << x.first << "\t" << x.second << std::endl;
+    }
 }
