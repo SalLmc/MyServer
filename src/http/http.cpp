@@ -206,36 +206,6 @@ bad:
     return NULL;
 }
 
-// static int recvPrint(Event *ev)
-// {
-//     int len = ev->c->readBuffer_.readFd(ev->c->fd_.getFd(), &errno);
-//     if (len == 0)
-//     {
-//         printf("client close connection\n");
-//         cPool.recoverConnection(ev->c);
-//         return 1;
-//     }
-//     else if (len < 0 && errno != EAGAIN)
-//     {
-//         printf("errno:%s\n", strerror(errno));
-//         cPool.recoverConnection(ev->c);
-//         return 1;
-//     }
-//     printf("%d recv len:%d from client:%s\n", getpid(), len, ev->c->readBuffer_.allToStr().c_str());
-//     ev->c->writeBuffer_.append(ev->c->readBuffer_.retrieveAllToStr());
-//     cyclePtr->eventProccessor->modFd(ev->c->fd_.getFd(), EPOLLOUT | EPOLLET, ev->c);
-//     return 0;
-// }
-
-// static int echoPrint(Event *ev)
-// {
-//     ev->c->writeBuffer_.writeFd(ev->c->fd_.getFd(), &errno);
-//     ev->c->writeBuffer_.retrieveAll();
-
-//     cyclePtr->eventProccessor->modFd(ev->c->fd_.getFd(), EPOLLIN | EPOLLET, ev->c);
-//     return 0;
-// }
-
 int newConnection(Event *ev)
 {
 #ifdef LOOP_ACCEPT
@@ -394,7 +364,7 @@ int processRequestLine(Event *ev)
         if (ret == OK)
         {
 
-            /* the request line has been parsed successfully */
+            // the request line has been parsed successfully
 
             r->requestLine.len = r->requestEnd - r->requestStart;
             r->requestLine.data = r->requestStart;
@@ -498,7 +468,6 @@ int processRequestHeaders(Event *ev)
             }
 
             // a header line has been parsed successfully
-
             r->inInfo.headers.emplace_back(std::string(r->headerNameStart, r->headerNameEnd),
                                            std::string(r->headerValueStart, r->headerValueEnd));
 
@@ -539,12 +508,10 @@ int processRequestHeaders(Event *ev)
         if (rc == AGAIN)
         {
 
-            /* a header line parsing is still not complete */
+            // a header line parsing is still not complete 
 
             continue;
         }
-
-        /* rc == NGX_HTTP_PARSE_INVALID_HEADER */
 
         LOG_WARN << "Client sent invalid header line";
         finalizeRequest(r);

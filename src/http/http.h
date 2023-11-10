@@ -1,5 +1,5 @@
-#ifndef HTTP_H
-#define HTTP_H
+#ifndef HTTP_H_
+#define HTTP_H_
 
 #include "../headers.h"
 
@@ -61,31 +61,31 @@ enum class HeaderState
 
 enum class RequestState
 {
-    sw_start = 0,
-    sw_method,
-    sw_spaces_before_uri,
-    sw_schema,
-    sw_schema_slash,
-    sw_schema_slash_slash,
-    sw_host_start,
-    sw_host,
-    sw_host_end,
-    sw_host_ip_literal,
-    sw_port,
-    sw_after_slash_in_uri,
-    sw_check_uri,
-    sw_uri,
-    sw_http_09,
-    sw_http_H,
-    sw_http_HT,
-    sw_http_HTT,
-    sw_http_HTTP,
-    sw_first_major_digit,
-    sw_major_digit,
-    sw_first_minor_digit,
-    sw_minor_digit,
-    sw_spaces_after_digit,
-    sw_almost_done
+    START = 0,
+    METHOD,
+    SPACE_BEFORE_URI,
+    SCHEMA,
+    SCHEMA_SLASH0,
+    SCHEMA_SLASH1,
+    HOST_START,
+    HOST,
+    HOST_END,
+    HOST_IP,
+    PORT,
+    AFTER_SLASH_URI,
+    CHECK_URI,
+    URI,
+    HTTP_09,
+    HTTP_H,
+    HTTP_HT,
+    HTTP_HTT,
+    HTTP_HTTP,
+    FIRST_MAJOR_DIGIT,
+    MAJOR_DIGIT,
+    FIRST_MINOR_DIGIT,
+    MINOR_DIGIT,
+    SPACES_AFTER_DIGIT,
+    REQUEST_DONE
 };
 
 enum class Method
@@ -227,7 +227,7 @@ class Request
 
     Method method;
     HeaderState headerState = HeaderState::START;
-    RequestState requestState = RequestState::sw_start;
+    RequestState requestState = RequestState::START;
     ResponseState responseState = ResponseState::sw_start;
 
     uintptr_t httpVersion;

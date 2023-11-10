@@ -40,7 +40,7 @@ void Request::init()
     requestBody.chunkedInfo.dataOffset = 0;
 
     headerState = HeaderState::START;
-    requestState = RequestState::sw_start;
+    requestState = RequestState::START;
     responseState = ResponseState::sw_start;
 
     inInfo.chunked = 0;
