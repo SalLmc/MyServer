@@ -23,6 +23,7 @@ uint32_t usual[] = {
     0xffffffff  /* 1111 1111 1111 1111  1111 1111 1111 1111 */
 };
 
+// GET /example/path HTTP/1.1\r\n
 int parseRequestLine(std::shared_ptr<Request> r)
 {
     // LOG_INFO << "parse request line";
@@ -37,8 +38,6 @@ int parseRequestLine(std::shared_ptr<Request> r)
 
         switch (state)
         {
-
-        /* HTTP methods: GET, HEAD, POST */
         case RequestState::START:
             r->requestStart = p;
 
@@ -56,11 +55,13 @@ int parseRequestLine(std::shared_ptr<Request> r)
             break;
 
         case RequestState::METHOD:
+            // continue until we meet the space after method
             if (ch == ' ')
             {
                 r->methodEnd = p - 1;
                 m = r->requestStart;
 
+                // switch between method length, like GET, POST
                 switch (p - m)
                 {
 
@@ -196,7 +197,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
 
             break;
 
-        /* space* before URI */
+        // GET /example/path HTTP/1.1\r\n
         case RequestState::SPACE_BEFORE_URI:
 
             if (ch == '/')
@@ -206,6 +207,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 break;
             }
 
+            // turn ch to lowercase
             c = (u_char)(ch | 0x20);
             if (c >= 'a' && c <= 'z')
             {
@@ -281,7 +283,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
 
             state = RequestState::HOST;
 
-            /* fall through */
+            // fall through
 
         case RequestState::HOST:
 
@@ -296,7 +298,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 break;
             }
 
-            /* fall through */
+            // fall through
 
         case RequestState::HOST_END:
 
@@ -355,7 +357,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
             case '.':
             case '_':
             case '~':
-                /* unreserved */
+                // unreserved
                 break;
             case '!':
             case '$':
@@ -368,7 +370,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
             case ',':
             case ';':
             case '=':
-                /* sub-delims */
+                // sub-delims
                 break;
             default:
                 return ERROR;
@@ -410,7 +412,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
             }
             break;
 
-        /* check "/.", "//", "%", and "\" (Win32) in URI */
+        // check "/.", "//", "%" in URI
         case RequestState::AFTER_SLASH_URI:
 
             if (usual[ch >> 5] & (1U << (ch & 0x1f)))
@@ -467,7 +469,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
             }
             break;
 
-        /* check "/", "%" and "\" (Win32) in URI */
+        // check "/", "%" in URI
         case RequestState::CHECK_URI:
 
             if (usual[ch >> 5] & (1U << (ch & 0x1f)))
@@ -521,7 +523,6 @@ int parseRequestLine(std::shared_ptr<Request> r)
             }
             break;
 
-        /* URI */
         case RequestState::URI:
 
             if (usual[ch >> 5] & (1U << (ch & 0x1f)))
@@ -556,7 +557,6 @@ int parseRequestLine(std::shared_ptr<Request> r)
             }
             break;
 
-        /* space+ after URI */
         case RequestState::HTTP_09:
             switch (ch)
             {
@@ -622,7 +622,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
             }
             break;
 
-        /* first digit of major HTTP version */
+        // first digit of major HTTP version
         case RequestState::FIRST_MAJOR_DIGIT:
             if (ch < '1' || ch > '9')
             {
@@ -639,7 +639,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
             state = RequestState::MAJOR_DIGIT;
             break;
 
-        /* major HTTP version or dot */
+        // major HTTP version or dot
         case RequestState::MAJOR_DIGIT:
             if (ch == '.')
             {
@@ -661,7 +661,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
 
             break;
 
-        /* first digit of minor HTTP version */
+        // first digit of minor HTTP version
         case RequestState::FIRST_MINOR_DIGIT:
             if (ch < '0' || ch > '9')
             {
@@ -672,7 +672,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
             state = RequestState::MINOR_DIGIT;
             break;
 
-        /* minor HTTP version or end of request line */
+        // minor HTTP version or end of request line
         case RequestState::MINOR_DIGIT:
             if (ch == CR)
             {
@@ -719,7 +719,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
             }
             break;
 
-        /* end of request line */
+        // end of request line
         case RequestState::REQUEST_DONE:
             r->requestEnd = p - 1;
             switch (ch)
@@ -733,13 +733,12 @@ int parseRequestLine(std::shared_ptr<Request> r)
     }
 
     buffer.now->pos = p - buffer.now->start;
-    // r->c->readBuffer_.retrieveUntil((const char *)(p));
+
     return AGAIN;
 
 done:
 
     buffer.now->pos = p + 1 - buffer.now->start;
-    // r->c->readBuffer_.retrieveUntil((const char *)(p + 1));
 
     if (r->requestEnd == NULL)
     {
@@ -1118,7 +1117,6 @@ args:
     return OK;
 }
 
-// GET /example/path HTTP/1.1\r\n
 // Host: www.example.com\r\n
 // User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)\r\n
 // Accept-Language: en-US,en;q=0.5\r\n

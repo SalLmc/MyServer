@@ -363,8 +363,13 @@ int processRequestLine(Event *ev)
         ret = parseRequestLine(r);
         if (ret == OK)
         {
-
             // the request line has been parsed successfully
+            if (r->requestEnd < r->requestStart || r->requestEnd > r->requestStart + r->c->readBuffer_.now->getSize())
+            {
+                LOG_WARN << "request line too long";
+                finalizeRequest(r);
+                break;
+            }
 
             r->requestLine.len = r->requestEnd - r->requestStart;
             r->requestLine.data = r->requestStart;
@@ -508,7 +513,7 @@ int processRequestHeaders(Event *ev)
         if (rc == AGAIN)
         {
 
-            // a header line parsing is still not complete 
+            // a header line parsing is still not complete
 
             continue;
         }

@@ -264,6 +264,7 @@ class Request
     // used for parse http headers
     u_char *pos;
 
+    // all end pointers point to the place after the content, except methodEnd
     u_char *headerNameStart;
     u_char *headerNameEnd;
     u_char *headerValueStart;
@@ -275,7 +276,7 @@ class Request
     u_char *argsStart;
     u_char *requestStart;
     u_char *requestEnd;
-    // method_end points to the last character of method, not the place after it
+    // methodEnd points to the last character of method, not the place after it
     u_char *methodEnd;
     u_char *schemaStart;
     u_char *schemaEnd;
