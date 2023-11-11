@@ -24,6 +24,14 @@ RequestBody::RequestBody()
     postHandler = NULL;
 }
 
+Request::~Request()
+{
+    if (complexUri || quotedUri || emptyPathInUri)
+    {
+        heap.hFree(uri.data);
+    }
+}
+
 void Request::init()
 {
     nowProxyPass = 0;

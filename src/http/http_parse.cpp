@@ -756,20 +756,20 @@ done:
     return OK;
 }
 
-int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
+int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
 {
     u_char c, ch, decoded, *p, *u;
     enum
     {
-        sw_usual = 0,
-        sw_slash,
-        sw_dot,
-        sw_dot_dot,
-        sw_quoted,
-        sw_quoted_second
+        USUAL = 0,
+        SLASH,
+        DOT,
+        DOT_DOT,
+        QUOTED,
+        QUOTED_SECOND
     } state, quoted_state;
 
-    state = sw_usual;
+    state = USUAL;
     p = r->uriStart;
     u = r->uri.data;
     r->uriExt = NULL;
@@ -784,17 +784,10 @@ int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
 
     while (p <= r->uriEnd)
     {
-
-        /*
-         * we use "ch = *p++" inside the cycle, but this operation is safe,
-         * because after the URI there is always at least one character:
-         * the line feed
-         */
-
         switch (state)
         {
 
-        case sw_usual:
+        case USUAL:
 
             if (usual[ch >> 5] & (1U << (ch & 0x1f)))
             {
@@ -807,12 +800,12 @@ int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
             {
             case '/':
                 r->uriExt = NULL;
-                state = sw_slash;
+                state = SLASH;
                 *u++ = ch;
                 break;
             case '%':
                 quoted_state = state;
-                state = sw_quoted;
+                state = QUOTED;
                 break;
             case '?':
                 r->argsStart = p;
@@ -825,7 +818,7 @@ int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
                 break;
             case '+':
                 r->plusInUri = 1;
-                /* fall through */
+                // fall through
             default:
                 *u++ = ch;
                 break;
@@ -834,11 +827,11 @@ int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
             ch = *p++;
             break;
 
-        case sw_slash:
+        case SLASH:
 
             if (usual[ch >> 5] & (1U << (ch & 0x1f)))
             {
-                state = sw_usual;
+                state = USUAL;
                 *u++ = ch;
                 ch = *p++;
                 break;
@@ -847,18 +840,18 @@ int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
             switch (ch)
             {
             case '/':
-                if (!merge_slashes)
+                if (!mergeSlashes)
                 {
                     *u++ = ch;
                 }
                 break;
             case '.':
-                state = sw_dot;
+                state = DOT;
                 *u++ = ch;
                 break;
             case '%':
                 quoted_state = state;
-                state = sw_quoted;
+                state = QUOTED;
                 break;
             case '?':
                 r->argsStart = p;
@@ -867,9 +860,9 @@ int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
                 goto done;
             case '+':
                 r->plusInUri = 1;
-                /* fall through */
+                // fall through
             default:
-                state = sw_usual;
+                state = USUAL;
                 *u++ = ch;
                 break;
             }
@@ -877,11 +870,11 @@ int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
             ch = *p++;
             break;
 
-        case sw_dot:
+        case DOT:
 
             if (usual[ch >> 5] & (1U << (ch & 0x1f)))
             {
-                state = sw_usual;
+                state = USUAL;
                 *u++ = ch;
                 ch = *p++;
                 break;
@@ -890,16 +883,16 @@ int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
             switch (ch)
             {
             case '/':
-                state = sw_slash;
+                state = SLASH;
                 u--;
                 break;
             case '.':
-                state = sw_dot_dot;
+                state = DOT_DOT;
                 *u++ = ch;
                 break;
             case '%':
                 quoted_state = state;
-                state = sw_quoted;
+                state = QUOTED;
                 break;
             case '?':
                 u--;
@@ -910,9 +903,9 @@ int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
                 goto done;
             case '+':
                 r->plusInUri = 1;
-                /* fall through */
+                // fall through
             default:
-                state = sw_usual;
+                state = USUAL;
                 *u++ = ch;
                 break;
             }
@@ -920,11 +913,11 @@ int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
             ch = *p++;
             break;
 
-        case sw_dot_dot:
+        case DOT_DOT:
 
             if (usual[ch >> 5] & (1U << (ch & 0x1f)))
             {
-                state = sw_usual;
+                state = USUAL;
                 *u++ = ch;
                 ch = *p++;
                 break;
@@ -958,17 +951,17 @@ int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
                 {
                     goto done;
                 }
-                state = sw_slash;
+                state = SLASH;
                 break;
             case '%':
                 quoted_state = state;
-                state = sw_quoted;
+                state = QUOTED;
                 break;
             case '+':
                 r->plusInUri = 1;
-                /* fall through */
+                // fall through
             default:
-                state = sw_usual;
+                state = USUAL;
                 *u++ = ch;
                 break;
             }
@@ -976,13 +969,13 @@ int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
             ch = *p++;
             break;
 
-        case sw_quoted:
+        case QUOTED:
             r->quotedUri = 1;
 
             if (ch >= '0' && ch <= '9')
             {
                 decoded = (u_char)(ch - '0');
-                state = sw_quoted_second;
+                state = QUOTED_SECOND;
                 ch = *p++;
                 break;
             }
@@ -991,21 +984,21 @@ int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
             if (c >= 'a' && c <= 'f')
             {
                 decoded = (u_char)(c - 'a' + 10);
-                state = sw_quoted_second;
+                state = QUOTED_SECOND;
                 ch = *p++;
                 break;
             }
 
             return ERROR;
 
-        case sw_quoted_second:
+        case QUOTED_SECOND:
             if (ch >= '0' && ch <= '9')
             {
                 ch = (u_char)((decoded << 4) + (ch - '0'));
 
                 if (ch == '%' || ch == '#')
                 {
-                    state = sw_usual;
+                    state = USUAL;
                     *u++ = ch;
                     ch = *p++;
                     break;
@@ -1026,7 +1019,7 @@ int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
 
                 if (ch == '?')
                 {
-                    state = sw_usual;
+                    state = USUAL;
                     *u++ = ch;
                     ch = *p++;
                     break;
@@ -1044,16 +1037,16 @@ int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
         }
     }
 
-    if (state == sw_quoted || state == sw_quoted_second)
+    if (state == QUOTED || state == QUOTED_SECOND)
     {
         return ERROR;
     }
 
-    if (state == sw_dot)
+    if (state == DOT)
     {
         u--;
     }
-    else if (state == sw_dot_dot)
+    else if (state == DOT_DOT)
     {
         u -= 4;
 

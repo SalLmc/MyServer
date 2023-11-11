@@ -217,6 +217,7 @@ extern Cycle *cyclePtr;
 class Request
 {
   public:
+    ~Request();
     void init();
 
     int nowProxyPass = 0;

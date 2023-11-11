@@ -28,8 +28,11 @@ src/headers.h.gch: src/headers.h
 libmy.so: $(CPP_OBJECTS)
 	$(CPPSHARELIB)
 
-main: main.o
-	$(BUILDEXEWITHLIB)
+main: main.o $(CPP_OBJECTS)
+	$(BUILDEXE)
+
+# main: main.o
+# 	$(BUILDEXEWITHLIB)
 
 tests:
 	$(MAKE) -C test
