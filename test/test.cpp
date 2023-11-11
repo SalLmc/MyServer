@@ -5,14 +5,8 @@
 
 int main()
 {
-    std::unordered_map<std::string, std::string> mp;
-    
-    std::ifstream f("../types.json");
-    nlohmann::json types = nlohmann::json::parse(f);
-    mp = types.get<std::unordered_map<std::string, std::string>>();
-
-    for (auto x : mp)
-    {
-        std::cout << x.first << "\t" << x.second << std::endl;
-    }
+    int a[]={1,2};
+    int *x=a;
+    int y=*x++;
+    printf("%d\n",y);
 }

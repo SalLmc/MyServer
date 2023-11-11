@@ -5,6 +5,8 @@
 
 extern Cycle *cyclePtr;
 
+// usage: usual[ch >> 5] & (1U << (ch & 0x1f))
+// if the expression above is true then the char is in this table
 uint32_t usual[] = {
     0x00000000, /* 0000 0000 0000 0000  0000 0000 0000 0000 */
 
@@ -756,9 +758,14 @@ done:
     return OK;
 }
 
+// r->complexUri || r->quotedUri || r->emptyPathInUri
+// already malloc a new space for uri.data
+// 1. decode chars begin with '%' in QUOTED
+// 2. extract exten in state like DOT
+// 3. handle ./ and ../
 int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
 {
-    u_char c, ch, decoded, *p, *u;
+    u_char c, ch, decoded, *old, *now;
     enum
     {
         USUAL = 0,
@@ -767,22 +774,24 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
         DOT_DOT,
         QUOTED,
         QUOTED_SECOND
-    } state, quoted_state;
+    } state, quotedState;
 
     state = USUAL;
-    p = r->uriStart;
-    u = r->uri.data;
+
+    old = r->uriStart;
+    now = r->uri.data;
     r->uriExt = NULL;
     r->argsStart = NULL;
 
     if (r->emptyPathInUri)
     {
-        *u++ = '/';
+        // *now++ <=> *now='/'; now++
+        *now++ = '/';
     }
 
-    ch = *p++;
+    ch = *old++;
 
-    while (p <= r->uriEnd)
+    while (old <= r->uriEnd)
     {
         switch (state)
         {
@@ -791,8 +800,8 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
 
             if (usual[ch >> 5] & (1U << (ch & 0x1f)))
             {
-                *u++ = ch;
-                ch = *p++;
+                *now++ = ch;
+                ch = *old++;
                 break;
             }
 
@@ -801,30 +810,30 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
             case '/':
                 r->uriExt = NULL;
                 state = SLASH;
-                *u++ = ch;
+                *now++ = ch;
                 break;
             case '%':
-                quoted_state = state;
+                quotedState = state;
                 state = QUOTED;
                 break;
             case '?':
-                r->argsStart = p;
+                r->argsStart = old;
                 goto args;
             case '#':
                 goto done;
             case '.':
-                r->uriExt = u + 1;
-                *u++ = ch;
+                r->uriExt = now + 1;
+                *now++ = ch;
                 break;
             case '+':
                 r->plusInUri = 1;
                 // fall through
             default:
-                *u++ = ch;
+                *now++ = ch;
                 break;
             }
 
-            ch = *p++;
+            ch = *old++;
             break;
 
         case SLASH:
@@ -832,8 +841,8 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
             if (usual[ch >> 5] & (1U << (ch & 0x1f)))
             {
                 state = USUAL;
-                *u++ = ch;
-                ch = *p++;
+                *now++ = ch;
+                ch = *old++;
                 break;
             }
 
@@ -842,19 +851,19 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
             case '/':
                 if (!mergeSlashes)
                 {
-                    *u++ = ch;
+                    *now++ = ch;
                 }
                 break;
             case '.':
                 state = DOT;
-                *u++ = ch;
+                *now++ = ch;
                 break;
             case '%':
-                quoted_state = state;
+                quotedState = state;
                 state = QUOTED;
                 break;
             case '?':
-                r->argsStart = p;
+                r->argsStart = old;
                 goto args;
             case '#':
                 goto done;
@@ -863,11 +872,11 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
                 // fall through
             default:
                 state = USUAL;
-                *u++ = ch;
+                *now++ = ch;
                 break;
             }
 
-            ch = *p++;
+            ch = *old++;
             break;
 
         case DOT:
@@ -875,8 +884,8 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
             if (usual[ch >> 5] & (1U << (ch & 0x1f)))
             {
                 state = USUAL;
-                *u++ = ch;
-                ch = *p++;
+                *now++ = ch;
+                ch = *old++;
                 break;
             }
 
@@ -884,33 +893,33 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
             {
             case '/':
                 state = SLASH;
-                u--;
+                now--;
                 break;
             case '.':
                 state = DOT_DOT;
-                *u++ = ch;
+                *now++ = ch;
                 break;
             case '%':
-                quoted_state = state;
+                quotedState = state;
                 state = QUOTED;
                 break;
             case '?':
-                u--;
-                r->argsStart = p;
+                now--;
+                r->argsStart = old;
                 goto args;
             case '#':
-                u--;
+                now--;
                 goto done;
             case '+':
                 r->plusInUri = 1;
                 // fall through
             default:
                 state = USUAL;
-                *u++ = ch;
+                *now++ = ch;
                 break;
             }
 
-            ch = *p++;
+            ch = *old++;
             break;
 
         case DOT_DOT:
@@ -918,8 +927,8 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
             if (usual[ch >> 5] & (1U << (ch & 0x1f)))
             {
                 state = USUAL;
-                *u++ = ch;
-                ch = *p++;
+                *now++ = ch;
+                ch = *old++;
                 break;
             }
 
@@ -928,23 +937,23 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
             case '/':
             case '?':
             case '#':
-                u -= 4;
+                now -= 4;
                 for (;;)
                 {
-                    if (u < r->uri.data)
+                    if (now < r->uri.data)
                     {
                         return ERROR;
                     }
-                    if (*u == '/')
+                    if (*now == '/')
                     {
-                        u++;
+                        now++;
                         break;
                     }
-                    u--;
+                    now--;
                 }
                 if (ch == '?')
                 {
-                    r->argsStart = p;
+                    r->argsStart = old;
                     goto args;
                 }
                 if (ch == '#')
@@ -954,7 +963,7 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
                 state = SLASH;
                 break;
             case '%':
-                quoted_state = state;
+                quotedState = state;
                 state = QUOTED;
                 break;
             case '+':
@@ -962,11 +971,11 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
                 // fall through
             default:
                 state = USUAL;
-                *u++ = ch;
+                *now++ = ch;
                 break;
             }
 
-            ch = *p++;
+            ch = *old++;
             break;
 
         case QUOTED:
@@ -976,7 +985,7 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
             {
                 decoded = (u_char)(ch - '0');
                 state = QUOTED_SECOND;
-                ch = *p++;
+                ch = *old++;
                 break;
             }
 
@@ -985,7 +994,7 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
             {
                 decoded = (u_char)(c - 'a' + 10);
                 state = QUOTED_SECOND;
-                ch = *p++;
+                ch = *old++;
                 break;
             }
 
@@ -999,8 +1008,8 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
                 if (ch == '%' || ch == '#')
                 {
                     state = USUAL;
-                    *u++ = ch;
-                    ch = *p++;
+                    *now++ = ch;
+                    ch = *old++;
                     break;
                 }
                 else if (ch == '\0')
@@ -1008,7 +1017,7 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
                     return ERROR;
                 }
 
-                state = quoted_state;
+                state = quotedState;
                 break;
             }
 
@@ -1020,8 +1029,8 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
                 if (ch == '?')
                 {
                     state = USUAL;
-                    *u++ = ch;
-                    ch = *p++;
+                    *now++ = ch;
+                    ch = *old++;
                     break;
                 }
                 else if (ch == '+')
@@ -1029,7 +1038,7 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
                     r->plusInUri = 1;
                 }
 
-                state = quoted_state;
+                state = quotedState;
                 break;
             }
 
@@ -1044,36 +1053,36 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
 
     if (state == DOT)
     {
-        u--;
+        now--;
     }
     else if (state == DOT_DOT)
     {
-        u -= 4;
+        now -= 4;
 
         for (;;)
         {
-            if (u < r->uri.data)
+            if (now < r->uri.data)
             {
                 return ERROR;
             }
 
-            if (*u == '/')
+            if (*now == '/')
             {
-                u++;
+                now++;
                 break;
             }
 
-            u--;
+            now--;
         }
     }
 
 done:
 
-    r->uri.len = u - r->uri.data;
+    r->uri.len = now - r->uri.data;
 
     if (r->uriExt)
     {
-        r->exten.len = u - r->uriExt;
+        r->exten.len = now - r->uriExt;
         r->exten.data = r->uriExt;
     }
 
@@ -1083,25 +1092,25 @@ done:
 
 args:
 
-    while (p < r->uriEnd)
+    while (old < r->uriEnd)
     {
-        if (*p++ != '#')
+        if (*old++ != '#')
         {
             continue;
         }
 
-        r->args.len = p - 1 - r->argsStart;
+        r->args.len = old - 1 - r->argsStart;
         r->args.data = r->argsStart;
         r->argsStart = NULL;
 
         break;
     }
 
-    r->uri.len = u - r->uri.data;
+    r->uri.len = now - r->uri.data;
 
     if (r->uriExt)
     {
-        r->exten.len = u - r->uriExt;
+        r->exten.len = now - r->uriExt;
         r->exten.data = r->uriExt;
     }
 

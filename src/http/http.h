@@ -231,7 +231,7 @@ class Request
     RequestState requestState = RequestState::START;
     ResponseState responseState = ResponseState::sw_start;
 
-    uintptr_t httpVersion;
+    unsigned long httpVersion;
 
     InfoRecv inInfo;
     InfoSend outInfo;
