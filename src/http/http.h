@@ -1,51 +1,11 @@
-#ifndef HTTP_H
-#define HTTP_H
+#ifndef HTTP_H_
+#define HTTP_H_
 
 #include "../headers.h"
 
 #include "../core/core.h"
 
 class Request;
-
-int initListen(Cycle *cycle, int port);
-Connection *addListen(Cycle *cycle, int port);
-
-int newConnection(Event *ev);
-int waitRequest(Event *ev);
-int keepAlive(Event *ev);
-
-int processRequestLine(Event *ev);
-int readRequest(std::shared_ptr<Request> r);
-int handleRequestUri(std::shared_ptr<Request> r);
-int processRequestHeaders(Event *ev);
-int handleRequestHeader(std::shared_ptr<Request> r, int needHost);
-int processRequest(std::shared_ptr<Request> r);
-
-int runPhases(Event *ev);
-
-int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_ptr<Request>)> postHandler);
-int readRequestBodyInner(Event *ev);
-int processRequestBody(std::shared_ptr<Request> r);
-int processBodyLength(std::shared_ptr<Request> r);
-int processBodyChunked(std::shared_ptr<Request> r);
-
-int processUpsStatusLine(std::shared_ptr<Request> upsr);
-int processUpsHeaders(std::shared_ptr<Request> upsr);
-int processUpsBody(std::shared_ptr<Request> upsr);
-
-int writeResponse(Event *ev);
-int sendfileEvent(Event *ev);
-int sendStrEvent(Event *ev);
-
-int keepAliveRequest(std::shared_ptr<Request> r);
-int finalizeRequest(std::shared_ptr<Request> r);
-int finalizeConnection(Connection *c);
-
-// others
-std::string cacheControl(int fd);
-bool matchEtag(int fd, std::string browserEtag);
-int blockReading(Event *ev);
-int blockWriting(Event *ev);
 
 enum class HeaderState
 {
@@ -61,31 +21,65 @@ enum class HeaderState
 
 enum class RequestState
 {
-    sw_start = 0,
-    sw_method,
-    sw_spaces_before_uri,
-    sw_schema,
-    sw_schema_slash,
-    sw_schema_slash_slash,
-    sw_host_start,
-    sw_host,
-    sw_host_end,
-    sw_host_ip_literal,
-    sw_port,
-    sw_after_slash_in_uri,
-    sw_check_uri,
-    sw_uri,
-    sw_http_09,
-    sw_http_H,
-    sw_http_HT,
-    sw_http_HTT,
-    sw_http_HTTP,
-    sw_first_major_digit,
-    sw_major_digit,
-    sw_first_minor_digit,
-    sw_minor_digit,
-    sw_spaces_after_digit,
-    sw_almost_done
+    START = 0,
+    METHOD,
+    SPACE_BEFORE_URI,
+    SCHEMA,
+    SCHEMA_SLASH0,
+    SCHEMA_SLASH1,
+    HOST_START,
+    HOST,
+    HOST_END,
+    HOST_IP,
+    PORT,
+    AFTER_SLASH_URI,
+    CHECK_URI,
+    URI,
+    HTTP_09,
+    HTTP_H,
+    HTTP_HT,
+    HTTP_HTT,
+    HTTP_HTTP,
+    FIRST_MAJOR_DIGIT,
+    MAJOR_DIGIT,
+    FIRST_MINOR_DIGIT,
+    MINOR_DIGIT,
+    SPACES_AFTER_DIGIT,
+    REQUEST_DONE
+};
+
+enum class ChunkedState
+{
+    START = 0,
+    SIZE,
+    EXTENSION,
+    EXTENSION_DONE,
+    DATA,
+    DATA_AFTER,
+    DATA_AFTER_DONE,
+    LAST_EXTENSION,
+    LAST_EXTENSION_DONE,
+    TRAILER,
+    TRAILER_DONE,
+    TRAILER_HEADER,
+    TRAILER_HEADER_DONE
+};
+
+enum class ResponseState
+{
+    START = 0,
+    H,
+    HT,
+    HTT,
+    HTTP,
+    MAJOR_DIGIT0,
+    MAJOR_DIGIT1,
+    MINOR_DIGIT0,
+    MINOR_DIGIT1,
+    STATUS,
+    STATUS_SPACE,
+    STATUS_CONTENT,
+    RESPONSE_DONE
 };
 
 enum class Method
@@ -108,38 +102,34 @@ enum class Method
     PROPPATCH
 };
 
-enum class ChunkedState
+enum class ResponseCode
 {
-    sw_chunk_start = 0,
-    sw_chunk_size,
-    sw_chunk_extension,
-    sw_chunk_extension_almost_done,
-    sw_chunk_data,
-    sw_after_data,
-    sw_after_data_almost_done,
-    sw_last_chunk_extension,
-    sw_last_chunk_extension_almost_done,
-    sw_trailer,
-    sw_trailer_almost_done,
-    sw_trailer_header,
-    sw_trailer_header_almost_done
+    HTTP_OK,
+    HTTP_NOT_MODIFIED,
+    HTTP_UNAUTHORIZED,
+    HTTP_FORBIDDEN,
+    HTTP_NOT_FOUND,
+    HTTP_INTERNAL_SERVER_ERROR
 };
 
-enum class ResponseState
+enum class Charset
 {
-    sw_start = 0,
-    sw_H,
-    sw_HT,
-    sw_HTT,
-    sw_HTTP,
-    sw_first_major_digit,
-    sw_major_digit,
-    sw_first_minor_digit,
-    sw_minor_digit,
-    sw_status,
-    sw_space_after_status,
-    sw_status_text,
-    sw_almost_done
+    DEFAULT,
+    UTF_8
+};
+
+enum class ConnectionType
+{
+    CLOSED,
+    KEEP_ALIVE
+};
+
+enum class ResponseType
+{
+    FILE,
+    STRING,
+    EMPTY,
+    AUTO_INDEX
 };
 
 class Header
@@ -149,11 +139,7 @@ class Header
     Header(std::string &&name, std::string &&value);
     std::string name;
     std::string value;
-    // unsigned long offset;
 };
-
-#define CONNECTION_CLOSE 0
-#define CONNECTION_KEEP_ALIVE 1
 
 class InfoRecv
 {
@@ -161,14 +147,9 @@ class InfoRecv
     std::list<Header> headers;
     std::unordered_map<std::string, Header> headerNameValueMap;
     unsigned long contentLength;
-    unsigned chunked : 1;
-    unsigned connectionType : 1;
+    bool isChunked;
+    ConnectionType connectionType;
 };
-
-#define RES_FILE 0
-#define RES_STR 1
-#define RES_EMPTY 2
-#define RES_AUTO_INDEX 3
 
 class InfoSend
 {
@@ -176,9 +157,9 @@ class InfoSend
     std::list<Header> headers;
     std::unordered_map<std::string, Header> headerNameValueMap;
     unsigned long contentLength;
-    unsigned chunked : 1;
+    bool isChunked;
 
-    int status;
+    ResponseCode resCode;
     std::string statusLine;
 
     std::string strBody;
@@ -188,7 +169,8 @@ class InfoSend
         off_t fileSize;
         off_t offset;
     } fileBody;
-    int restype = RES_EMPTY;
+
+    ResponseType restype = ResponseType::EMPTY;
 };
 
 class ChunkedInfo
@@ -217,6 +199,7 @@ extern Cycle *cyclePtr;
 class Request
 {
   public:
+    ~Request();
     void init();
 
     int nowProxyPass = 0;
@@ -227,10 +210,10 @@ class Request
 
     Method method;
     HeaderState headerState = HeaderState::START;
-    RequestState requestState = RequestState::sw_start;
-    ResponseState responseState = ResponseState::sw_start;
+    RequestState requestState = RequestState::START;
+    ResponseState responseState = ResponseState::START;
 
-    uintptr_t httpVersion;
+    unsigned long httpVersion;
 
     InfoRecv inInfo;
     InfoSend outInfo;
@@ -264,6 +247,7 @@ class Request
     // used for parse http headers
     u_char *pos;
 
+    // all end pointers point to the place after the content, except methodEnd
     u_char *headerNameStart;
     u_char *headerNameEnd;
     u_char *headerValueStart;
@@ -275,7 +259,7 @@ class Request
     u_char *argsStart;
     u_char *requestStart;
     u_char *requestEnd;
-    // method_end points to the last character of method, not the place after it
+    // methodEnd points to the last character of method, not the place after it
     u_char *methodEnd;
     u_char *schemaStart;
     u_char *schemaEnd;
@@ -331,15 +315,47 @@ class HttpCode
     std::string str;
 };
 
-#define HTTP_OK 200
-#define HTTP_NOT_MODIFIED 304
-#define HTTP_UNAUTHORIZED 401
-#define HTTP_FORBIDDEN 403
-#define HTTP_NOT_FOUND 404
-#define HTTP_INTERNAL_SERVER_ERROR 500
+int initListen(Cycle *cycle, int port);
+Connection *addListen(Cycle *cycle, int port);
 
-#define SEMICOLON_SPLIT "; "
+int newConnection(Event *ev);
+int waitRequest(Event *ev);
+int waitRequestAgain(Event *ev);
 
-#define UTF_8 "charset=utf-8"
+int processRequestLine(Event *ev);
+int readRequest(std::shared_ptr<Request> r);
+int handleRequestUri(std::shared_ptr<Request> r);
+int processRequestHeaders(Event *ev);
+int handleRequestHeader(std::shared_ptr<Request> r, int needHost);
+int processRequest(std::shared_ptr<Request> r);
+
+int runPhases(Event *ev);
+
+int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_ptr<Request>)> postHandler);
+int readRequestBodyInner(Event *ev);
+int processRequestBody(std::shared_ptr<Request> r);
+int processBodyLength(std::shared_ptr<Request> r);
+int processBodyChunked(std::shared_ptr<Request> r);
+
+int processUpsStatusLine(std::shared_ptr<Request> upsr);
+int processUpsHeaders(std::shared_ptr<Request> upsr);
+int processUpsBody(std::shared_ptr<Request> upsr);
+
+int writeResponse(Event *ev);
+int sendfileEvent(Event *ev);
+int sendStrEvent(Event *ev);
+
+int keepAliveRequest(std::shared_ptr<Request> r);
+int finalizeRequest(std::shared_ptr<Request> r);
+int finalizeConnection(Connection *c);
+
+// others
+std::string cacheControl(int fd);
+bool matchEtag(int fd, std::string browserEtag);
+int blockReading(Event *ev);
+int blockWriting(Event *ev);
+std::string getContentType(std::string exten, Charset charset);
+HttpCode getByCode(ResponseCode code);
+std::string getStatusLineByCode(ResponseCode code);
 
 #endif

@@ -1,7 +1,7 @@
 {
     "logger_threshold": 1,
     "enable_logger": 1,
-    "daemon": 1,
+    "daemon": 0,
     "only_worker": 0,
     "use_epoll": 0,
     "processes": 1,

@@ -5,6 +5,8 @@
 
 extern Cycle *cyclePtr;
 
+// usage: usual[ch >> 5] & (1U << (ch & 0x1f))
+// if the expression above is true then the char is in this table
 uint32_t usual[] = {
     0x00000000, /* 0000 0000 0000 0000  0000 0000 0000 0000 */
 
@@ -23,6 +25,7 @@ uint32_t usual[] = {
     0xffffffff  /* 1111 1111 1111 1111  1111 1111 1111 1111 */
 };
 
+// GET /example/path HTTP/1.1\r\n
 int parseRequestLine(std::shared_ptr<Request> r)
 {
     // LOG_INFO << "parse request line";
@@ -37,9 +40,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
 
         switch (state)
         {
-
-        /* HTTP methods: GET, HEAD, POST */
-        case RequestState::sw_start:
+        case RequestState::START:
             r->requestStart = p;
 
             if (ch == CR || ch == LF)
@@ -52,15 +53,17 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 return ERROR;
             }
 
-            state = RequestState::sw_method;
+            state = RequestState::METHOD;
             break;
 
-        case RequestState::sw_method:
+        case RequestState::METHOD:
+            // continue until we meet the space after method
             if (ch == ' ')
             {
                 r->methodEnd = p - 1;
                 m = r->requestStart;
 
+                // switch between method length, like GET, POST
                 switch (p - m)
                 {
 
@@ -185,7 +188,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
                     break;
                 }
 
-                state = RequestState::sw_spaces_before_uri;
+                state = RequestState::SPACE_BEFORE_URI;
                 break;
             }
 
@@ -196,21 +199,22 @@ int parseRequestLine(std::shared_ptr<Request> r)
 
             break;
 
-        /* space* before URI */
-        case RequestState::sw_spaces_before_uri:
+        // GET /example/path HTTP/1.1\r\n
+        case RequestState::SPACE_BEFORE_URI:
 
             if (ch == '/')
             {
                 r->uriStart = p;
-                state = RequestState::sw_after_slash_in_uri;
+                state = RequestState::AFTER_SLASH_URI;
                 break;
             }
 
+            // turn ch to lowercase
             c = (u_char)(ch | 0x20);
             if (c >= 'a' && c <= 'z')
             {
                 r->schemaStart = p;
-                state = RequestState::sw_schema;
+                state = RequestState::SCHEMA;
                 break;
             }
 
@@ -223,7 +227,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
             }
             break;
 
-        case RequestState::sw_schema:
+        case RequestState::SCHEMA:
 
             c = (u_char)(ch | 0x20);
             if (c >= 'a' && c <= 'z')
@@ -240,50 +244,50 @@ int parseRequestLine(std::shared_ptr<Request> r)
             {
             case ':':
                 r->schemaEnd = p;
-                state = RequestState::sw_schema_slash;
+                state = RequestState::SCHEMA_SLASH0;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        case RequestState::sw_schema_slash:
+        case RequestState::SCHEMA_SLASH0:
             switch (ch)
             {
             case '/':
-                state = RequestState::sw_schema_slash_slash;
+                state = RequestState::SCHEMA_SLASH1;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        case RequestState::sw_schema_slash_slash:
+        case RequestState::SCHEMA_SLASH1:
             switch (ch)
             {
             case '/':
-                state = RequestState::sw_host_start;
+                state = RequestState::HOST_START;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        case RequestState::sw_host_start:
+        case RequestState::HOST_START:
 
             r->hostStart = p;
 
             if (ch == '[')
             {
-                state = RequestState::sw_host_ip_literal;
+                state = RequestState::HOST_IP;
                 break;
             }
 
-            state = RequestState::sw_host;
+            state = RequestState::HOST;
 
-            /* fall through */
+            // fall through
 
-        case RequestState::sw_host:
+        case RequestState::HOST:
 
             c = (u_char)(ch | 0x20);
             if (c >= 'a' && c <= 'z')
@@ -296,26 +300,26 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 break;
             }
 
-            /* fall through */
+            // fall through
 
-        case RequestState::sw_host_end:
+        case RequestState::HOST_END:
 
             r->hostEnd = p;
 
             switch (ch)
             {
             case ':':
-                state = RequestState::sw_port;
+                state = RequestState::PORT;
                 break;
             case '/':
                 r->uriStart = p;
-                state = RequestState::sw_after_slash_in_uri;
+                state = RequestState::AFTER_SLASH_URI;
                 break;
             case '?':
                 r->uriStart = p;
                 r->argsStart = p + 1;
                 r->emptyPathInUri = 1;
-                state = RequestState::sw_uri;
+                state = RequestState::URI;
                 break;
             case ' ':
                 /*
@@ -324,14 +328,14 @@ int parseRequestLine(std::shared_ptr<Request> r)
                  */
                 r->uriStart = r->schemaEnd + 1;
                 r->uriEnd = r->schemaEnd + 2;
-                state = RequestState::sw_http_09;
+                state = RequestState::HTTP_09;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        case RequestState::sw_host_ip_literal:
+        case RequestState::HOST_IP:
 
             if (ch >= '0' && ch <= '9')
             {
@@ -349,13 +353,13 @@ int parseRequestLine(std::shared_ptr<Request> r)
             case ':':
                 break;
             case ']':
-                state = RequestState::sw_host_end;
+                state = RequestState::HOST_END;
                 break;
             case '-':
             case '.':
             case '_':
             case '~':
-                /* unreserved */
+                // unreserved
                 break;
             case '!':
             case '$':
@@ -368,14 +372,14 @@ int parseRequestLine(std::shared_ptr<Request> r)
             case ',':
             case ';':
             case '=':
-                /* sub-delims */
+                // sub-delims
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        case RequestState::sw_port:
+        case RequestState::PORT:
             if (ch >= '0' && ch <= '9')
             {
                 break;
@@ -386,14 +390,14 @@ int parseRequestLine(std::shared_ptr<Request> r)
             case '/':
                 r->portEnd = p;
                 r->uriStart = p;
-                state = RequestState::sw_after_slash_in_uri;
+                state = RequestState::AFTER_SLASH_URI;
                 break;
             case '?':
                 r->portEnd = p;
                 r->uriStart = p;
                 r->argsStart = p + 1;
                 r->emptyPathInUri = 1;
-                state = RequestState::sw_uri;
+                state = RequestState::URI;
                 break;
             case ' ':
                 r->portEnd = p;
@@ -403,19 +407,19 @@ int parseRequestLine(std::shared_ptr<Request> r)
                  */
                 r->uriStart = r->schemaEnd + 1;
                 r->uriEnd = r->schemaEnd + 2;
-                state = RequestState::sw_http_09;
+                state = RequestState::HTTP_09;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        /* check "/.", "//", "%", and "\" (Win32) in URI */
-        case RequestState::sw_after_slash_in_uri:
+        // check "/.", "//", "%" in URI
+        case RequestState::AFTER_SLASH_URI:
 
             if (usual[ch >> 5] & (1U << (ch & 0x1f)))
             {
-                state = RequestState::sw_check_uri;
+                state = RequestState::CHECK_URI;
                 break;
             }
 
@@ -423,12 +427,12 @@ int parseRequestLine(std::shared_ptr<Request> r)
             {
             case ' ':
                 r->uriEnd = p;
-                state = RequestState::sw_http_09;
+                state = RequestState::HTTP_09;
                 break;
             case CR:
                 r->uriEnd = p;
                 r->httpMinor = 9;
-                state = RequestState::sw_almost_done;
+                state = RequestState::REQUEST_DONE;
                 break;
             case LF:
                 r->uriEnd = p;
@@ -436,23 +440,23 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 goto done;
             case '.':
                 r->complexUri = 1;
-                state = RequestState::sw_uri;
+                state = RequestState::URI;
                 break;
             case '%':
                 r->quotedUri = 1;
-                state = RequestState::sw_uri;
+                state = RequestState::URI;
                 break;
             case '/':
                 r->complexUri = 1;
-                state = RequestState::sw_uri;
+                state = RequestState::URI;
                 break;
             case '?':
                 r->argsStart = p + 1;
-                state = RequestState::sw_uri;
+                state = RequestState::URI;
                 break;
             case '#':
                 r->complexUri = 1;
-                state = RequestState::sw_uri;
+                state = RequestState::URI;
                 break;
             case '+':
                 r->plusInUri = 1;
@@ -462,13 +466,13 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 {
                     return ERROR;
                 }
-                state = RequestState::sw_check_uri;
+                state = RequestState::CHECK_URI;
                 break;
             }
             break;
 
-        /* check "/", "%" and "\" (Win32) in URI */
-        case RequestState::sw_check_uri:
+        // check "/", "%" in URI
+        case RequestState::CHECK_URI:
 
             if (usual[ch >> 5] & (1U << (ch & 0x1f)))
             {
@@ -479,19 +483,19 @@ int parseRequestLine(std::shared_ptr<Request> r)
             {
             case '/':
                 r->uriExt = NULL;
-                state = RequestState::sw_after_slash_in_uri;
+                state = RequestState::AFTER_SLASH_URI;
                 break;
             case '.':
                 r->uriExt = p + 1;
                 break;
             case ' ':
                 r->uriEnd = p;
-                state = RequestState::sw_http_09;
+                state = RequestState::HTTP_09;
                 break;
             case CR:
                 r->uriEnd = p;
                 r->httpMinor = 9;
-                state = RequestState::sw_almost_done;
+                state = RequestState::REQUEST_DONE;
                 break;
             case LF:
                 r->uriEnd = p;
@@ -499,15 +503,15 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 goto done;
             case '%':
                 r->quotedUri = 1;
-                state = RequestState::sw_uri;
+                state = RequestState::URI;
                 break;
             case '?':
                 r->argsStart = p + 1;
-                state = RequestState::sw_uri;
+                state = RequestState::URI;
                 break;
             case '#':
                 r->complexUri = 1;
-                state = RequestState::sw_uri;
+                state = RequestState::URI;
                 break;
             case '+':
                 r->plusInUri = 1;
@@ -521,8 +525,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
             }
             break;
 
-        /* URI */
-        case RequestState::sw_uri:
+        case RequestState::URI:
 
             if (usual[ch >> 5] & (1U << (ch & 0x1f)))
             {
@@ -533,12 +536,12 @@ int parseRequestLine(std::shared_ptr<Request> r)
             {
             case ' ':
                 r->uriEnd = p;
-                state = RequestState::sw_http_09;
+                state = RequestState::HTTP_09;
                 break;
             case CR:
                 r->uriEnd = p;
                 r->httpMinor = 9;
-                state = RequestState::sw_almost_done;
+                state = RequestState::REQUEST_DONE;
                 break;
             case LF:
                 r->uriEnd = p;
@@ -556,74 +559,73 @@ int parseRequestLine(std::shared_ptr<Request> r)
             }
             break;
 
-        /* space+ after URI */
-        case RequestState::sw_http_09:
+        case RequestState::HTTP_09:
             switch (ch)
             {
             case ' ':
                 break;
             case CR:
                 r->httpMinor = 9;
-                state = RequestState::sw_almost_done;
+                state = RequestState::REQUEST_DONE;
                 break;
             case LF:
                 r->httpMinor = 9;
                 goto done;
             case 'H':
                 r->protocol.data = p;
-                state = RequestState::sw_http_H;
+                state = RequestState::HTTP_H;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        case RequestState::sw_http_H:
+        case RequestState::HTTP_H:
             switch (ch)
             {
             case 'T':
-                state = RequestState::sw_http_HT;
+                state = RequestState::HTTP_HT;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        case RequestState::sw_http_HT:
+        case RequestState::HTTP_HT:
             switch (ch)
             {
             case 'T':
-                state = RequestState::sw_http_HTT;
+                state = RequestState::HTTP_HTT;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        case RequestState::sw_http_HTT:
+        case RequestState::HTTP_HTT:
             switch (ch)
             {
             case 'P':
-                state = RequestState::sw_http_HTTP;
+                state = RequestState::HTTP_HTTP;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        case RequestState::sw_http_HTTP:
+        case RequestState::HTTP_HTTP:
             switch (ch)
             {
             case '/':
-                state = RequestState::sw_first_major_digit;
+                state = RequestState::FIRST_MAJOR_DIGIT;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        /* first digit of major HTTP version */
-        case RequestState::sw_first_major_digit:
+        // first digit of major HTTP version
+        case RequestState::FIRST_MAJOR_DIGIT:
             if (ch < '1' || ch > '9')
             {
                 return ERROR;
@@ -636,14 +638,14 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 return ERROR;
             }
 
-            state = RequestState::sw_major_digit;
+            state = RequestState::MAJOR_DIGIT;
             break;
 
-        /* major HTTP version or dot */
-        case RequestState::sw_major_digit:
+        // major HTTP version or dot
+        case RequestState::MAJOR_DIGIT:
             if (ch == '.')
             {
-                state = RequestState::sw_first_minor_digit;
+                state = RequestState::FIRST_MINOR_DIGIT;
                 break;
             }
 
@@ -661,22 +663,22 @@ int parseRequestLine(std::shared_ptr<Request> r)
 
             break;
 
-        /* first digit of minor HTTP version */
-        case RequestState::sw_first_minor_digit:
+        // first digit of minor HTTP version
+        case RequestState::FIRST_MINOR_DIGIT:
             if (ch < '0' || ch > '9')
             {
                 return ERROR;
             }
 
             r->httpMinor = ch - '0';
-            state = RequestState::sw_minor_digit;
+            state = RequestState::MINOR_DIGIT;
             break;
 
-        /* minor HTTP version or end of request line */
-        case RequestState::sw_minor_digit:
+        // minor HTTP version or end of request line
+        case RequestState::MINOR_DIGIT:
             if (ch == CR)
             {
-                state = RequestState::sw_almost_done;
+                state = RequestState::REQUEST_DONE;
                 break;
             }
 
@@ -687,7 +689,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
 
             if (ch == ' ')
             {
-                state = RequestState::sw_spaces_after_digit;
+                state = RequestState::SPACES_AFTER_DIGIT;
                 break;
             }
 
@@ -704,13 +706,13 @@ int parseRequestLine(std::shared_ptr<Request> r)
             r->httpMinor = r->httpMinor * 10 + (ch - '0');
             break;
 
-        case RequestState::sw_spaces_after_digit:
+        case RequestState::SPACES_AFTER_DIGIT:
             switch (ch)
             {
             case ' ':
                 break;
             case CR:
-                state = RequestState::sw_almost_done;
+                state = RequestState::REQUEST_DONE;
                 break;
             case LF:
                 goto done;
@@ -719,8 +721,8 @@ int parseRequestLine(std::shared_ptr<Request> r)
             }
             break;
 
-        /* end of request line */
-        case RequestState::sw_almost_done:
+        // end of request line
+        case RequestState::REQUEST_DONE:
             r->requestEnd = p - 1;
             switch (ch)
             {
@@ -733,13 +735,12 @@ int parseRequestLine(std::shared_ptr<Request> r)
     }
 
     buffer.now->pos = p - buffer.now->start;
-    // r->c->readBuffer_.retrieveUntil((const char *)(p));
+
     return AGAIN;
 
 done:
 
     buffer.now->pos = p + 1 - buffer.now->start;
-    // r->c->readBuffer_.retrieveUntil((const char *)(p + 1));
 
     if (r->requestEnd == NULL)
     {
@@ -747,7 +748,7 @@ done:
     }
 
     r->httpVersion = r->httpMajor * 1000 + r->httpMinor;
-    r->requestState = RequestState::sw_start;
+    r->requestState = RequestState::START;
 
     if (r->httpVersion == 9 && r->method != Method::GET)
     {
@@ -757,50 +758,54 @@ done:
     return OK;
 }
 
-int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
+// r->complexUri || r->quotedUri || r->emptyPathInUri
+// already malloc a new space for uri.data
+// 1. decode chars begin with '%' in QUOTED
+// 2. extract exten in state like DOT
+// 3. handle ./ and ../
+int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
 {
-    u_char c, ch, decoded, *p, *u;
+    u_char c;
+    u_char ch;
+    u_char decoded;
+    u_char *old, *now;
+    
     enum
     {
-        sw_usual = 0,
-        sw_slash,
-        sw_dot,
-        sw_dot_dot,
-        sw_quoted,
-        sw_quoted_second
-    } state, quoted_state;
+        USUAL = 0,
+        SLASH,
+        DOT,
+        DOT_DOT,
+        QUOTED,
+        QUOTED_SECOND
+    } state, saveState;
 
-    state = sw_usual;
-    p = r->uriStart;
-    u = r->uri.data;
+    state = USUAL;
+
+    old = r->uriStart;
+    now = r->uri.data;
     r->uriExt = NULL;
     r->argsStart = NULL;
 
     if (r->emptyPathInUri)
     {
-        *u++ = '/';
+        // *now++ <=> *now='/'; now++
+        *now++ = '/';
     }
 
-    ch = *p++;
+    ch = *old++;
 
-    while (p <= r->uriEnd)
+    while (old <= r->uriEnd)
     {
-
-        /*
-         * we use "ch = *p++" inside the cycle, but this operation is safe,
-         * because after the URI there is always at least one character:
-         * the line feed
-         */
-
         switch (state)
         {
 
-        case sw_usual:
+        case USUAL:
 
             if (usual[ch >> 5] & (1U << (ch & 0x1f)))
             {
-                *u++ = ch;
-                ch = *p++;
+                *now++ = ch;
+                ch = *old++;
                 break;
             }
 
@@ -808,126 +813,126 @@ int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
             {
             case '/':
                 r->uriExt = NULL;
-                state = sw_slash;
-                *u++ = ch;
+                state = SLASH;
+                *now++ = ch;
                 break;
             case '%':
-                quoted_state = state;
-                state = sw_quoted;
+                saveState = state;
+                state = QUOTED;
                 break;
             case '?':
-                r->argsStart = p;
+                r->argsStart = old;
                 goto args;
             case '#':
                 goto done;
             case '.':
-                r->uriExt = u + 1;
-                *u++ = ch;
+                r->uriExt = now + 1;
+                *now++ = ch;
                 break;
             case '+':
                 r->plusInUri = 1;
-                /* fall through */
+                // fall through
             default:
-                *u++ = ch;
+                *now++ = ch;
                 break;
             }
 
-            ch = *p++;
+            ch = *old++;
             break;
 
-        case sw_slash:
+        case SLASH:
 
             if (usual[ch >> 5] & (1U << (ch & 0x1f)))
             {
-                state = sw_usual;
-                *u++ = ch;
-                ch = *p++;
+                state = USUAL;
+                *now++ = ch;
+                ch = *old++;
                 break;
             }
 
             switch (ch)
             {
             case '/':
-                if (!merge_slashes)
+                if (!mergeSlashes)
                 {
-                    *u++ = ch;
+                    *now++ = ch;
                 }
                 break;
             case '.':
-                state = sw_dot;
-                *u++ = ch;
+                state = DOT;
+                *now++ = ch;
                 break;
             case '%':
-                quoted_state = state;
-                state = sw_quoted;
+                saveState = state;
+                state = QUOTED;
                 break;
             case '?':
-                r->argsStart = p;
+                r->argsStart = old;
                 goto args;
             case '#':
                 goto done;
             case '+':
                 r->plusInUri = 1;
-                /* fall through */
+                // fall through
             default:
-                state = sw_usual;
-                *u++ = ch;
+                state = USUAL;
+                *now++ = ch;
                 break;
             }
 
-            ch = *p++;
+            ch = *old++;
             break;
 
-        case sw_dot:
+        case DOT:
 
             if (usual[ch >> 5] & (1U << (ch & 0x1f)))
             {
-                state = sw_usual;
-                *u++ = ch;
-                ch = *p++;
+                state = USUAL;
+                *now++ = ch;
+                ch = *old++;
                 break;
             }
 
             switch (ch)
             {
             case '/':
-                state = sw_slash;
-                u--;
+                state = SLASH;
+                now--;
                 break;
             case '.':
-                state = sw_dot_dot;
-                *u++ = ch;
+                state = DOT_DOT;
+                *now++ = ch;
                 break;
             case '%':
-                quoted_state = state;
-                state = sw_quoted;
+                saveState = state;
+                state = QUOTED;
                 break;
             case '?':
-                u--;
-                r->argsStart = p;
+                now--;
+                r->argsStart = old;
                 goto args;
             case '#':
-                u--;
+                now--;
                 goto done;
             case '+':
                 r->plusInUri = 1;
-                /* fall through */
+                // fall through
             default:
-                state = sw_usual;
-                *u++ = ch;
+                state = USUAL;
+                *now++ = ch;
                 break;
             }
 
-            ch = *p++;
+            ch = *old++;
             break;
 
-        case sw_dot_dot:
+        case DOT_DOT:
 
             if (usual[ch >> 5] & (1U << (ch & 0x1f)))
             {
-                state = sw_usual;
-                *u++ = ch;
-                ch = *p++;
+                state = USUAL;
+                *now++ = ch;
+                ch = *old++;
                 break;
             }
 
@@ -936,55 +941,55 @@ int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
             case '/':
             case '?':
             case '#':
-                u -= 4;
+                now -= 4;
                 for (;;)
                 {
-                    if (u < r->uri.data)
+                    if (now < r->uri.data)
                     {
                         return ERROR;
                     }
-                    if (*u == '/')
+                    if (*now == '/')
                     {
-                        u++;
+                        now++;
                         break;
                     }
-                    u--;
+                    now--;
                 }
                 if (ch == '?')
                 {
-                    r->argsStart = p;
+                    r->argsStart = old;
                     goto args;
                 }
                 if (ch == '#')
                 {
                     goto done;
                 }
-                state = sw_slash;
+                state = SLASH;
                 break;
             case '%':
-                quoted_state = state;
-                state = sw_quoted;
+                saveState = state;
+                state = QUOTED;
                 break;
             case '+':
                 r->plusInUri = 1;
-                /* fall through */
+                // fall through
             default:
-                state = sw_usual;
-                *u++ = ch;
+                state = USUAL;
+                *now++ = ch;
                 break;
             }
 
-            ch = *p++;
+            ch = *old++;
             break;
 
-        case sw_quoted:
+        case QUOTED:
             r->quotedUri = 1;
 
             if (ch >= '0' && ch <= '9')
             {
                 decoded = (u_char)(ch - '0');
-                state = sw_quoted_second;
-                ch = *p++;
+                state = QUOTED_SECOND;
+                ch = *old++;
                 break;
             }
 
@@ -992,23 +997,23 @@ int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
             if (c >= 'a' && c <= 'f')
             {
                 decoded = (u_char)(c - 'a' + 10);
-                state = sw_quoted_second;
-                ch = *p++;
+                state = QUOTED_SECOND;
+                ch = *old++;
                 break;
             }
 
             return ERROR;
 
-        case sw_quoted_second:
+        case QUOTED_SECOND:
             if (ch >= '0' && ch <= '9')
             {
                 ch = (u_char)((decoded << 4) + (ch - '0'));
 
                 if (ch == '%' || ch == '#')
                 {
-                    state = sw_usual;
-                    *u++ = ch;
-                    ch = *p++;
+                    state = USUAL;
+                    *now++ = ch;
+                    ch = *old++;
                     break;
                 }
                 else if (ch == '\0')
@@ -1016,7 +1021,7 @@ int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
                     return ERROR;
                 }
 
-                state = quoted_state;
+                state = saveState;
                 break;
             }
 
@@ -1027,9 +1032,9 @@ int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
 
                 if (ch == '?')
                 {
-                    state = sw_usual;
-                    *u++ = ch;
-                    ch = *p++;
+                    state = USUAL;
+                    *now++ = ch;
+                    ch = *old++;
                     break;
                 }
                 else if (ch == '+')
@@ -1037,7 +1042,7 @@ int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
                     r->plusInUri = 1;
                 }
 
-                state = quoted_state;
+                state = saveState;
                 break;
             }
 
@@ -1045,43 +1050,43 @@ int parseComplexUri(std::shared_ptr<Request> r, int merge_slashes)
         }
     }
 
-    if (state == sw_quoted || state == sw_quoted_second)
+    if (state == QUOTED || state == QUOTED_SECOND)
     {
         return ERROR;
     }
 
-    if (state == sw_dot)
+    if (state == DOT)
     {
-        u--;
+        now--;
     }
-    else if (state == sw_dot_dot)
+    else if (state == DOT_DOT)
     {
-        u -= 4;
+        now -= 4;
 
         for (;;)
         {
-            if (u < r->uri.data)
+            if (now < r->uri.data)
             {
                 return ERROR;
             }
 
-            if (*u == '/')
+            if (*now == '/')
             {
-                u++;
+                now++;
                 break;
             }
 
-            u--;
+            now--;
         }
     }
 
 done:
 
-    r->uri.len = u - r->uri.data;
+    r->uri.len = now - r->uri.data;
 
     if (r->uriExt)
     {
-        r->exten.len = u - r->uriExt;
+        r->exten.len = now - r->uriExt;
         r->exten.data = r->uriExt;
     }
 
@@ -1091,25 +1096,25 @@ done:
 
 args:
 
-    while (p < r->uriEnd)
+    while (old < r->uriEnd)
     {
-        if (*p++ != '#')
+        if (*old++ != '#')
         {
             continue;
         }
 
-        r->args.len = p - 1 - r->argsStart;
+        r->args.len = old - 1 - r->argsStart;
         r->args.data = r->argsStart;
         r->argsStart = NULL;
 
         break;
     }
 
-    r->uri.len = u - r->uri.data;
+    r->uri.len = now - r->uri.data;
 
     if (r->uriExt)
     {
-        r->exten.len = u - r->uriExt;
+        r->exten.len = now - r->uriExt;
         r->exten.data = r->uriExt;
     }
 
@@ -1118,7 +1123,6 @@ args:
     return OK;
 }
 
-// GET /example/path HTTP/1.1\r\n
 // Host: www.example.com\r\n
 // User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)\r\n
 // Accept-Language: en-US,en;q=0.5\r\n
@@ -1387,9 +1391,9 @@ int parseChunked(std::shared_ptr<Request> r)
 
     auto &state = ctx->state;
 
-    if (state == ChunkedState::sw_chunk_data && ctx->size == 0)
+    if (state == ChunkedState::DATA && ctx->size == 0)
     {
-        state = ChunkedState::sw_after_data;
+        state = ChunkedState::DATA_AFTER;
     }
 
     rc = AGAIN;
@@ -1410,10 +1414,10 @@ int parseChunked(std::shared_ptr<Request> r)
         switch (state)
         {
 
-        case ChunkedState::sw_chunk_start:
+        case ChunkedState::START:
             if (ch >= '0' && ch <= '9')
             {
-                state = ChunkedState::sw_chunk_size;
+                state = ChunkedState::SIZE;
                 ctx->size = ch - '0';
                 break;
             }
@@ -1422,13 +1426,13 @@ int parseChunked(std::shared_ptr<Request> r)
 
             if (c >= 'a' && c <= 'f')
             {
-                state = ChunkedState::sw_chunk_size;
+                state = ChunkedState::SIZE;
                 ctx->size = c - 'a' + 10;
                 break;
             }
             goto invalid;
 
-        case ChunkedState::sw_chunk_size:
+        case ChunkedState::SIZE:
             if (ctx->size > MAX_OFF_T_VALUE / 16)
             {
                 goto invalid;
@@ -1454,15 +1458,15 @@ int parseChunked(std::shared_ptr<Request> r)
                 switch (ch)
                 {
                 case CR:
-                    state = ChunkedState::sw_last_chunk_extension_almost_done;
+                    state = ChunkedState::LAST_EXTENSION_DONE;
                     break;
                 case LF:
-                    state = ChunkedState::sw_trailer;
+                    state = ChunkedState::TRAILER;
                     break;
                 case ';':
                 case ' ':
                 case '\t':
-                    state = ChunkedState::sw_last_chunk_extension;
+                    state = ChunkedState::LAST_EXTENSION;
                     break;
                 default:
                     goto invalid;
@@ -1474,15 +1478,15 @@ int parseChunked(std::shared_ptr<Request> r)
             switch (ch)
             {
             case CR:
-                state = ChunkedState::sw_chunk_extension_almost_done;
+                state = ChunkedState::EXTENSION_DONE;
                 break;
             case LF:
-                state = ChunkedState::sw_chunk_data;
+                state = ChunkedState::DATA;
                 break;
             case ';':
             case ' ':
             case '\t':
-                state = ChunkedState::sw_chunk_extension;
+                state = ChunkedState::EXTENSION;
                 break;
             default:
                 goto invalid;
@@ -1490,105 +1494,105 @@ int parseChunked(std::shared_ptr<Request> r)
 
             break;
 
-        case ChunkedState::sw_chunk_extension:
+        case ChunkedState::EXTENSION:
             switch (ch)
             {
             case CR:
-                state = ChunkedState::sw_chunk_extension_almost_done;
+                state = ChunkedState::EXTENSION_DONE;
                 break;
             case LF:
-                state = ChunkedState::sw_chunk_data;
+                state = ChunkedState::DATA;
             }
             break;
 
-        case ChunkedState::sw_chunk_extension_almost_done:
+        case ChunkedState::EXTENSION_DONE:
             if (ch == LF)
             {
-                state = ChunkedState::sw_chunk_data;
+                state = ChunkedState::DATA;
                 break;
             }
             goto invalid;
 
-        case ChunkedState::sw_chunk_data:
+        case ChunkedState::DATA:
             rc = OK;
             goto data;
 
-        case ChunkedState::sw_after_data:
+        case ChunkedState::DATA_AFTER:
             switch (ch)
             {
             case CR:
-                state = ChunkedState::sw_after_data_almost_done;
+                state = ChunkedState::DATA_AFTER_DONE;
                 break;
             case LF:
-                state = ChunkedState::sw_chunk_start;
+                state = ChunkedState::START;
                 break;
             default:
                 goto invalid;
             }
             break;
 
-        case ChunkedState::sw_after_data_almost_done:
+        case ChunkedState::DATA_AFTER_DONE:
             if (ch == LF)
             {
-                state = ChunkedState::sw_chunk_start;
+                state = ChunkedState::START;
                 break;
             }
             goto invalid;
 
-        case ChunkedState::sw_last_chunk_extension:
+        case ChunkedState::LAST_EXTENSION:
             switch (ch)
             {
             case CR:
-                state = ChunkedState::sw_last_chunk_extension_almost_done;
+                state = ChunkedState::LAST_EXTENSION_DONE;
                 break;
             case LF:
-                state = ChunkedState::sw_trailer;
+                state = ChunkedState::TRAILER;
             }
             break;
 
-        case ChunkedState::sw_last_chunk_extension_almost_done:
+        case ChunkedState::LAST_EXTENSION_DONE:
             if (ch == LF)
             {
-                state = ChunkedState::sw_trailer;
+                state = ChunkedState::TRAILER;
                 break;
             }
             goto invalid;
 
-        case ChunkedState::sw_trailer:
+        case ChunkedState::TRAILER:
             switch (ch)
             {
             case CR:
-                state = ChunkedState::sw_trailer_almost_done;
+                state = ChunkedState::TRAILER_DONE;
                 break;
             case LF:
                 goto done;
             default:
-                state = ChunkedState::sw_trailer_header;
+                state = ChunkedState::TRAILER_HEADER;
             }
             break;
 
-        case ChunkedState::sw_trailer_almost_done:
+        case ChunkedState::TRAILER_DONE:
             if (ch == LF)
             {
                 goto done;
             }
             goto invalid;
 
-        case ChunkedState::sw_trailer_header:
+        case ChunkedState::TRAILER_HEADER:
             switch (ch)
             {
             case CR:
-                state = ChunkedState::sw_trailer_header_almost_done;
+                state = ChunkedState::TRAILER_HEADER_DONE;
                 break;
             case LF:
-                state = ChunkedState::sw_trailer;
+                state = ChunkedState::TRAILER;
             }
             break;
 
-        case ChunkedState::sw_trailer_header_almost_done:
+        case ChunkedState::TRAILER_HEADER_DONE:
             if (ch == LF)
             {
-                state = ChunkedState::sw_trailer;
+                state = ChunkedState::TRAILER;
                 break;
             }
             goto invalid;
@@ -1637,12 +1641,11 @@ data:
 done:
 
     // *pos is the last \n
-
     left = pos + 1 - buffer.now->start - buffer.now->pos;
     r->requestBody.listBody.emplace_back(buffer.now->start + buffer.now->pos, left);
 
     // prepare for the next time
-    ctx->state = ChunkedState::sw_chunk_start;
+    ctx->state = ChunkedState::START;
     ctx->size = 0;
     ctx->dataOffset = 0;
 
@@ -1651,9 +1654,11 @@ done:
     return DONE;
 
 invalid:
+
     return ERROR;
 }
 
+// HTTP/1.1 200 OK\r\n
 int parseStatusLine(std::shared_ptr<Request> r, Status *status)
 {
     u_char ch;
@@ -1670,55 +1675,55 @@ int parseStatusLine(std::shared_ptr<Request> r, Status *status)
         {
 
         /* "HTTP/" */
-        case ResponseState::sw_start:
+        case ResponseState::START:
             switch (ch)
             {
             case 'H':
-                state = ResponseState::sw_H;
+                state = ResponseState::H;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        case ResponseState::sw_H:
+        case ResponseState::H:
             switch (ch)
             {
             case 'T':
-                state = ResponseState::sw_HT;
+                state = ResponseState::HT;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        case ResponseState::sw_HT:
+        case ResponseState::HT:
             switch (ch)
             {
             case 'T':
-                state = ResponseState::sw_HTT;
+                state = ResponseState::HTT;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        case ResponseState::sw_HTT:
+        case ResponseState::HTT:
             switch (ch)
             {
             case 'P':
-                state = ResponseState::sw_HTTP;
+                state = ResponseState::HTTP;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        case ResponseState::sw_HTTP:
+        case ResponseState::HTTP:
             switch (ch)
             {
             case '/':
-                state = ResponseState::sw_first_major_digit;
+                state = ResponseState::MAJOR_DIGIT0;
                 break;
             default:
                 return ERROR;
@@ -1726,21 +1731,21 @@ int parseStatusLine(std::shared_ptr<Request> r, Status *status)
             break;
 
         /* the first digit of major HTTP version */
-        case ResponseState::sw_first_major_digit:
+        case ResponseState::MAJOR_DIGIT0:
             if (ch < '1' || ch > '9')
             {
                 return ERROR;
             }
 
             r->httpMajor = ch - '0';
-            state = ResponseState::sw_major_digit;
+            state = ResponseState::MAJOR_DIGIT1;
             break;
 
         /* the major HTTP version or dot */
-        case ResponseState::sw_major_digit:
+        case ResponseState::MAJOR_DIGIT1:
             if (ch == '.')
             {
-                state = ResponseState::sw_first_minor_digit;
+                state = ResponseState::MINOR_DIGIT0;
                 break;
             }
 
@@ -1758,21 +1763,21 @@ int parseStatusLine(std::shared_ptr<Request> r, Status *status)
             break;
 
         /* the first digit of minor HTTP version */
-        case ResponseState::sw_first_minor_digit:
+        case ResponseState::MINOR_DIGIT0:
             if (ch < '0' || ch > '9')
             {
                 return ERROR;
             }
 
             r->httpMinor = ch - '0';
-            state = ResponseState::sw_minor_digit;
+            state = ResponseState::MINOR_DIGIT1;
             break;
 
         /* the minor HTTP version or the end of the request line */
-        case ResponseState::sw_minor_digit:
+        case ResponseState::MINOR_DIGIT1:
             if (ch == ' ')
             {
-                state = ResponseState::sw_status;
+                state = ResponseState::STATUS;
                 break;
             }
 
@@ -1790,7 +1795,7 @@ int parseStatusLine(std::shared_ptr<Request> r, Status *status)
             break;
 
         /* HTTP status code */
-        case ResponseState::sw_status:
+        case ResponseState::STATUS:
             if (ch == ' ')
             {
                 break;
@@ -1805,24 +1810,24 @@ int parseStatusLine(std::shared_ptr<Request> r, Status *status)
 
             if (++status->count == 3)
             {
-                state = ResponseState::sw_space_after_status;
+                state = ResponseState::STATUS_SPACE;
                 status->start = p - 2;
             }
 
             break;
 
         /* space or end of line */
-        case ResponseState::sw_space_after_status:
+        case ResponseState::STATUS_SPACE:
             switch (ch)
             {
             case ' ':
-                state = ResponseState::sw_status_text;
+                state = ResponseState::STATUS_CONTENT;
                 break;
             case '.': /* IIS may send 403.1, 403.2, etc */
-                state = ResponseState::sw_status_text;
+                state = ResponseState::STATUS_CONTENT;
                 break;
             case CR:
-                state = ResponseState::sw_almost_done;
+                state = ResponseState::RESPONSE_DONE;
                 break;
             case LF:
                 goto done;
@@ -1832,11 +1837,11 @@ int parseStatusLine(std::shared_ptr<Request> r, Status *status)
             break;
 
         /* any text until end of line */
-        case ResponseState::sw_status_text:
+        case ResponseState::STATUS_CONTENT:
             switch (ch)
             {
             case CR:
-                state = ResponseState::sw_almost_done;
+                state = ResponseState::RESPONSE_DONE;
 
                 break;
             case LF:
@@ -1845,7 +1850,7 @@ int parseStatusLine(std::shared_ptr<Request> r, Status *status)
             break;
 
         /* end of status line */
-        case ResponseState::sw_almost_done:
+        case ResponseState::RESPONSE_DONE:
             status->end = p - 1;
             switch (ch)
             {
@@ -1873,7 +1878,7 @@ done:
     }
 
     status->httpVersion = r->httpMajor * 1000 + r->httpMinor;
-    state = ResponseState::sw_start;
+    state = ResponseState::START;
 
     return OK;
 }

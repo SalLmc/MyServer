@@ -12,7 +12,7 @@ Header::Header(std::string &&name, std::string &&value) : name(name), value(valu
 
 ChunkedInfo::ChunkedInfo()
 {
-    state = ChunkedState::sw_chunk_start;
+    state = ChunkedState::START;
     size = 0;
     length = 0;
     dataOffset = 0;
@@ -22,6 +22,14 @@ RequestBody::RequestBody()
 {
     rest = -1;
     postHandler = NULL;
+}
+
+Request::~Request()
+{
+    if (complexUri || quotedUri || emptyPathInUri)
+    {
+        heap.hFree(uri.data);
+    }
 }
 
 void Request::init()
@@ -34,17 +42,17 @@ void Request::init()
     requestBody.rest = -1;
     requestBody.postHandler = NULL;
     requestBody.listBody.clear();
-    requestBody.chunkedInfo.state = ChunkedState::sw_chunk_start;
+    requestBody.chunkedInfo.state = ChunkedState::START;
     requestBody.chunkedInfo.size = 0;
     requestBody.chunkedInfo.length = 0;
     requestBody.chunkedInfo.dataOffset = 0;
 
     headerState = HeaderState::START;
-    requestState = RequestState::sw_start;
-    responseState = ResponseState::sw_start;
+    requestState = RequestState::START;
+    responseState = ResponseState::START;
 
-    inInfo.chunked = 0;
-    inInfo.connectionType = CONNECTION_CLOSE;
+    inInfo.isChunked = 0;
+    inInfo.connectionType = ConnectionType::CLOSED;
     inInfo.contentLength = 0;
     inInfo.headerNameValueMap.clear();
     inInfo.headers.clear();
@@ -52,14 +60,14 @@ void Request::init()
     outInfo.headers.clear();
     outInfo.headerNameValueMap.clear();
     outInfo.contentLength = 0;
-    outInfo.chunked = 0;
-    outInfo.status = 0;
+    outInfo.isChunked = 0;
+    outInfo.resCode = ResponseCode::HTTP_OK;
     outInfo.statusLine.clear();
     outInfo.strBody.clear();
     outInfo.fileBody.filefd.closeFd();
     outInfo.fileBody.fileSize = 0;
     outInfo.fileBody.offset = 0;
-    outInfo.restype = RES_EMPTY;
+    outInfo.restype = ResponseType::EMPTY;
 
     protocol.data = NULL;
     methodName.data = NULL;

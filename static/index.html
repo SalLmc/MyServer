@@ -1,23 +1,68 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-    <title>Welcome to MyServer!</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyServer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            text-align: center;
+        }
+
+        header {
+            background-color: #333;
+            padding: 10px;
+            color: #fff;
+        }
+
+        section {
+            padding: 20px;
+        }
+
+        footer {
+            background-color: #333;
+            color: #fff;
+            padding: 10px;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+        }
+    </style>
 </head>
+<body>
 
-<body class="content">
-    <h1>Welcome to MyServer!</h1>
-    <p>If you see this page, the MyServer web server is successfully installed and
-        working. Further configuration is required.</p>
-    <p><em>Thank you for using MyServer.</em></p>
+    <header>
+        <h1>MyServer</h1>
+    </header>
+
+    <section>
+        <h2>Welcome to Your Website!</h2>
+        <p>This is a simple static homepage for your web server. You can customize this to suit your needs.</p>
+        
+        <div id="chinaTime"></div>
+    </section>
+
+    <footer>
+        <p>&copy; MyServer. All rights reserved.</p>
+    </footer>
+
+    <script>
+        function updateChinaTime() {
+            const options = { timeZone: 'Asia/Shanghai', hour12: false, weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' };
+            const chinaTime = new Date().toLocaleString('en-US', options);
+            document.getElementById('chinaTime').innerText = `Current China Time: ${chinaTime}`;
+        }
+
+        // Update the time every second
+        setInterval(updateChinaTime, 1000);
+
+        // Initial call to display the time immediately
+        updateChinaTime();
+    </script>
+
 </body>
-
 </html>
-
-<style>
-    .content {
-        width: 35em;
-        margin: 0 auto;
-        font-family: Tahoma, Verdana, Arial, sans-serif;
-    }
-</style>
