@@ -277,9 +277,9 @@ class Status
   public:
     Status();
     void init();
-    uintptr_t httpVersion;
-    uintptr_t code;
-    uintptr_t count;
+    int httpVersion;
+    int code;
+    int count;
     u_char *start;
     u_char *end;
 };

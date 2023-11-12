@@ -23,22 +23,28 @@ class Connection;
 class Upstream;
 class Request;
 
-#define NOT_TIMEOUT 0
-#define TIMEOUT 1
-#define IGNORE_TIMEOUT 2
+enum class TimeoutStatus
+{
+  NOT_TIMEOUT,
+  TIMEOUT,
+  IGNORE
+};
 
-#define NORMAL 0
-#define ACCEPT 1
+enum class EventType
+{
+  NORMAL,
+  ACCEPT
+};
 
 class Event
 {
   public:
     Event() = delete;
-    Event(Connection *cc);
+    Event(Connection *c);
     std::function<int(Event *)> handler;
     Connection *c;
-    int type;
-    unsigned timeout : 2;
+    EventType type;
+    TimeoutStatus timeout;
 };
 
 class Fd
@@ -126,15 +132,19 @@ class Cycle
     HeapTimer timer_;
 };
 
-#define NOT_USED 0
-#define ACTIVE 1
+
+enum class ProcessStatus
+{
+  NOT_USED,
+  ACTIVE
+};
 
 class Process
 {
   public:
     Connection channel[2];
     pid_t pid;
-    int status = NOT_USED;
+    ProcessStatus status = ProcessStatus::NOT_USED;
 };
 
 class sharedMemory

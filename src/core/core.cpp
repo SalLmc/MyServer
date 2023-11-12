@@ -65,7 +65,7 @@ void Fd::reset(Fd &&fd)
     fd.fd_ = -1;
 }
 
-Event::Event(Connection *cc) : c(cc), type(NORMAL), timeout(NOT_TIMEOUT)
+Event::Event(Connection *c) : c(c), type(EventType::NORMAL), timeout(TimeoutStatus::NOT_TIMEOUT)
 {
 }
 
@@ -137,7 +137,7 @@ void ConnectionPool::recoverConnection(Connection *c)
 
     c->read_.handler = std::function<int(Event *)>();
     c->write_.handler = std::function<int(Event *)>();
-    c->read_.timeout = c->write_.timeout = NOT_TIMEOUT;
+    c->read_.timeout = c->write_.timeout = TimeoutStatus::NOT_TIMEOUT;
 
     c->readBuffer_.init();
     c->writeBuffer_.init();

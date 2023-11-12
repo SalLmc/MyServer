@@ -9,21 +9,21 @@ CPP_SOURCES = $(foreach dir, $(SRCDIRS), $(wildcard $(dir)/*.cpp))
 CPP_OBJECTS = $(patsubst %.cpp, %.o, $(CPP_SOURCES))
 INCLUDE_FILES = $(foreach dir, $(SRCDIRS), $(wildcard $(dir)/*.d)) *.d
 
-CPPSHARELIB = $(CC) -fPIC -shared $^ -o $@
+CPPSHARELIB = $(CXX) -fPIC -shared $^ -o $@
 
 LINK = -pthread
-FLAGS = -Wall -fPIC -g -MD
-CC = $(shell command -v ccache >/dev/null 2>&1 && echo "ccache g++" || echo "g++")
+CXXFLAGS = -Wall -fPIC -g -MD
+CXX = $(shell command -v ccache >/dev/null 2>&1 && echo "ccache g++" || echo "g++")
 
-BUILDEXEWITHLIB = $(CC) $(FLAGS) $^ ./libmy.so -o $@ $(LINK)
-BUILDEXE = $(CC) $(FLAGS) $^ -o $@ $(LINK)
+BUILDEXEWITHLIB = $(CXX) $(CXXFLAGS) $^ ./libmy.so -o $@ $(LINK)
+BUILDEXE = $(CXX) $(CXXFLAGS) $^ -o $@ $(LINK)
 
 CONFIG = config.json
 
 all: $(CONFIG) $(PRE_HEADER) $(PROGS) tests
 
 src/headers.h.gch: src/headers.h
-	$(CC) $(FLAGS) src/headers.h
+	$(CXX) $(CXXFLAGS) src/headers.h
 
 libmy.so: $(CPP_OBJECTS)
 	$(CPPSHARELIB)
@@ -42,6 +42,3 @@ tests:
 clean:
 	rm -f $(PROGS) $(CPP_OBJECTS) $(INCLUDE_FILES)
 	$(MAKE) clean -C test
-
-%.o: %.cpp
-	$(CC) $(FLAGS) -c $< -o $@

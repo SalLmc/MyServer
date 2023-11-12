@@ -93,7 +93,7 @@ pid_t spawnProcesses(Cycle *cycle, std::function<void(Cycle *)> proc)
     case 0: // worker
         isChild = 1;
         procs[slot].pid = getpid();
-        procs[slot].status = ACTIVE;
+        procs[slot].status = ProcessStatus::ACTIVE;
 
         proc(cycle);
         break;
@@ -104,7 +104,7 @@ pid_t spawnProcesses(Cycle *cycle, std::function<void(Cycle *)> proc)
 
     default: // master
         procs[slot].pid = pid;
-        procs[slot].status = ACTIVE;
+        procs[slot].status = ProcessStatus::ACTIVE;
 
         slot++;
         break;
@@ -125,7 +125,7 @@ void signalWorkerProcesses(int sig)
 {
     for (int i = 0; i < MAX_PROCESS_N; i++)
     {
-        if (procs[i].status == ACTIVE)
+        if (procs[i].status == ProcessStatus::ACTIVE)
         {
             if (kill(procs[i].pid, sig) == -1)
             {

@@ -10,14 +10,14 @@ int setEventTimeout(void *ev)
 {
     Event *thisev = (Event *)ev;
 
-    if (thisev->timeout == IGNORE_TIMEOUT)
+    if (thisev->timeout == TimeoutStatus::IGNORE)
     {
         LOG_INFO << "Ignore this timeout";
         return 0;
     }
 
     // LOG_INFO << "Timeout triggered";
-    thisev->timeout = TIMEOUT;
+    thisev->timeout = TimeoutStatus::TIMEOUT;
     thisev->handler(thisev);
 
     if (thisev->c->quit)
