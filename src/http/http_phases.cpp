@@ -15,13 +15,13 @@ u_char exten_save[16];
 
 int testPhaseHandler(std::shared_ptr<Request> r)
 {
-    r->outInfo.status = HTTP_OK;
-    r->outInfo.statusLine = "HTTP/1.1 200 OK\r\n";
-    r->outInfo.restype = RES_STR;
+    r->outInfo.resCode = ResponseCode::HTTP_OK;
+    r->outInfo.statusLine = getStatusLineByCode(r->outInfo.resCode);
+    r->outInfo.restype = ResponseType::STRING;
 
     r->outInfo.strBody.append("HELLO");
 
-    r->outInfo.headers.emplace_back("Content-Type", std::string(extenContentTypeMap["html"] + SEMICOLON_SPLIT + UTF_8));
+    r->outInfo.headers.emplace_back("Content-Type", getContentType("html", Charset::UTF_8));
     r->outInfo.headers.emplace_back("Content-Length", std::to_string(r->outInfo.strBody.length()));
     r->outInfo.headers.emplace_back("Connection", "Keep-Alive");
 
@@ -150,7 +150,7 @@ int authAccessHandler(std::shared_ptr<Request> r)
         return PHASE_CONTINUE;
     }
 
-    setErrorResponse(r, HTTP_UNAUTHORIZED);
+    setErrorResponse(r, ResponseCode::HTTP_UNAUTHORIZED);
 
     return doResponse(r);
 }
@@ -176,7 +176,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
     // method check
     if (r->method != Method::GET)
     {
-        setErrorResponse(r, HTTP_FORBIDDEN);
+        setErrorResponse(r, ResponseCode::HTTP_FORBIDDEN);
         return doResponse(r);
     }
 
@@ -188,7 +188,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
         if (open(server.root.c_str(), O_RDONLY) < 0)
         {
             LOG_WARN << "can't open server root location";
-            setErrorResponse(r, HTTP_INTERNAL_SERVER_ERROR);
+            setErrorResponse(r, ResponseCode::HTTP_INTERNAL_SERVER_ERROR);
             return doResponse(r);
         }
         goto send404;
@@ -279,17 +279,17 @@ fileok:
             std::string browser_etag = r->inInfo.headerNameValueMap["if-none-match"].value;
             if (matchEtag(fd.getFd(), browser_etag))
             {
-                r->outInfo.status = HTTP_NOT_MODIFIED;
-                r->outInfo.statusLine = "HTTP/1.1 304 Not Modified\r\n";
-                r->outInfo.restype = RES_EMPTY;
+                r->outInfo.resCode = ResponseCode::HTTP_NOT_MODIFIED;
+                r->outInfo.statusLine = getStatusLineByCode(r->outInfo.resCode);
+                r->outInfo.restype = ResponseType::EMPTY;
                 r->outInfo.headers.emplace_back("Etag", std::move(browser_etag));
                 return PHASE_NEXT;
             }
         }
 
-        r->outInfo.status = HTTP_OK;
-        r->outInfo.statusLine = "HTTP/1.1 200 OK\r\n";
-        r->outInfo.restype = RES_FILE;
+        r->outInfo.resCode = ResponseCode::HTTP_OK;
+        r->outInfo.statusLine = getStatusLineByCode(r->outInfo.resCode);
+        r->outInfo.restype = ResponseType::FILE;
 
         struct stat st;
         fstat(fd.getFd(), &st);
@@ -305,14 +305,14 @@ autoindex:
     if (server.auto_index == 0)
     {
     send404:
-        setErrorResponse(r, HTTP_NOT_FOUND);
+        setErrorResponse(r, ResponseCode::HTTP_NOT_FOUND);
         return doResponse(r);
     }
     else
     {
-        r->outInfo.status = HTTP_OK;
-        r->outInfo.statusLine = "HTTP/1.1 200 OK\r\n";
-        r->outInfo.restype = RES_AUTO_INDEX;
+        r->outInfo.resCode = ResponseCode::HTTP_OK;
+        r->outInfo.statusLine =getStatusLineByCode(r->outInfo.resCode);
+        r->outInfo.restype = ResponseType::AUTO_INDEX;
         return PHASE_NEXT;
     }
 }
@@ -617,7 +617,7 @@ int send2Upstream(Event *upc_ev)
 int staticContentHandler(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Static content handler, FD:" << r->c->fd_.getFd();
-    if (r->outInfo.restype == RES_FILE)
+    if (r->outInfo.restype == ResponseType::FILE)
     {
         LOG_INFO << "RES_FILE";
         r->outInfo.contentLength = r->outInfo.fileBody.fileSize;
@@ -627,36 +627,25 @@ int staticContentHandler(std::shared_ptr<Request> r)
             r->outInfo.headers.emplace_back("Etag", std::move(etag));
         }
     }
-    else if (r->outInfo.restype == RES_STR)
+    else if (r->outInfo.restype == ResponseType::STRING)
     {
         LOG_INFO << "RES_STR";
         r->outInfo.contentLength = r->outInfo.strBody.length();
     }
-    else if (r->outInfo.restype == RES_EMPTY)
+    else if (r->outInfo.restype == ResponseType::EMPTY)
     {
         LOG_INFO << "RES_EMTPY";
         r->outInfo.contentLength = 0;
     }
-    else if (r->outInfo.restype == RES_AUTO_INDEX)
+    else if (r->outInfo.restype == ResponseType::AUTO_INDEX)
     {
         LOG_INFO << "RES_AUTO_INDEX";
         return PHASE_CONTINUE;
     }
 
     std::string exten = std::string(r->exten.data, r->exten.data + r->exten.len);
-    if (extenContentTypeMap.count(exten))
-    {
-        std::string extenContent = extenContentTypeMap[exten];
-        if (exten == "html")
-        {
-            extenContent = extenContent + SEMICOLON_SPLIT + UTF_8;
-        }
-        r->outInfo.headers.emplace_back("Content-Type", std::move(extenContent));
-    }
-    else
-    {
-        r->outInfo.headers.emplace_back("Content-Type", "application/octet-stream");
-    }
+
+    r->outInfo.headers.emplace_back("Content-Type", getContentType(exten, Charset::UTF_8));
     r->outInfo.headers.emplace_back("Content-Length", std::to_string(r->outInfo.contentLength));
     r->outInfo.headers.emplace_back("Connection", "Keep-Alive");
 
@@ -666,14 +655,14 @@ int staticContentHandler(std::shared_ptr<Request> r)
 int autoIndexHandler(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Auto index handler, FD:" << r->c->fd_.getFd();
-    if (r->outInfo.restype != RES_AUTO_INDEX)
+    if (r->outInfo.restype != ResponseType::AUTO_INDEX)
     {
         LOG_WARN << "Pass auto index handler";
         return PHASE_NEXT;
     }
 
     // setup
-    r->outInfo.restype = RES_STR;
+    r->outInfo.restype = ResponseType::STRING;
 
     exten_save[0] = 'h', exten_save[1] = 't', exten_save[2] = 'm', exten_save[3] = 'l', exten_save[4] = '\0';
     r->exten.data = exten_save;
@@ -695,7 +684,7 @@ int autoIndexHandler(std::shared_ptr<Request> r)
     // can't open dir
     if (directory.dir == NULL)
     {
-        setErrorResponse(r, HTTP_INTERNAL_SERVER_ERROR);
+        setErrorResponse(r, ResponseCode::HTTP_INTERNAL_SERVER_ERROR);
         return doResponse(r);
     }
 
@@ -730,7 +719,7 @@ int autoIndexHandler(std::shared_ptr<Request> r)
     out.strBody.append(tail);
 
     // headers
-    r->outInfo.headers.emplace_back("Content-Type", std::string(extenContentTypeMap["html"] + SEMICOLON_SPLIT + UTF_8));
+    r->outInfo.headers.emplace_back("Content-Type", getContentType("html", Charset::UTF_8));
     r->outInfo.headers.emplace_back("Content-Length", std::to_string(out.strBody.length()));
     r->outInfo.headers.emplace_back("Connection", "Keep-Alive");
 
@@ -765,16 +754,16 @@ int appendResponseBody(std::shared_ptr<Request> r)
     // auto &writebuffer = r->c->writeBuffer_;
     auto &out = r->outInfo;
 
-    if (out.restype == RES_EMPTY)
+    if (out.restype == ResponseType::EMPTY)
     {
         return OK;
     }
 
-    if (out.restype == RES_FILE)
+    if (out.restype == ResponseType::FILE)
     {
         // use sendfile in writeResponse
     }
-    else if (out.restype == RES_STR)
+    else if (out.restype == ResponseType::STRING)
     {
         // avoid copy, send str_body in writeResponse
         // writebuffer.append(out.str_body);
@@ -864,7 +853,7 @@ int send2Client(Event *upc_ev)
     LOG_INFO << "PROXYPASS RESPONSED";
 
     finalizeRequest(upsr);
-    if (cr->inInfo.connectionType == CONNECTION_KEEP_ALIVE)
+    if (cr->inInfo.connectionType == ConnectionType::KEEP_ALIVE)
     {
         keepAliveRequest(cr);
     }

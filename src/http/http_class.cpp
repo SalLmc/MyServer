@@ -49,10 +49,10 @@ void Request::init()
 
     headerState = HeaderState::START;
     requestState = RequestState::START;
-    responseState = ResponseState::sw_start;
+    responseState = ResponseState::START;
 
-    inInfo.chunked = 0;
-    inInfo.connectionType = CONNECTION_CLOSE;
+    inInfo.isChunked = 0;
+    inInfo.connectionType = ConnectionType::CLOSED;
     inInfo.contentLength = 0;
     inInfo.headerNameValueMap.clear();
     inInfo.headers.clear();
@@ -60,14 +60,14 @@ void Request::init()
     outInfo.headers.clear();
     outInfo.headerNameValueMap.clear();
     outInfo.contentLength = 0;
-    outInfo.chunked = 0;
-    outInfo.status = 0;
+    outInfo.isChunked = 0;
+    outInfo.resCode = ResponseCode::HTTP_OK;
     outInfo.statusLine.clear();
     outInfo.strBody.clear();
     outInfo.fileBody.filefd.closeFd();
     outInfo.fileBody.fileSize = 0;
     outInfo.fileBody.offset = 0;
-    outInfo.restype = RES_EMPTY;
+    outInfo.restype = ResponseType::EMPTY;
 
     protocol.data = NULL;
     methodName.data = NULL;

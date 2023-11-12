@@ -1658,6 +1658,7 @@ invalid:
     return ERROR;
 }
 
+// HTTP/1.1 200 OK\r\n
 int parseStatusLine(std::shared_ptr<Request> r, Status *status)
 {
     u_char ch;
@@ -1674,55 +1675,55 @@ int parseStatusLine(std::shared_ptr<Request> r, Status *status)
         {
 
         /* "HTTP/" */
-        case ResponseState::sw_start:
+        case ResponseState::START:
             switch (ch)
             {
             case 'H':
-                state = ResponseState::sw_H;
+                state = ResponseState::H;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        case ResponseState::sw_H:
+        case ResponseState::H:
             switch (ch)
             {
             case 'T':
-                state = ResponseState::sw_HT;
+                state = ResponseState::HT;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        case ResponseState::sw_HT:
+        case ResponseState::HT:
             switch (ch)
             {
             case 'T':
-                state = ResponseState::sw_HTT;
+                state = ResponseState::HTT;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        case ResponseState::sw_HTT:
+        case ResponseState::HTT:
             switch (ch)
             {
             case 'P':
-                state = ResponseState::sw_HTTP;
+                state = ResponseState::HTTP;
                 break;
             default:
                 return ERROR;
             }
             break;
 
-        case ResponseState::sw_HTTP:
+        case ResponseState::HTTP:
             switch (ch)
             {
             case '/':
-                state = ResponseState::sw_first_major_digit;
+                state = ResponseState::MAJOR_DIGIT0;
                 break;
             default:
                 return ERROR;
@@ -1730,21 +1731,21 @@ int parseStatusLine(std::shared_ptr<Request> r, Status *status)
             break;
 
         /* the first digit of major HTTP version */
-        case ResponseState::sw_first_major_digit:
+        case ResponseState::MAJOR_DIGIT0:
             if (ch < '1' || ch > '9')
             {
                 return ERROR;
             }
 
             r->httpMajor = ch - '0';
-            state = ResponseState::sw_major_digit;
+            state = ResponseState::MAJOR_DIGIT1;
             break;
 
         /* the major HTTP version or dot */
-        case ResponseState::sw_major_digit:
+        case ResponseState::MAJOR_DIGIT1:
             if (ch == '.')
             {
-                state = ResponseState::sw_first_minor_digit;
+                state = ResponseState::MINOR_DIGIT0;
                 break;
             }
 
@@ -1762,21 +1763,21 @@ int parseStatusLine(std::shared_ptr<Request> r, Status *status)
             break;
 
         /* the first digit of minor HTTP version */
-        case ResponseState::sw_first_minor_digit:
+        case ResponseState::MINOR_DIGIT0:
             if (ch < '0' || ch > '9')
             {
                 return ERROR;
             }
 
             r->httpMinor = ch - '0';
-            state = ResponseState::sw_minor_digit;
+            state = ResponseState::MINOR_DIGIT1;
             break;
 
         /* the minor HTTP version or the end of the request line */
-        case ResponseState::sw_minor_digit:
+        case ResponseState::MINOR_DIGIT1:
             if (ch == ' ')
             {
-                state = ResponseState::sw_status;
+                state = ResponseState::STATUS;
                 break;
             }
 
@@ -1794,7 +1795,7 @@ int parseStatusLine(std::shared_ptr<Request> r, Status *status)
             break;
 
         /* HTTP status code */
-        case ResponseState::sw_status:
+        case ResponseState::STATUS:
             if (ch == ' ')
             {
                 break;
@@ -1809,24 +1810,24 @@ int parseStatusLine(std::shared_ptr<Request> r, Status *status)
 
             if (++status->count == 3)
             {
-                state = ResponseState::sw_space_after_status;
+                state = ResponseState::STATUS_SPACE;
                 status->start = p - 2;
             }
 
             break;
 
         /* space or end of line */
-        case ResponseState::sw_space_after_status:
+        case ResponseState::STATUS_SPACE:
             switch (ch)
             {
             case ' ':
-                state = ResponseState::sw_status_text;
+                state = ResponseState::STATUS_CONTENT;
                 break;
             case '.': /* IIS may send 403.1, 403.2, etc */
-                state = ResponseState::sw_status_text;
+                state = ResponseState::STATUS_CONTENT;
                 break;
             case CR:
-                state = ResponseState::sw_almost_done;
+                state = ResponseState::RESPONSE_DONE;
                 break;
             case LF:
                 goto done;
@@ -1836,11 +1837,11 @@ int parseStatusLine(std::shared_ptr<Request> r, Status *status)
             break;
 
         /* any text until end of line */
-        case ResponseState::sw_status_text:
+        case ResponseState::STATUS_CONTENT:
             switch (ch)
             {
             case CR:
-                state = ResponseState::sw_almost_done;
+                state = ResponseState::RESPONSE_DONE;
 
                 break;
             case LF:
@@ -1849,7 +1850,7 @@ int parseStatusLine(std::shared_ptr<Request> r, Status *status)
             break;
 
         /* end of status line */
-        case ResponseState::sw_almost_done:
+        case ResponseState::RESPONSE_DONE:
             status->end = p - 1;
             switch (ch)
             {
@@ -1877,7 +1878,7 @@ done:
     }
 
     status->httpVersion = r->httpMajor * 1000 + r->httpMinor;
-    state = ResponseState::sw_start;
+    state = ResponseState::START;
 
     return OK;
 }

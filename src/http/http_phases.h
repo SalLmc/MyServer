@@ -37,7 +37,7 @@ int appendResponseLine(std::shared_ptr<Request> r);
 int appendResponseHeader(std::shared_ptr<Request> r);
 int appendResponseBody(std::shared_ptr<Request> r);
 
-void setErrorResponse(std::shared_ptr<Request> r, int code);
+void setErrorResponse(std::shared_ptr<Request> r, ResponseCode code);
 int doResponse(std::shared_ptr<Request> r);
 
 int initUpstream(std::shared_ptr<Request> r);

@@ -132,18 +132,9 @@ extern std::unordered_map<std::string, std::string> extenContentTypeMap;
 // };
 
 std::unordered_map<int, HttpCode> httpCodeMap = {
-    {200, {200, "200 OK"}},
-#define HTTP_OK 200
-    {304, {304, "304 Not Modified"}},
-#define HTTP_NOT_MODIFIED 304
-    {401, {401, "401 Unauthorized"}},
-#define HTTP_UNAUTHORIZED 401
-    {403, {403, "403 Forbidden"}},
-#define HTTP_FORBIDDEN 403
-    {404, {404, "404 Not Found"}},
-#define HTTP_NOT_FOUND 404
-    {500, {500, "500 Internal Server Error"}},
-#define HTTP_INTERNAL_SERVER_ERROR 500
+    {200, {200, "200 OK"}},        {304, {304, "304 Not Modified"}}, {401, {401, "401 Unauthorized"}},
+    {403, {403, "403 Forbidden"}}, {404, {404, "404 Not Found"}},    {500, {500, "500 Internal Server Error"}},
+
 };
 
 int initListen(Cycle *cycle, int port)
@@ -660,26 +651,26 @@ int handleRequestHeader(std::shared_ptr<Request> r, int needHost)
 
     if (mp.count("transfer-encoding"))
     {
-        r->inInfo.chunked = (0 == strcmp("chunked", mp["transfer-encoding"].value.c_str()));
+        r->inInfo.isChunked = (0 == strcmp("chunked", mp["transfer-encoding"].value.c_str()));
     }
     else
     {
-        r->inInfo.chunked = 0;
+        r->inInfo.isChunked = 0;
     }
 
     if (mp.count("connection"))
     {
         auto &type = mp["connection"].value;
         bool alive = (!strcmp("keep-alive", type.c_str())) || (!strcmp("Keep-Alive", type.c_str()));
-        r->inInfo.connectionType = alive ? CONNECTION_KEEP_ALIVE : CONNECTION_CLOSE;
+        r->inInfo.connectionType = alive ? ConnectionType::KEEP_ALIVE : ConnectionType::CLOSED;
     }
     else if (r->httpVersion > 1000)
     {
-        r->inInfo.connectionType = CONNECTION_KEEP_ALIVE;
+        r->inInfo.connectionType = ConnectionType::KEEP_ALIVE;
     }
     else
     {
-        r->inInfo.connectionType = CONNECTION_CLOSE;
+        r->inInfo.connectionType = ConnectionType::CLOSED;
     }
 
     return OK;
@@ -752,7 +743,7 @@ int processUpsBody(std::shared_ptr<Request> upsr)
     int ret = 0;
 
     // no content-length && not chunked
-    if (upsr->inInfo.contentLength == 0 && !upsr->inInfo.chunked)
+    if (upsr->inInfo.contentLength == 0 && !upsr->inInfo.isChunked)
     {
         LOG_INFO << "Upstream process body done";
         return OK;
@@ -841,11 +832,11 @@ int writeResponse(Event *ev)
     r->c->write_.handler = blockWriting;
     cyclePtr->multiplexer->modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
 
-    if (r->outInfo.restype == RES_FILE)
+    if (r->outInfo.restype == ResponseType::FILE)
     {
         sendfileEvent(&r->c->write_);
     }
-    else if (r->outInfo.restype == RES_STR)
+    else if (r->outInfo.restype == ResponseType::STRING)
     {
         sendStrEvent(&r->c->write_);
     }
@@ -853,7 +844,7 @@ int writeResponse(Event *ev)
     {
         LOG_INFO << "RESPONSED";
 
-        if (r->inInfo.connectionType == CONNECTION_KEEP_ALIVE)
+        if (r->inInfo.connectionType == ConnectionType::KEEP_ALIVE)
         {
             keepAliveRequest(r);
         }
@@ -881,7 +872,7 @@ int blockWriting(Event *ev)
 // @return OK AGAIN ERROR
 int processRequestBody(std::shared_ptr<Request> r)
 {
-    if (r->inInfo.chunked)
+    if (r->inInfo.isChunked)
     {
         return processBodyChunked(r);
     }
@@ -1000,7 +991,7 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
     auto &buffer = r->c->readBuffer_;
 
     // no content-length && not chunked
-    if (r->inInfo.contentLength == 0 && !r->inInfo.chunked)
+    if (r->inInfo.contentLength == 0 && !r->inInfo.isChunked)
     {
         r->c->read_.handler = blockReading;
         if (postHandler)
@@ -1132,7 +1123,7 @@ int sendfileEvent(Event *ev)
 
     LOG_INFO << "SENDFILE RESPONSED";
 
-    if (r->inInfo.connectionType == CONNECTION_KEEP_ALIVE)
+    if (r->inInfo.connectionType == ConnectionType::KEEP_ALIVE)
     {
         keepAliveRequest(r);
     }
@@ -1181,7 +1172,7 @@ int sendStrEvent(Event *ev)
 
     LOG_INFO << "SENDSTR RESPONSED";
 
-    if (r->inInfo.connectionType == CONNECTION_KEEP_ALIVE)
+    if (r->inInfo.connectionType == ConnectionType::KEEP_ALIVE)
     {
         keepAliveRequest(r);
     }
@@ -1271,25 +1262,80 @@ bool matchEtag(int fd, std::string b_etag)
     }
 }
 
-void setErrorResponse(std::shared_ptr<Request> r, int code)
+void setErrorResponse(std::shared_ptr<Request> r, ResponseCode code)
 {
-    if (!httpCodeMap.count(code))
-    {
-        LOG_WARN << "Invalid code";
-        return setErrorResponse(r, HTTP_INTERNAL_SERVER_ERROR);
-    }
-
-    HttpCode &hc = httpCodeMap[code];
-    r->outInfo.status = code;
-    r->outInfo.statusLine = "HTTP/1.1 " + hc.str + "\r\n";
-    r->outInfo.restype = RES_STR;
+    HttpCode hc = getByCode(code);
+    r->outInfo.resCode = code;
+    r->outInfo.statusLine = getStatusLineByCode(code);
+    r->outInfo.restype = ResponseType::STRING;
     auto &str = r->outInfo.strBody;
     str.append("<html>\n<head>\n\t<title>").append(hc.str).append("</title>\n</head>\n");
     str.append("<body>\n\t<center>\n\t\t<h1>")
         .append(hc.str)
         .append("</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
 
-    r->outInfo.headers.emplace_back("Content-Type", std::string(extenContentTypeMap["html"] + SEMICOLON_SPLIT + UTF_8));
+    r->outInfo.headers.emplace_back("Content-Type", getContentType("html", Charset::UTF_8));
     r->outInfo.headers.emplace_back("Content-Length", std::to_string(str.length()));
     r->outInfo.headers.emplace_back("Connection", "Keep-Alive");
+}
+
+HttpCode getByCode(ResponseCode code)
+{
+    HttpCode ans;
+    switch (code)
+    {
+    case ResponseCode::HTTP_OK:
+        ans = httpCodeMap[200];
+        break;
+    case ResponseCode::HTTP_NOT_MODIFIED:
+        ans = httpCodeMap[304];
+        break;
+    case ResponseCode::HTTP_UNAUTHORIZED:
+        ans = httpCodeMap[401];
+        break;
+    case ResponseCode::HTTP_FORBIDDEN:
+        ans = httpCodeMap[403];
+        break;
+    case ResponseCode::HTTP_NOT_FOUND:
+        ans = httpCodeMap[404];
+        break;
+    case ResponseCode::HTTP_INTERNAL_SERVER_ERROR:
+        // fall through
+    default:
+        ans = httpCodeMap[500];
+        break;
+    }
+
+    return ans;
+}
+
+std::string getStatusLineByCode(ResponseCode code)
+{
+    HttpCode hc = getByCode(code);
+    return "HTTP/1.1 " + hc.str + "\r\n";
+}
+
+std::string getContentType(std::string exten, Charset charset)
+{
+    std::string type;
+    if (extenContentTypeMap.count(exten))
+    {
+        type = extenContentTypeMap[exten];
+    }
+    else
+    {
+        type = extenContentTypeMap["a_default_content_type"];
+    }
+
+    switch (charset)
+    {
+    case Charset::UTF_8:
+        type.append("; charset=utf-8");
+        break;
+    case Charset::DEFAULT:
+    default:
+        break;
+    }
+
+    return type;
 }

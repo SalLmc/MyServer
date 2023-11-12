@@ -7,46 +7,6 @@
 
 class Request;
 
-int initListen(Cycle *cycle, int port);
-Connection *addListen(Cycle *cycle, int port);
-
-int newConnection(Event *ev);
-int waitRequest(Event *ev);
-int waitRequestAgain(Event *ev);
-
-int processRequestLine(Event *ev);
-int readRequest(std::shared_ptr<Request> r);
-int handleRequestUri(std::shared_ptr<Request> r);
-int processRequestHeaders(Event *ev);
-int handleRequestHeader(std::shared_ptr<Request> r, int needHost);
-int processRequest(std::shared_ptr<Request> r);
-
-int runPhases(Event *ev);
-
-int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_ptr<Request>)> postHandler);
-int readRequestBodyInner(Event *ev);
-int processRequestBody(std::shared_ptr<Request> r);
-int processBodyLength(std::shared_ptr<Request> r);
-int processBodyChunked(std::shared_ptr<Request> r);
-
-int processUpsStatusLine(std::shared_ptr<Request> upsr);
-int processUpsHeaders(std::shared_ptr<Request> upsr);
-int processUpsBody(std::shared_ptr<Request> upsr);
-
-int writeResponse(Event *ev);
-int sendfileEvent(Event *ev);
-int sendStrEvent(Event *ev);
-
-int keepAliveRequest(std::shared_ptr<Request> r);
-int finalizeRequest(std::shared_ptr<Request> r);
-int finalizeConnection(Connection *c);
-
-// others
-std::string cacheControl(int fd);
-bool matchEtag(int fd, std::string browserEtag);
-int blockReading(Event *ev);
-int blockWriting(Event *ev);
-
 enum class HeaderState
 {
     START = 0,
@@ -107,19 +67,19 @@ enum class ChunkedState
 
 enum class ResponseState
 {
-    sw_start = 0,
-    sw_H,
-    sw_HT,
-    sw_HTT,
-    sw_HTTP,
-    sw_first_major_digit,
-    sw_major_digit,
-    sw_first_minor_digit,
-    sw_minor_digit,
-    sw_status,
-    sw_space_after_status,
-    sw_status_text,
-    sw_almost_done
+    START = 0,
+    H,
+    HT,
+    HTT,
+    HTTP,
+    MAJOR_DIGIT0,
+    MAJOR_DIGIT1,
+    MINOR_DIGIT0,
+    MINOR_DIGIT1,
+    STATUS,
+    STATUS_SPACE,
+    STATUS_CONTENT,
+    RESPONSE_DONE
 };
 
 enum class Method
@@ -142,6 +102,36 @@ enum class Method
     PROPPATCH
 };
 
+enum class ResponseCode
+{
+    HTTP_OK,
+    HTTP_NOT_MODIFIED,
+    HTTP_UNAUTHORIZED,
+    HTTP_FORBIDDEN,
+    HTTP_NOT_FOUND,
+    HTTP_INTERNAL_SERVER_ERROR
+};
+
+enum class Charset
+{
+    DEFAULT,
+    UTF_8
+};
+
+enum class ConnectionType
+{
+    CLOSED,
+    KEEP_ALIVE
+};
+
+enum class ResponseType
+{
+    FILE,
+    STRING,
+    EMPTY,
+    AUTO_INDEX
+};
+
 class Header
 {
   public:
@@ -151,23 +141,15 @@ class Header
     std::string value;
 };
 
-#define CONNECTION_CLOSE 0
-#define CONNECTION_KEEP_ALIVE 1
-
 class InfoRecv
 {
   public:
     std::list<Header> headers;
     std::unordered_map<std::string, Header> headerNameValueMap;
     unsigned long contentLength;
-    unsigned chunked : 1;
-    unsigned connectionType : 1;
+    bool isChunked;
+    ConnectionType connectionType;
 };
-
-#define RES_FILE 0
-#define RES_STR 1
-#define RES_EMPTY 2
-#define RES_AUTO_INDEX 3
 
 class InfoSend
 {
@@ -175,9 +157,9 @@ class InfoSend
     std::list<Header> headers;
     std::unordered_map<std::string, Header> headerNameValueMap;
     unsigned long contentLength;
-    unsigned chunked : 1;
+    bool isChunked;
 
-    int status;
+    ResponseCode resCode;
     std::string statusLine;
 
     std::string strBody;
@@ -187,7 +169,8 @@ class InfoSend
         off_t fileSize;
         off_t offset;
     } fileBody;
-    int restype = RES_EMPTY;
+
+    ResponseType restype = ResponseType::EMPTY;
 };
 
 class ChunkedInfo
@@ -228,7 +211,7 @@ class Request
     Method method;
     HeaderState headerState = HeaderState::START;
     RequestState requestState = RequestState::START;
-    ResponseState responseState = ResponseState::sw_start;
+    ResponseState responseState = ResponseState::START;
 
     unsigned long httpVersion;
 
@@ -332,15 +315,47 @@ class HttpCode
     std::string str;
 };
 
-#define HTTP_OK 200
-#define HTTP_NOT_MODIFIED 304
-#define HTTP_UNAUTHORIZED 401
-#define HTTP_FORBIDDEN 403
-#define HTTP_NOT_FOUND 404
-#define HTTP_INTERNAL_SERVER_ERROR 500
+int initListen(Cycle *cycle, int port);
+Connection *addListen(Cycle *cycle, int port);
 
-#define SEMICOLON_SPLIT "; "
+int newConnection(Event *ev);
+int waitRequest(Event *ev);
+int waitRequestAgain(Event *ev);
 
-#define UTF_8 "charset=utf-8"
+int processRequestLine(Event *ev);
+int readRequest(std::shared_ptr<Request> r);
+int handleRequestUri(std::shared_ptr<Request> r);
+int processRequestHeaders(Event *ev);
+int handleRequestHeader(std::shared_ptr<Request> r, int needHost);
+int processRequest(std::shared_ptr<Request> r);
+
+int runPhases(Event *ev);
+
+int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_ptr<Request>)> postHandler);
+int readRequestBodyInner(Event *ev);
+int processRequestBody(std::shared_ptr<Request> r);
+int processBodyLength(std::shared_ptr<Request> r);
+int processBodyChunked(std::shared_ptr<Request> r);
+
+int processUpsStatusLine(std::shared_ptr<Request> upsr);
+int processUpsHeaders(std::shared_ptr<Request> upsr);
+int processUpsBody(std::shared_ptr<Request> upsr);
+
+int writeResponse(Event *ev);
+int sendfileEvent(Event *ev);
+int sendStrEvent(Event *ev);
+
+int keepAliveRequest(std::shared_ptr<Request> r);
+int finalizeRequest(std::shared_ptr<Request> r);
+int finalizeConnection(Connection *c);
+
+// others
+std::string cacheControl(int fd);
+bool matchEtag(int fd, std::string browserEtag);
+int blockReading(Event *ev);
+int blockWriting(Event *ev);
+std::string getContentType(std::string exten, Charset charset);
+HttpCode getByCode(ResponseCode code);
+std::string getStatusLineByCode(ResponseCode code);
 
 #endif
