@@ -12,7 +12,7 @@ Connection *addListen(Cycle *cycle, int port);
 
 int newConnection(Event *ev);
 int waitRequest(Event *ev);
-int keepAlive(Event *ev);
+int waitRequestAgain(Event *ev);
 
 int processRequestLine(Event *ev);
 int readRequest(std::shared_ptr<Request> r);
@@ -88,6 +88,40 @@ enum class RequestState
     REQUEST_DONE
 };
 
+enum class ChunkedState
+{
+    START = 0,
+    SIZE,
+    EXTENSION,
+    EXTENSION_DONE,
+    DATA,
+    DATA_AFTER,
+    DATA_AFTER_DONE,
+    LAST_EXTENSION,
+    LAST_EXTENSION_DONE,
+    TRAILER,
+    TRAILER_DONE,
+    TRAILER_HEADER,
+    TRAILER_HEADER_DONE
+};
+
+enum class ResponseState
+{
+    sw_start = 0,
+    sw_H,
+    sw_HT,
+    sw_HTT,
+    sw_HTTP,
+    sw_first_major_digit,
+    sw_major_digit,
+    sw_first_minor_digit,
+    sw_minor_digit,
+    sw_status,
+    sw_space_after_status,
+    sw_status_text,
+    sw_almost_done
+};
+
 enum class Method
 {
     GET,
@@ -108,40 +142,6 @@ enum class Method
     PROPPATCH
 };
 
-enum class ChunkedState
-{
-    sw_chunk_start = 0,
-    sw_chunk_size,
-    sw_chunk_extension,
-    sw_chunk_extension_almost_done,
-    sw_chunk_data,
-    sw_after_data,
-    sw_after_data_almost_done,
-    sw_last_chunk_extension,
-    sw_last_chunk_extension_almost_done,
-    sw_trailer,
-    sw_trailer_almost_done,
-    sw_trailer_header,
-    sw_trailer_header_almost_done
-};
-
-enum class ResponseState
-{
-    sw_start = 0,
-    sw_H,
-    sw_HT,
-    sw_HTT,
-    sw_HTTP,
-    sw_first_major_digit,
-    sw_major_digit,
-    sw_first_minor_digit,
-    sw_minor_digit,
-    sw_status,
-    sw_space_after_status,
-    sw_status_text,
-    sw_almost_done
-};
-
 class Header
 {
   public:
@@ -149,7 +149,6 @@ class Header
     Header(std::string &&name, std::string &&value);
     std::string name;
     std::string value;
-    // unsigned long offset;
 };
 
 #define CONNECTION_CLOSE 0

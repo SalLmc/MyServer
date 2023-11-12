@@ -765,7 +765,11 @@ done:
 // 3. handle ./ and ../
 int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
 {
-    u_char c, ch, decoded, *old, *now;
+    u_char c;
+    u_char ch;
+    u_char decoded;
+    u_char *old, *now;
+    
     enum
     {
         USUAL = 0,
@@ -774,7 +778,7 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
         DOT_DOT,
         QUOTED,
         QUOTED_SECOND
-    } state, quotedState;
+    } state, saveState;
 
     state = USUAL;
 
@@ -813,7 +817,7 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
                 *now++ = ch;
                 break;
             case '%':
-                quotedState = state;
+                saveState = state;
                 state = QUOTED;
                 break;
             case '?':
@@ -859,7 +863,7 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
                 *now++ = ch;
                 break;
             case '%':
-                quotedState = state;
+                saveState = state;
                 state = QUOTED;
                 break;
             case '?':
@@ -900,7 +904,7 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
                 *now++ = ch;
                 break;
             case '%':
-                quotedState = state;
+                saveState = state;
                 state = QUOTED;
                 break;
             case '?':
@@ -963,7 +967,7 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
                 state = SLASH;
                 break;
             case '%':
-                quotedState = state;
+                saveState = state;
                 state = QUOTED;
                 break;
             case '+':
@@ -1017,7 +1021,7 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
                     return ERROR;
                 }
 
-                state = quotedState;
+                state = saveState;
                 break;
             }
 
@@ -1038,7 +1042,7 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
                     r->plusInUri = 1;
                 }
 
-                state = quotedState;
+                state = saveState;
                 break;
             }
 
@@ -1387,9 +1391,9 @@ int parseChunked(std::shared_ptr<Request> r)
 
     auto &state = ctx->state;
 
-    if (state == ChunkedState::sw_chunk_data && ctx->size == 0)
+    if (state == ChunkedState::DATA && ctx->size == 0)
     {
-        state = ChunkedState::sw_after_data;
+        state = ChunkedState::DATA_AFTER;
     }
 
     rc = AGAIN;
@@ -1410,10 +1414,10 @@ int parseChunked(std::shared_ptr<Request> r)
         switch (state)
         {
 
-        case ChunkedState::sw_chunk_start:
+        case ChunkedState::START:
             if (ch >= '0' && ch <= '9')
             {
-                state = ChunkedState::sw_chunk_size;
+                state = ChunkedState::SIZE;
                 ctx->size = ch - '0';
                 break;
             }
@@ -1422,13 +1426,13 @@ int parseChunked(std::shared_ptr<Request> r)
 
             if (c >= 'a' && c <= 'f')
             {
-                state = ChunkedState::sw_chunk_size;
+                state = ChunkedState::SIZE;
                 ctx->size = c - 'a' + 10;
                 break;
             }
             goto invalid;
 
-        case ChunkedState::sw_chunk_size:
+        case ChunkedState::SIZE:
             if (ctx->size > MAX_OFF_T_VALUE / 16)
             {
                 goto invalid;
@@ -1454,15 +1458,15 @@ int parseChunked(std::shared_ptr<Request> r)
                 switch (ch)
                 {
                 case CR:
-                    state = ChunkedState::sw_last_chunk_extension_almost_done;
+                    state = ChunkedState::LAST_EXTENSION_DONE;
                     break;
                 case LF:
-                    state = ChunkedState::sw_trailer;
+                    state = ChunkedState::TRAILER;
                     break;
                 case ';':
                 case ' ':
                 case '\t':
-                    state = ChunkedState::sw_last_chunk_extension;
+                    state = ChunkedState::LAST_EXTENSION;
                     break;
                 default:
                     goto invalid;
@@ -1474,15 +1478,15 @@ int parseChunked(std::shared_ptr<Request> r)
             switch (ch)
             {
             case CR:
-                state = ChunkedState::sw_chunk_extension_almost_done;
+                state = ChunkedState::EXTENSION_DONE;
                 break;
             case LF:
-                state = ChunkedState::sw_chunk_data;
+                state = ChunkedState::DATA;
                 break;
             case ';':
             case ' ':
             case '\t':
-                state = ChunkedState::sw_chunk_extension;
+                state = ChunkedState::EXTENSION;
                 break;
             default:
                 goto invalid;
@@ -1490,105 +1494,105 @@ int parseChunked(std::shared_ptr<Request> r)
 
             break;
 
-        case ChunkedState::sw_chunk_extension:
+        case ChunkedState::EXTENSION:
             switch (ch)
             {
             case CR:
-                state = ChunkedState::sw_chunk_extension_almost_done;
+                state = ChunkedState::EXTENSION_DONE;
                 break;
             case LF:
-                state = ChunkedState::sw_chunk_data;
+                state = ChunkedState::DATA;
             }
             break;
 
-        case ChunkedState::sw_chunk_extension_almost_done:
+        case ChunkedState::EXTENSION_DONE:
             if (ch == LF)
             {
-                state = ChunkedState::sw_chunk_data;
+                state = ChunkedState::DATA;
                 break;
             }
             goto invalid;
 
-        case ChunkedState::sw_chunk_data:
+        case ChunkedState::DATA:
             rc = OK;
             goto data;
 
-        case ChunkedState::sw_after_data:
+        case ChunkedState::DATA_AFTER:
             switch (ch)
             {
             case CR:
-                state = ChunkedState::sw_after_data_almost_done;
+                state = ChunkedState::DATA_AFTER_DONE;
                 break;
             case LF:
-                state = ChunkedState::sw_chunk_start;
+                state = ChunkedState::START;
                 break;
             default:
                 goto invalid;
             }
             break;
 
-        case ChunkedState::sw_after_data_almost_done:
+        case ChunkedState::DATA_AFTER_DONE:
             if (ch == LF)
             {
-                state = ChunkedState::sw_chunk_start;
+                state = ChunkedState::START;
                 break;
             }
             goto invalid;
 
-        case ChunkedState::sw_last_chunk_extension:
+        case ChunkedState::LAST_EXTENSION:
             switch (ch)
             {
             case CR:
-                state = ChunkedState::sw_last_chunk_extension_almost_done;
+                state = ChunkedState::LAST_EXTENSION_DONE;
                 break;
             case LF:
-                state = ChunkedState::sw_trailer;
+                state = ChunkedState::TRAILER;
             }
             break;
 
-        case ChunkedState::sw_last_chunk_extension_almost_done:
+        case ChunkedState::LAST_EXTENSION_DONE:
             if (ch == LF)
             {
-                state = ChunkedState::sw_trailer;
+                state = ChunkedState::TRAILER;
                 break;
             }
             goto invalid;
 
-        case ChunkedState::sw_trailer:
+        case ChunkedState::TRAILER:
             switch (ch)
             {
             case CR:
-                state = ChunkedState::sw_trailer_almost_done;
+                state = ChunkedState::TRAILER_DONE;
                 break;
             case LF:
                 goto done;
             default:
-                state = ChunkedState::sw_trailer_header;
+                state = ChunkedState::TRAILER_HEADER;
             }
             break;
 
-        case ChunkedState::sw_trailer_almost_done:
+        case ChunkedState::TRAILER_DONE:
             if (ch == LF)
             {
                 goto done;
             }
             goto invalid;
 
-        case ChunkedState::sw_trailer_header:
+        case ChunkedState::TRAILER_HEADER:
             switch (ch)
             {
             case CR:
-                state = ChunkedState::sw_trailer_header_almost_done;
+                state = ChunkedState::TRAILER_HEADER_DONE;
                 break;
             case LF:
-                state = ChunkedState::sw_trailer;
+                state = ChunkedState::TRAILER;
             }
             break;
 
-        case ChunkedState::sw_trailer_header_almost_done:
+        case ChunkedState::TRAILER_HEADER_DONE:
             if (ch == LF)
             {
-                state = ChunkedState::sw_trailer;
+                state = ChunkedState::TRAILER;
                 break;
             }
             goto invalid;
@@ -1637,12 +1641,11 @@ data:
 done:
 
     // *pos is the last \n
-
     left = pos + 1 - buffer.now->start - buffer.now->pos;
     r->requestBody.listBody.emplace_back(buffer.now->start + buffer.now->pos, left);
 
     // prepare for the next time
-    ctx->state = ChunkedState::sw_chunk_start;
+    ctx->state = ChunkedState::START;
     ctx->size = 0;
     ctx->dataOffset = 0;
 
@@ -1651,6 +1654,7 @@ done:
     return DONE;
 
 invalid:
+
     return ERROR;
 }
 

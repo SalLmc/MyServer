@@ -12,7 +12,7 @@ Header::Header(std::string &&name, std::string &&value) : name(name), value(valu
 
 ChunkedInfo::ChunkedInfo()
 {
-    state = ChunkedState::sw_chunk_start;
+    state = ChunkedState::START;
     size = 0;
     length = 0;
     dataOffset = 0;
@@ -42,7 +42,7 @@ void Request::init()
     requestBody.rest = -1;
     requestBody.postHandler = NULL;
     requestBody.listBody.clear();
-    requestBody.chunkedInfo.state = ChunkedState::sw_chunk_start;
+    requestBody.chunkedInfo.state = ChunkedState::START;
     requestBody.chunkedInfo.size = 0;
     requestBody.chunkedInfo.length = 0;
     requestBody.chunkedInfo.dataOffset = 0;

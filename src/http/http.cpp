@@ -298,7 +298,7 @@ int waitRequest(Event *ev)
     return 0;
 }
 
-int keepAlive(Event *ev)
+int waitRequestAgain(Event *ev)
 {
     if (ev->timeout == TIMEOUT)
     {
@@ -1203,7 +1203,7 @@ int keepAliveRequest(std::shared_ptr<Request> r)
 
     r->c = c;
 
-    c->read_.handler = keepAlive;
+    c->read_.handler = waitRequestAgain;
     c->write_.handler = std::function<int(Event *)>();
 
     c->readBuffer_.init();
