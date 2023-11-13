@@ -189,8 +189,8 @@ class RequestBody
     RequestBody();
     off_t rest;
     ChunkedInfo chunkedInfo;
-    // str_t body;
-    std::list<str_t> listBody;
+    // c_str body;
+    std::list<c_str> listBody;
     std::function<int(std::shared_ptr<Request>)> postHandler;
 };
 
@@ -218,16 +218,16 @@ class Request
     InfoRecv inInfo;
     InfoSend outInfo;
 
-    str_t protocol;
-    str_t methodName;
-    str_t schema;
-    str_t host;
+    c_str protocol;
+    c_str methodName;
+    c_str schema;
+    c_str host;
 
-    str_t requestLine;
-    str_t args;
-    str_t uri;
-    str_t exten;
-    str_t unparsedUri;
+    c_str requestLine;
+    c_str args;
+    c_str uri;
+    c_str exten;
+    c_str unparsedUri;
 
     off_t requestLength;
 

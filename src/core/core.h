@@ -25,15 +25,21 @@ class Request;
 
 enum class TimeoutStatus
 {
-  NOT_TIMEOUT,
-  TIMEOUT,
-  IGNORE
+    NOT_TIMEOUT,
+    TIMEOUT,
+    IGNORE
 };
 
 enum class EventType
 {
-  NORMAL,
-  ACCEPT
+    NORMAL,
+    ACCEPT
+};
+
+enum class ResourceType
+{
+    POOL,
+    MALLOC
 };
 
 class Event
@@ -41,6 +47,7 @@ class Event
   public:
     Event() = delete;
     Event(Connection *c);
+    void init(Connection *conn);
     std::function<int(Event *)> handler;
     Connection *c;
     EventType type;
@@ -70,29 +77,33 @@ class Fd
 class Connection
 {
   public:
-    Connection();
+    Connection(ResourceType type = ResourceType::MALLOC);
+
+    void init(ResourceType type);
+
     Event read_;
     Event write_;
     Fd fd_;
     sockaddr_in addr_;
     LinkedBuffer readBuffer_;
     LinkedBuffer writeBuffer_;
-    int idx_;
     int serverIdx_;
     std::shared_ptr<Request> request_;
     std::shared_ptr<Upstream> upstream_;
+    bool quit;
 
-    int quit;
+    ResourceType type_;
 };
 
 class ConnectionPool
 {
   private:
-    Connection **cPool_;
+    std::list<Connection *> connectionList;
+    std::vector<Connection *> connectionPtrs;
 
   public:
-    const static int POOLSIZE = 0;
-    ConnectionPool();
+    const static int POOLSIZE = 1024;
+    ConnectionPool(int size = ConnectionPool::POOLSIZE);
     ~ConnectionPool();
     Connection *getNewConnection();
     void recoverConnection(Connection *c);
@@ -132,11 +143,10 @@ class Cycle
     HeapTimer timer_;
 };
 
-
 enum class ProcessStatus
 {
-  NOT_USED,
-  ACTIVE
+    NOT_USED,
+    ACTIVE
 };
 
 class Process
@@ -147,25 +157,25 @@ class Process
     ProcessStatus status = ProcessStatus::NOT_USED;
 };
 
-class sharedMemory
+class SharedMemory
 {
   public:
-    sharedMemory();
-    sharedMemory(size_t size);
+    SharedMemory();
+    SharedMemory(size_t size);
     int createShared(size_t size);
     void *getAddr();
-    ~sharedMemory();
+    ~SharedMemory();
 
   private:
     void *addr_;
     size_t size_;
 };
 
-class str_t
+class c_str
 {
   public:
-    str_t() = default;
-    str_t(u_char *dt, size_t l);
+    c_str() = default;
+    c_str(u_char *data, size_t len);
     std::string toString();
     u_char *data;
     size_t len;

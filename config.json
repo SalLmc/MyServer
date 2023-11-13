@@ -1,13 +1,13 @@
 {
     "logger_threshold": 1,
-    "enable_logger": 1,
-    "daemon": 0,
+    "enable_logger": 0,
+    "daemon": 1,
     "only_worker": 0,
     "use_epoll": 0,
     "processes": 1,
     "servers": [
         {
-            "port": 80,
+            "port": 8000,
             "root": "static",
             "index": "index.html",
             "from": "/bing/",

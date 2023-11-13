@@ -69,42 +69,73 @@ Event::Event(Connection *c) : c(c), type(EventType::NORMAL), timeout(TimeoutStat
 {
 }
 
-Connection::Connection() : read_(this), write_(this), idx_(-1), serverIdx_(-1), request_(NULL), upstream_(NULL), quit(0)
+void Event::init(Connection *conn)
+{
+    c = conn;
+    type = EventType::NORMAL;
+    timeout = TimeoutStatus::NOT_TIMEOUT;
+    handler = std::function<int(Event *)>();
+}
+
+Connection::Connection(ResourceType type)
+    : read_(this), write_(this), serverIdx_(-1), request_(NULL), upstream_(NULL), quit(0), type_(type)
 {
 }
 
-ConnectionPool::ConnectionPool()
+void Connection::init(ResourceType type)
 {
-    cPool_ = (Connection **)malloc(POOLSIZE * sizeof(Connection *));
-    for (int i = 0; i < POOLSIZE; i++)
+    read_.init(this);
+    write_.init(this);
+
+    if (fd_ != -1)
     {
-        cPool_[i] = new Connection;
+        close(fd_.getFd());
+        fd_ = -1;
+    }
+
+    readBuffer_.init();
+    writeBuffer_.init();
+
+    serverIdx_ = -1;
+
+    request_.reset();
+    upstream_.reset();
+
+    quit = 0;
+
+    type_ = type;
+}
+
+ConnectionPool::ConnectionPool(int size)
+{
+    for (int i = 0; i < size; i++)
+    {
+        Connection *c = new Connection(ResourceType::POOL);
+        connectionList.push_back(c);
+        connectionPtrs.push_back(c);
     }
 }
 
 ConnectionPool::~ConnectionPool()
 {
-    for (int i = 0; i < POOLSIZE; i++)
+    for (auto c : connectionPtrs)
     {
-        delete cPool_[i];
+        delete c;
     }
-    free(cPool_);
 }
 
 Connection *ConnectionPool::getNewConnection()
 {
-    for (int i = 0; i < POOLSIZE; i++)
+    if (!connectionList.empty())
     {
-        if (cPool_[i]->idx_ == -1)
-        {
-            cPool_[i]->idx_ = i;
-            return cPool_[i];
-        }
+        auto c = connectionList.front();
+        connectionList.pop_front();
+        return c;
     }
-
-    auto c = heap.hNew<Connection>();
-    c->idx_ = -2;
-    return c;
+    else
+    {
+        return heap.hNew<Connection>(ResourceType::MALLOC);
+    }
 }
 
 void ConnectionPool::recoverConnection(Connection *c)
@@ -114,36 +145,17 @@ void ConnectionPool::recoverConnection(Connection *c)
         return;
     }
 
-    if (c->idx_ == -1)
+    if (c->type_ == ResourceType::POOL)
     {
-        return;
+        c->init(ResourceType::POOL);
+        connectionList.push_back(c);
     }
-
-    if (c->idx_ == -2)
+    else
     {
         heap.hDelete(c);
-        // set c to NULL is meaningless. Since c is a uint64
-        // c = NULL;
-        return;
     }
 
-    c->idx_ = -1;
-
-    if (c->fd_ != -1)
-    {
-        close(c->fd_.getFd());
-        c->fd_ = -1;
-    }
-
-    c->read_.handler = std::function<int(Event *)>();
-    c->write_.handler = std::function<int(Event *)>();
-    c->read_.timeout = c->write_.timeout = TimeoutStatus::NOT_TIMEOUT;
-
-    c->readBuffer_.init();
-    c->writeBuffer_.init();
-
-    c->request_.reset();
-    c->upstream_.reset();
+    return;
 }
 
 ServerAttribute::ServerAttribute(int port, std::string &&root, std::string &&index, std::string &&from,
@@ -171,17 +183,17 @@ Cycle::~Cycle()
     }
 }
 
-sharedMemory::sharedMemory() : addr_(NULL)
+SharedMemory::SharedMemory() : addr_(NULL)
 {
 }
 
-sharedMemory::sharedMemory(size_t size) : size_(size)
+SharedMemory::SharedMemory(size_t size) : size_(size)
 {
     addr_ = mmap(NULL, size_, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED, -1, 0);
     assert(addr_ != MAP_FAILED);
 }
 
-int sharedMemory::createShared(size_t size)
+int SharedMemory::createShared(size_t size)
 {
     size_ = size;
     addr_ = mmap(NULL, size_, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED, -1, 0);
@@ -192,7 +204,7 @@ int sharedMemory::createShared(size_t size)
     return OK;
 }
 
-sharedMemory::~sharedMemory()
+SharedMemory::~SharedMemory()
 {
     if (addr_ != NULL)
     {
@@ -200,7 +212,7 @@ sharedMemory::~sharedMemory()
     }
 }
 
-void *sharedMemory::getAddr()
+void *SharedMemory::getAddr()
 {
     return addr_;
 }
@@ -280,11 +292,11 @@ int Dir::getInfos(std::string root)
     return OK;
 }
 
-str_t::str_t(u_char *dt, size_t l) : data(dt), len(l)
+c_str::c_str(u_char *data, size_t len) : data(data), len(len)
 {
 }
 
-std::string str_t::toString()
+std::string c_str::toString()
 {
     return std::string(data, data + len);
 }

@@ -1377,8 +1377,6 @@ header_done:
     return DONE;
 }
 
-#define MAX_OFF_T_VALUE 9223372036854775807LL
-
 int parseChunked(std::shared_ptr<Request> r)
 {
     u_char *pos, ch, c;
@@ -1433,7 +1431,7 @@ int parseChunked(std::shared_ptr<Request> r)
             goto invalid;
 
         case ChunkedState::SIZE:
-            if (ctx->size > MAX_OFF_T_VALUE / 16)
+            if (ctx->size > __LONG_LONG_MAX__ / 16)
             {
                 goto invalid;
             }
@@ -1629,7 +1627,7 @@ data:
         buffer.now->pos += left;
     }
 
-    if (ctx->size > MAX_OFF_T_VALUE - 5)
+    if (ctx->size > __LONG_LONG_MAX__ - 5)
     {
         goto invalid;
     }
