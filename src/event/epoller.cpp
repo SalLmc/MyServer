@@ -4,7 +4,7 @@
 
 #include "epoller.h"
 
-extern Cycle *cyclePtr;
+extern Server *serverPtr;
 
 std::list<Event *> posted_accept_events;
 std::list<Event *> posted_events;
@@ -84,16 +84,16 @@ int Epoller::processEvents(int flags, int timeoutMs)
             revents |= EPOLLIN | EPOLLOUT;
         }
 
-        if (c->quit == 1)
+        if (c->quit_ == 1)
         {
             goto recover;
         }
 
-        if ((revents & EPOLLIN) && c->read_.handler)
+        if ((revents & EPOLLIN) && c->read_.handler_)
         {
             if (flags & POST_EVENTS)
             {
-                if (c->read_.type == EventType::ACCEPT)
+                if (c->read_.type_ == EventType::ACCEPT)
                 {
                     posted_accept_events.push_back(&c->read_);
                 }
@@ -104,16 +104,16 @@ int Epoller::processEvents(int flags, int timeoutMs)
             }
             else
             {
-                c->read_.handler(&c->read_);
+                c->read_.handler_(&c->read_);
             }
         }
 
-        if (c->quit == 1)
+        if (c->quit_ == 1)
         {
             goto recover;
         }
 
-        if ((revents & EPOLLOUT) && c->write_.handler)
+        if ((revents & EPOLLOUT) && c->write_.handler_)
         {
             if (flags & POST_EVENTS)
             {
@@ -121,16 +121,16 @@ int Epoller::processEvents(int flags, int timeoutMs)
             }
             else
             {
-                c->write_.handler(&c->write_);
+                c->write_.handler_(&c->write_);
             }
         }
 
     recover:
-        if (c->quit)
+        if (c->quit_)
         {
             int fd = c->fd_.getFd();
             delFd(fd);
-            cyclePtr->pool_->recoverConnection(c);
+            serverPtr->pool_->recoverConnection(c);
             LOG_INFO << "Connection recover, FD:" << fd;
         }
     }

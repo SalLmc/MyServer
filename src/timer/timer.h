@@ -5,14 +5,14 @@
 
 struct TimerNode
 {
-    int id;
-    unsigned long long expires;
-    unsigned long long newExpires=0;
-    std::function<int(void *)> cb;
-    void *arg;
+    int id_;
+    unsigned long long expires_;
+    unsigned long long newExpires_=0;
+    std::function<int(void *)> callback_;
+    void *arg_;
     bool operator<(const TimerNode &t)
     {
-        return expires < t.expires;
+        return expires_ < t.expires_;
     }
 };
 

@@ -3,16 +3,16 @@
 
 #include "../headers.h"
 
-class Cycle;
+class Server;
 class Event;
 
-void masterProcessCycle(Cycle *cycle);
-void workerProcessCycle(Cycle *cycle);
-void startWorkerProcesses(Cycle *cycle, int n);
-pid_t spawnProcesses(Cycle *cycle, std::function<void(Cycle *)> proc);
+void masterProcessCycle(Server *cycle);
+void workerProcessCycle(Server *cycle);
+void startWorkerProcesses(Server *cycle, int n);
+pid_t spawnProcesses(Server *cycle, std::function<void(Server *)> proc);
 int recvFromMaster(Event *rev);
 void signalWorkerProcesses(int sig);
-void processEventsAndTimers(Cycle *cycle);
+void processEventsAndTimers(Server *cycle);
 
 int logging(void *arg);
 

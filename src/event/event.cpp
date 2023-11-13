@@ -4,27 +4,27 @@
 
 #include "event.h"
 
-extern Cycle *cyclePtr;
+extern Server *serverPtr;
 
 int setEventTimeout(void *ev)
 {
     Event *thisev = (Event *)ev;
 
-    if (thisev->timeout == TimeoutStatus::IGNORE)
+    if (thisev->timeout_ == TimeoutStatus::IGNORE)
     {
         LOG_INFO << "Ignore this timeout";
         return 0;
     }
 
     // LOG_INFO << "Timeout triggered";
-    thisev->timeout = TimeoutStatus::TIMEOUT;
-    thisev->handler(thisev);
+    thisev->timeout_ = TimeoutStatus::TIMEOUT;
+    thisev->handler_(thisev);
 
-    if (thisev->c->quit)
+    if (thisev->c_->quit_)
     {
-        int fd = thisev->c->fd_.getFd();
-        cyclePtr->multiplexer->delFd(fd);
-        cyclePtr->pool_->recoverConnection(thisev->c);
+        int fd = thisev->c_->fd_.getFd();
+        serverPtr->multiplexer_->delFd(fd);
+        serverPtr->pool_->recoverConnection(thisev->c_);
         LOG_INFO << "Connection recover, FD:" << fd;
     }
 
@@ -36,9 +36,9 @@ void processEventsList(std::list<Event *> *events)
     while (!events->empty())
     {
         auto &now = events->front();
-        if (now->handler)
+        if (now->handler_)
         {
-            now->handler(now);
+            now->handler_(now);
         }
         events->pop_front();
     }

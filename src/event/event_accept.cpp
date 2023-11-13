@@ -7,28 +7,28 @@
 
 SharedMemory shmForAMtx;
 ProcessMutex acceptMutex;
-extern Cycle *cyclePtr;
+extern Server *serverPtr;
 
 int shmtxCreate(ProcessMutex *mtx, ProcessMutexShare *addr)
 {
-    mtx->lock = &addr->lock;
+    mtx->lock_ = &addr->lock_;
 
-    if (mtx->spin == (unsigned long)-1)
+    if (mtx->spin_ == (unsigned long)-1)
     {
         return OK;
     }
 
-    mtx->spin = 2048;
-    mtx->wait = &addr->wait;
+    mtx->spin_ = 2048;
+    mtx->wait_ = &addr->wait_;
 
-    if (sem_init(&mtx->sem, 1, 0) == -1)
+    if (sem_init(&mtx->sem_, 1, 0) == -1)
     {
         LOG_CRIT << "sem_init failed";
         return ERROR;
     }
     else
     {
-        mtx->semaphore = 1;
+        mtx->semaphore_ = 1;
     }
 
     return OK;
@@ -36,7 +36,7 @@ int shmtxCreate(ProcessMutex *mtx, ProcessMutexShare *addr)
 
 int shmtxTryLock(ProcessMutex *mtx)
 {
-    return (*mtx->lock == 0 && __sync_bool_compare_and_swap(mtx->lock, 0, getpid()));
+    return (*mtx->lock_ == 0 && __sync_bool_compare_and_swap(mtx->lock_, 0, getpid()));
 }
 
 void shmtxLock(ProcessMutex *mtx)
@@ -46,12 +46,12 @@ void shmtxLock(ProcessMutex *mtx)
 
     for (;;)
     {
-        if (*mtx->lock == 0 && __sync_bool_compare_and_swap(mtx->lock, 0, pid))
+        if (*mtx->lock_ == 0 && __sync_bool_compare_and_swap(mtx->lock_, 0, pid))
         {
             return;
         }
 
-        for (n = 1; n < mtx->spin; n <<= 1)
+        for (n = 1; n < mtx->spin_; n <<= 1)
         {
 
             for (i = 0; i < n; i++)
@@ -59,25 +59,25 @@ void shmtxLock(ProcessMutex *mtx)
                 asm_pause();
             }
 
-            if (*mtx->lock == 0 && __sync_bool_compare_and_swap(mtx->lock, 0, pid))
+            if (*mtx->lock_ == 0 && __sync_bool_compare_and_swap(mtx->lock_, 0, pid))
             {
                 return;
             }
         }
 
-        if (mtx->semaphore)
+        if (mtx->semaphore_)
         {
-            __sync_fetch_and_add(mtx->wait, 1);
+            __sync_fetch_and_add(mtx->wait_, 1);
 
-            if (*mtx->lock == 0 && __sync_bool_compare_and_swap(mtx->lock, 0, pid))
+            if (*mtx->lock_ == 0 && __sync_bool_compare_and_swap(mtx->lock_, 0, pid))
             {
-                __sync_fetch_and_add(mtx->wait, -1);
+                __sync_fetch_and_add(mtx->wait_, -1);
                 return;
             }
 
             LOG_INFO << "sem wait";
 
-            while (sem_wait(&mtx->sem) == -1)
+            while (sem_wait(&mtx->sem_) == -1)
             {
                 if (errno != EINTR)
                 {
@@ -97,36 +97,36 @@ void shmtxLock(ProcessMutex *mtx)
 
 void shmtxUnlock(ProcessMutex *mtx)
 {
-    if (__sync_bool_compare_and_swap(mtx->lock, getpid(), 0))
+    if (__sync_bool_compare_and_swap(mtx->lock_, getpid(), 0))
     {
         volatile unsigned long wait;
 
-        if (!mtx->semaphore)
+        if (!mtx->semaphore_)
         {
             return;
         }
 
         for (;;)
         {
-            wait = *mtx->wait;
+            wait = *mtx->wait_;
             if ((volatile long)wait <= 0)
             {
                 return;
             }
-            if (__sync_bool_compare_and_swap(mtx->wait, wait, wait - 1))
+            if (__sync_bool_compare_and_swap(mtx->wait_, wait, wait - 1))
             {
                 break;
             }
         }
 
-        if (sem_post(&mtx->sem) == -1)
+        if (sem_post(&mtx->sem_) == -1)
         {
             LOG_INFO << "sem_post() failed while wake shmtx";
         }
     }
 }
 
-int acceptexTryLock(Cycle *cycle)
+int acceptexTryLock(Server *cycle)
 {
     if (shmtxTryLock(&acceptMutex))
     {
@@ -138,7 +138,7 @@ int acceptexTryLock(Cycle *cycle)
 
         for (auto &listen : cycle->listening_)
         {
-            if (cyclePtr->multiplexer->addFd(listen->fd_.getFd(), EVENTS(IN | ET), listen) == 0)
+            if (serverPtr->multiplexer_->addFd(listen->fd_.getFd(), EVENTS(IN | ET), listen) == 0)
             {
                 LOG_CRIT << "Addfd failed, " << strerror(errno) << " " << acceptMutexHeld;
                 shmtxUnlock(&acceptMutex);
@@ -155,7 +155,7 @@ int acceptexTryLock(Cycle *cycle)
     {
         for (auto &listen : cycle->listening_)
         {
-            if (cyclePtr->multiplexer->delFd(listen->fd_.getFd()) == 0)
+            if (serverPtr->multiplexer_->delFd(listen->fd_.getFd()) == 0)
             {
                 LOG_CRIT << "accept mutex delfd failed, errno:" << errno;
                 return -1;
@@ -170,9 +170,9 @@ int acceptexTryLock(Cycle *cycle)
 
 ProcessMutex::~ProcessMutex()
 {
-    if (semaphore)
+    if (semaphore_)
     {
-        if (sem_destroy(&sem) == -1)
+        if (sem_destroy(&sem_) == -1)
         {
             LOG_WARN << "sem_destroy failed";
         }

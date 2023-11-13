@@ -6,8 +6,8 @@
 void HeapTimer::SwapNode(size_t i, size_t j)
 {
     std::swap(heap_[i], heap_[j]);
-    ref_[heap_[i].id] = i;
-    ref_[heap_[j].id] = j;
+    ref_[heap_[i].id_] = i;
+    ref_[heap_[j].id_] = j;
 }
 
 void HeapTimer::SiftUp(size_t i)
@@ -55,8 +55,8 @@ void HeapTimer::Add(int id, unsigned long long timeoutstamp_ms, const std::funct
     else
     {
         i = ref_[id];
-        heap_[i].expires = timeoutstamp_ms;
-        heap_[i].cb = cb;
+        heap_[i].expires_ = timeoutstamp_ms;
+        heap_[i].callback_ = cb;
         if (!SiftDown(i, heap_.size()))
         {
             SiftUp(i);
@@ -76,7 +76,7 @@ void HeapTimer::Del(size_t index)
             SiftUp(i);
         }
     }
-    ref_.erase(heap_.back().id);
+    ref_.erase(heap_.back().id_);
     heap_.pop_back();
 }
 
@@ -97,7 +97,7 @@ void HeapTimer::DoWork(int id)
     }
     size_t i = ref_[id];
     TimerNode node = heap_[i];
-    node.cb(node.arg);
+    node.callback_(node.arg_);
     Del(i);
 }
 
@@ -105,7 +105,7 @@ void HeapTimer::Adjust(int id, unsigned long long new_timeout_ms)
 {
     size_t i = ref_[id];
     size_t n = heap_.size();
-    heap_[i].expires = new_timeout_ms;
+    heap_[i].expires_ = new_timeout_ms;
     if (!SiftDown(i, n))
     {
         SiftUp(i);
@@ -114,7 +114,7 @@ void HeapTimer::Adjust(int id, unsigned long long new_timeout_ms)
 
 void HeapTimer::Again(int id, unsigned long long new_timeout_ms)
 {
-    heap_[ref_[id]].newExpires = new_timeout_ms;
+    heap_[ref_[id]].newExpires_ = new_timeout_ms;
 }
 
 void HeapTimer::Pop()
@@ -128,21 +128,21 @@ void HeapTimer::Tick()
     while (!heap_.empty())
     {
         TimerNode *node = &heap_.front();
-        if ((long long)(node->expires - getTickMs()) > 0)
+        if ((long long)(node->expires_ - getTickMs()) > 0)
         {
             break;
         }
 
-        node->cb(node->arg);
+        node->callback_(node->arg_);
 
-        if (node->newExpires == 0)
+        if (node->newExpires_ == 0)
         {
             Pop();
         }
         else
         {
-            Adjust(node->id, node->newExpires);
-            node->newExpires = 0;
+            Adjust(node->id_, node->newExpires_);
+            node->newExpires_ = 0;
         }
     }
 }
@@ -158,7 +158,7 @@ unsigned long long HeapTimer::GetNextTick()
     unsigned long long res = -1;
     if (!heap_.empty())
     {
-        res = heap_.front().expires;
+        res = heap_.front().expires_;
     }
     return res;
 }

@@ -48,10 +48,10 @@ class Event
     Event() = delete;
     Event(Connection *c);
     void init(Connection *conn);
-    std::function<int(Event *)> handler;
-    Connection *c;
-    EventType type;
-    TimeoutStatus timeout;
+    std::function<int(Event *)> handler_;
+    Connection *c_;
+    EventType type_;
+    TimeoutStatus timeout_;
 };
 
 class Fd
@@ -90,23 +90,23 @@ class Connection
     int serverIdx_;
     std::shared_ptr<Request> request_;
     std::shared_ptr<Upstream> upstream_;
-    bool quit;
+    bool quit_;
 
     ResourceType type_;
 };
 
 class ConnectionPool
 {
-  private:
-    std::list<Connection *> connectionList;
-    std::vector<Connection *> connectionPtrs;
-
   public:
     const static int POOLSIZE = 1024;
     ConnectionPool(int size = ConnectionPool::POOLSIZE);
     ~ConnectionPool();
     Connection *getNewConnection();
     void recoverConnection(Connection *c);
+
+  private:
+    std::list<Connection *> connectionList_;
+    std::vector<Connection *> connectionPtrs_;
 };
 
 class ServerAttribute
@@ -116,30 +116,30 @@ class ServerAttribute
                     bool auto_index, std::vector<std::string> &&tryfiles, std::vector<std::string> &&auth_path);
     ServerAttribute() = default;
 
-    int port;
-    std::string root;
-    std::string index;
+    int port_;
+    std::string root_;
+    std::string index_;
 
-    std::string from;
-    std::string to;
+    std::string from_;
+    std::string to_;
 
-    bool auto_index;
-    std::vector<std::string> try_files;
+    bool auto_index_;
+    std::vector<std::string> tryFiles_;
 
-    std::vector<std::string> auth_path;
+    std::vector<std::string> authPaths_;
 };
 
-class Cycle
+class Server
 {
   public:
-    Cycle() = delete;
-    Cycle(ConnectionPool *pool, Logger *logger);
-    ~Cycle();
+    Server() = delete;
+    Server(ConnectionPool *pool, Logger *logger);
+    ~Server();
     ConnectionPool *pool_;
     std::vector<Connection *> listening_;
     std::vector<ServerAttribute> servers_;
     Logger *logger_;
-    Multiplexer *multiplexer;
+    Multiplexer *multiplexer_;
     HeapTimer timer_;
 };
 
@@ -152,9 +152,9 @@ enum class ProcessStatus
 class Process
 {
   public:
-    Connection channel[2];
-    pid_t pid;
-    ProcessStatus status = ProcessStatus::NOT_USED;
+    Connection channel_[2];
+    pid_t pid_;
+    ProcessStatus status_ = ProcessStatus::NOT_USED;
 };
 
 class SharedMemory
@@ -177,8 +177,8 @@ class c_str
     c_str() = default;
     c_str(u_char *data, size_t len);
     std::string toString();
-    u_char *data;
-    size_t len;
+    u_char *data_;
+    size_t len_;
 };
 
 class FileInfo
@@ -186,25 +186,25 @@ class FileInfo
   public:
     FileInfo(std::string &&name, unsigned char type, off_t size_byte, timespec mtime);
     bool operator<(FileInfo &other);
-    std::string name;
-    unsigned char type;
-    off_t size_byte;
-    timespec mtime;
+    std::string name_;
+    unsigned char type_;
+    off_t sizeBytes_;
+    timespec mtime_;
 };
 
 class Dir
 {
   public:
     Dir() = delete;
-    Dir(DIR *dirr);
+    Dir(DIR *dir);
     ~Dir();
     int getInfos(std::string root);
     int readDir();
     int getStat();
-    DIR *dir;
-    dirent *de;
-    struct stat info;
-    std::vector<FileInfo> infos;
+    DIR *dir_;
+    dirent *de_;
+    struct stat info_;
+    std::vector<FileInfo> infos_;
 };
 
 #endif

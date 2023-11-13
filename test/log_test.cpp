@@ -10,7 +10,7 @@ extern ConnectionPool cPool;
 int main(int argc, char *argv[])
 {
 
-    Cycle cycle(&cPool, new Logger("log/", "startup"));
+    Server cycle(&cPool, new Logger("log/", "startup"));
 
     for (int i = 0; i < 10; i++)
         __LOG_CRIT_INNER(*cycle.logger_) << "start";

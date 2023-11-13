@@ -13,11 +13,11 @@ class PollCtx
     PollCtx()
     {
     }
-    PollCtx(pollfd pfd, void *ctx) : pfd(pfd), ctx(ctx)
+    PollCtx(pollfd pfd, void *ctx) : pfd_(pfd), ctx_(ctx)
     {
     }
-    pollfd pfd;
-    void *ctx;
+    pollfd pfd_;
+    void *ctx_;
 };
 
 class Poller : public Multiplexer
