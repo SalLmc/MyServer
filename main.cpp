@@ -12,7 +12,7 @@
 
 extern ConnectionPool cPool;
 extern Cycle *cyclePtr;
-extern sharedMemory shmForAMtx;
+extern SharedMemory shmForAMtx;
 extern ProcessMutex acceptMutex;
 extern long cores;
 

@@ -93,7 +93,7 @@ int Epoller::processEvents(int flags, int timeoutMs)
         {
             if (flags & POST_EVENTS)
             {
-                if (c->read_.type == ACCEPT)
+                if (c->read_.type == EventType::ACCEPT)
                 {
                     posted_accept_events.push_back(&c->read_);
                 }

@@ -5,10 +5,10 @@ EXES = $(patsubst %.cpp, %, $(SRCS))
 INCLUDE_FILES = $(wildcard *.d)
 
 LINK = -pthread
-FLAGS = -Wall -fPIC -g -MD
-CC = $(shell command -v ccache >/dev/null 2>&1 && echo "ccache g++" || echo "g++")
+CXXFLAGS = -Wall -fPIC -g -MD
+CXX = $(shell command -v ccache >/dev/null 2>&1 && echo "ccache g++" || echo "g++")
 
-BUILDEXEWITHLIB = $(CC) $(FLAGS) $^ ../libmy.so -o $@ $(LINK)
+BUILDEXEWITHLIB = $(CXX) $(CXXFLAGS) $^ ../libmy.so -o $@ $(LINK)
 
 all: $(EXES)
 	
@@ -34,6 +34,3 @@ test: test.o
 
 clean:
 	rm -f $(OBJS) $(EXES) $(INCLUDE_FILES)
-
-%.o: %.cpp
-	$(CC) $(FLAGS) -c $< -o $@

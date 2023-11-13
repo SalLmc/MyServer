@@ -5,7 +5,7 @@
 #include "../global.h"
 #include "../utils/utils_declaration.h"
 
-sharedMemory shmForAMtx;
+SharedMemory shmForAMtx;
 ProcessMutex acceptMutex;
 extern Cycle *cyclePtr;
 

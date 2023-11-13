@@ -144,7 +144,7 @@ int initListen(Cycle *cycle, int port)
 
     cycle->listening_.push_back(listen);
 
-    listen->read_.type = ACCEPT;
+    listen->read_.type = EventType::ACCEPT;
     listen->read_.handler = newConnection;
 
     return OK;
@@ -244,7 +244,7 @@ int newConnection(Event *ev)
 
 int waitRequest(Event *ev)
 {
-    if (ev->timeout == TIMEOUT)
+    if (ev->timeout == TimeoutStatus::TIMEOUT)
     {
         LOG_INFO << "Client timeout, FD:" << ev->c->fd_.getFd();
         finalizeConnection(ev->c);
@@ -291,7 +291,7 @@ int waitRequest(Event *ev)
 
 int waitRequestAgain(Event *ev)
 {
-    if (ev->timeout == TIMEOUT)
+    if (ev->timeout == TimeoutStatus::TIMEOUT)
     {
         LOG_INFO << "Client timeout, FD:" << ev->c->fd_.getFd();
         finalizeRequest(ev->c->request_);
