@@ -93,7 +93,7 @@ void Buffer::ensureWriteable(size_t len)
     }
     assert(writableBytes() >= len);
 }
-ssize_t Buffer::readFd(int fd, int *saveErrno)
+ssize_t Buffer::readFd(int fd)
 {
     char buff[65535];
     iovec iov[2];
@@ -107,7 +107,6 @@ ssize_t Buffer::readFd(int fd, int *saveErrno)
     const ssize_t len = readv(fd, iov, 2);
     if (len < 0)
     {
-        *saveErrno = errno;
     }
     else if (static_cast<size_t>(len) <= writable)
     {
@@ -120,14 +119,13 @@ ssize_t Buffer::readFd(int fd, int *saveErrno)
     }
     return len;
 }
-ssize_t Buffer::recvFd(int fd, int *saveErrno, int flags, int n)
+ssize_t Buffer::recvFd(int fd, int flags, int n)
 {
     char buff[65535];
     const ssize_t len = recv(fd, buff, n, flags);
 
     if (len < 0)
     {
-        *saveErrno = errno;
     }
     else if (len > 0)
     {
@@ -136,25 +134,24 @@ ssize_t Buffer::recvFd(int fd, int *saveErrno, int flags, int n)
 
     return len;
 }
-ssize_t Buffer::writeFd(int fd, int *saveErrno)
+ssize_t Buffer::writeFd(int fd)
 {
     size_t read_size = readableBytes();
     ssize_t len = write(fd, peek(), read_size);
     if (len < 0)
     {
-        *saveErrno = errno;
         return len;
     }
     readPos_ += len;
     return len;
 }
-ssize_t Buffer::sendFd(int fd, int *saveErrno, int flags)
+ssize_t Buffer::sendFd(int fd, int flags)
 {
     size_t read_size = readableBytes();
     ssize_t len = send(fd, peek(), read_size, flags);
     if (len < 0)
     {
-        *saveErrno = errno;
+
         return len;
     }
     readPos_ += len;
@@ -177,49 +174,49 @@ void Buffer::makeSpace(size_t len)
 
 LinkedBufferNode::LinkedBufferNode(size_t size)
 {
-    start = (u_char *)calloc(size, 1);
-    end = start + size;
-    pos = 0;
-    len = 0;
-    prev = NULL;
-    next = NULL;
+    start_ = (u_char *)calloc(size, 1);
+    end_ = start_ + size;
+    pos_ = 0;
+    len_ = 0;
+    prev_ = NULL;
+    next_ = NULL;
 }
 
 LinkedBufferNode::~LinkedBufferNode()
 {
-    free(start);
-    len = 0;
+    free(start_);
+    len_ = 0;
 }
 
 void LinkedBufferNode::init(size_t size)
 {
-    free(start);
-    start = (u_char *)calloc(size, 1);
-    end = start + size;
-    pos = 0;
-    len = 0;
-    prev = NULL;
-    next = NULL;
+    free(start_);
+    start_ = (u_char *)calloc(size, 1);
+    end_ = start_ + size;
+    pos_ = 0;
+    len_ = 0;
+    prev_ = NULL;
+    next_ = NULL;
 }
 
 size_t LinkedBufferNode::getSize()
 {
-    return end - start;
+    return end_ - start_;
 }
 
 size_t LinkedBufferNode::readableBytes()
 {
-    return len - pos;
+    return len_ - pos_;
 }
 
 size_t LinkedBufferNode::writableBytes()
 {
-    return end - start - len;
+    return end_ - start_ - len_;
 }
 
 std::string LinkedBufferNode::toString()
 {
-    return std::string(start + pos, start + len);
+    return std::string(start_ + pos_, start_ + len_);
 }
 
 size_t LinkedBufferNode::append(const u_char *data, size_t len)
@@ -227,14 +224,14 @@ size_t LinkedBufferNode::append(const u_char *data, size_t len)
     size_t free = writableBytes();
     if (free >= len)
     {
-        std::copy(data, data + len, this->start + this->len);
-        this->len += len;
+        std::copy(data, data + len, this->start_ + this->len_);
+        this->len_ += len;
         return 0;
     }
     else
     {
-        std::copy(data, data + free, this->start + this->len);
-        this->len += free;
+        std::copy(data, data + free, this->start_ + this->len_);
+        this->len_ += free;
         return len - free;
     }
 }
@@ -244,89 +241,78 @@ size_t LinkedBufferNode::append(const char *data, size_t len)
     size_t free = writableBytes();
     if (free >= len)
     {
-        std::copy(data, data + len, this->start + this->len);
-        this->len += len;
+        std::copy(data, data + len, this->start_ + this->len_);
+        this->len_ += len;
         return 0;
     }
     else
     {
-        std::copy(data, data + free, this->start + this->len);
-        this->len += free;
+        std::copy(data, data + free, this->start_ + this->len_);
+        this->len_ += free;
         return len - free;
     }
 }
 
 LinkedBuffer::LinkedBuffer()
 {
-    nodes.emplace_back();
-    now = &nodes.front();
+    nodes_.emplace_back();
+    now_ = &nodes_.front();
 }
 
 void LinkedBuffer::init()
 {
-    nodes.clear();
-    nodes.emplace_back();
-    now = &nodes.front();
+    nodes_.clear();
+    nodes_.emplace_back();
+    now_ = &nodes_.front();
 }
 
 bool LinkedBuffer::allRead()
 {
-    auto &back = nodes.back();
+    auto &back = nodes_.back();
     return back.readableBytes() == 0;
 }
 
 // only recv once
-ssize_t LinkedBuffer::recvFd(int fd, int *saveErrno, int flags)
+ssize_t LinkedBuffer::recvFdOnce(int fd, int flags)
 {
-    auto &nowr = nodes.back();
+    auto &nowr = nodes_.back();
 
-    int n = recv(fd, nowr.start + nowr.len, nowr.writableBytes(), flags);
-    if (n < 0)
+    int n = recv(fd, nowr.start_ + nowr.len_, nowr.writableBytes(), flags);
+    if (n <= 0)
     {
-        *saveErrno = errno;
     }
-    else if (n > 0)
+    else
     {
-        nowr.len += n;
+        nowr.len_ += n;
         if (nowr.writableBytes() == 0)
         {
-            nodes.emplace_back();
-            auto newNode = &nodes.back();
-            nowr.next = newNode;
-            newNode->prev = &nowr;
+            nodes_.emplace_back();
+            auto newNode = &nodes_.back();
+            nowr.next_ = newNode;
+            newNode->prev_ = &nowr;
         }
     }
     return n;
 }
 
-ssize_t LinkedBuffer::cRecvFd(int fd, int *saveErrno, int flags)
+ssize_t LinkedBuffer::recvFd(int fd, int flags)
 {
     ssize_t len = 0;
     int n = 0;
     while (1)
     {
-        auto &nowr = nodes.back();
-        n = recv(fd, nowr.start + nowr.len, nowr.writableBytes(), flags);
-        if (n < 0)
-        {
-            *saveErrno = errno;
-            break;
-        }
-        else if (n == 0)
+        // auto &nowr = nodes.back();
+        // n = recv(fd, nowr.start + nowr.len, nowr.writableBytes(), flags);
+
+        n = recvFdOnce(fd, flags);
+
+        if (n <= 0)
         {
             break;
         }
         else
         {
             len += n;
-            nowr.len += n;
-            if (nowr.writableBytes() == 0)
-            {
-                nodes.emplace_back();
-                auto newNode = &nodes.back();
-                nowr.next = newNode;
-                newNode->prev = &nowr;
-            }
         }
     }
 
@@ -334,24 +320,23 @@ ssize_t LinkedBuffer::cRecvFd(int fd, int *saveErrno, int flags)
 }
 
 // only send once. check allread to know whether data left
-ssize_t LinkedBuffer::sendFd(int fd, int *saveErrno, int flags)
+ssize_t LinkedBuffer::sendFd(int fd, int flags)
 {
-    int n = send(fd, now->start + now->pos, now->len - now->pos, flags);
+    int n = send(fd, now_->start_ + now_->pos_, now_->len_ - now_->pos_, flags);
     if (n < 0)
     {
-        *saveErrno = errno;
     }
     else if (n > 0)
     {
-        now->pos += n;
-        if (now->readableBytes() == 0)
+        now_->pos_ += n;
+        if (now_->readableBytes() == 0)
         {
-            if (now->next == NULL)
+            if (now_->next_ == NULL)
             {
             }
             else
             {
-                now = now->next;
+                now_ = now_->next_;
             }
         }
     }
@@ -360,7 +345,7 @@ ssize_t LinkedBuffer::sendFd(int fd, int *saveErrno, int flags)
 
 void LinkedBuffer::append(const u_char *data, size_t len)
 {
-    auto now = &nodes.back();
+    auto now = &nodes_.back();
     size_t done = 0;
 
     while (1)
@@ -372,17 +357,17 @@ void LinkedBuffer::append(const u_char *data, size_t len)
         }
         done = len - left;
 
-        nodes.emplace_back();
-        auto newNode = &nodes.back();
-        now->next = newNode;
-        newNode->prev = now;
-        now = now->next;
+        nodes_.emplace_back();
+        auto newNode = &nodes_.back();
+        now->next_ = newNode;
+        newNode->prev_ = now;
+        now = now->next_;
     }
 }
 
 void LinkedBuffer::append(const char *data, size_t len)
 {
-    auto now = &nodes.back();
+    auto now = &nodes_.back();
     size_t done = 0;
 
     while (1)
@@ -394,11 +379,11 @@ void LinkedBuffer::append(const char *data, size_t len)
         }
         done = len - left;
 
-        nodes.emplace_back();
-        auto newNode = &nodes.back();
-        now->next = newNode;
-        newNode->prev = now;
-        now = now->next;
+        nodes_.emplace_back();
+        auto newNode = &nodes_.back();
+        now->next_ = newNode;
+        newNode->prev_ = now;
+        now = now->next_;
     }
 }
 
@@ -412,21 +397,21 @@ void LinkedBuffer::retrieve(size_t len)
 {
     while (len > 0 && allRead() != 1)
     {
-        if (len <= now->readableBytes()) // last node
+        if (len <= now_->readableBytes()) // last node
         {
-            now->pos += len;
+            now_->pos_ += len;
             len = 0;
         }
         else
         {
-            len -= now->readableBytes();
-            now->pos = now->len;
-            if (now->next == NULL)
+            len -= now_->readableBytes();
+            now_->pos_ = now_->len_;
+            if (now_->next_ == NULL)
             {
             }
             else
             {
-                now = now->next;
+                now_ = now_->next_;
             }
         }
     }
@@ -437,10 +422,10 @@ void LinkedBuffer::retrieveAll()
 {
     while (allRead() != 1)
     {
-        now->pos = now->len;
-        if (now->next)
+        now_->pos_ = now_->len_;
+        if (now_->next_)
         {
-            now = now->next;
+            now_ = now_->next_;
         }
     }
     return;

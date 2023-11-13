@@ -3,24 +3,24 @@
 
 #include "../headers.h"
 
-class Cycle;
+class Server;
 class Event;
 
 struct ProcessMutexShare
 {
-    volatile unsigned long lock;
-    volatile unsigned long wait;
+    volatile unsigned long lock_;
+    volatile unsigned long wait_;
 };
 
 class ProcessMutex
 {
   public:
     ~ProcessMutex();
-    volatile unsigned long *lock;
-    volatile unsigned long *wait;
-    unsigned long semaphore;
-    sem_t sem;
-    unsigned long spin;
+    volatile unsigned long *lock_;
+    volatile unsigned long *wait_;
+    unsigned long semaphore_;
+    sem_t sem_;
+    unsigned long spin_;
 };
 
 enum EVENTS
@@ -78,7 +78,7 @@ int shmtxTryLock(ProcessMutex *mtx);
 void shmtxLock(ProcessMutex *mtx);
 void shmtxUnlock(ProcessMutex *mtx);
 // 1 for success, 0 for failure, -1 for error
-int acceptexTryLock(Cycle *cycle);
+int acceptexTryLock(Server *cycle);
 // @param ev Event *
 int setEventTimeout(void *ev);
 

@@ -12,7 +12,7 @@
 #include "../memory/memory_manage.hpp"
 
 extern ConnectionPool cPool;
-extern Cycle *cyclePtr;
+extern Server *serverPtr;
 extern HeapMemory heap;
 extern std::vector<PhaseHandler> phases;
 extern std::unordered_map<std::string, std::string> extenContentTypeMap;
@@ -137,20 +137,20 @@ std::unordered_map<int, HttpCode> httpCodeMap = {
 
 };
 
-int initListen(Cycle *cycle, int port)
+int initListen(Server *cycle, int port)
 {
     Connection *listen = addListen(cycle, port);
     listen->serverIdx_ = cycle->listening_.size();
 
     cycle->listening_.push_back(listen);
 
-    listen->read_.type = EventType::ACCEPT;
-    listen->read_.handler = newConnection;
+    listen->read_.type_ = EventType::ACCEPT;
+    listen->read_.handler_ = newConnection;
 
     return OK;
 }
 
-Connection *addListen(Cycle *cycle, int port)
+Connection *addListen(Server *cycle, int port)
 {
     ConnectionPool *pool = cycle->pool_;
     Connection *listenC = pool->getNewConnection();
@@ -206,35 +206,35 @@ int newConnection(Event *ev)
         Connection *newc = cPool.getNewConnection();
         if (newc == NULL)
         {
-            LOG_WARN << "Get new connection failed, listenfd:" << ev->c->fd_.getFd();
+            LOG_WARN << "Get new connection failed, listenfd:" << ev->c_->fd_.getFd();
             return 1;
         }
 
         sockaddr_in *addr = &newc->addr_;
         socklen_t len = sizeof(*addr);
 
-        newc->fd_ = accept(ev->c->fd_.getFd(), (sockaddr *)addr, &len);
+        newc->fd_ = accept(ev->c_->fd_.getFd(), (sockaddr *)addr, &len);
         if (newc->fd_.getFd() < 0)
         {
-            LOG_WARN << "Accept from FD:" << ev->c->fd_.getFd() << " failed, errno: " << strerror(errno);
+            LOG_WARN << "Accept from FD:" << ev->c_->fd_.getFd() << " failed, errno: " << strerror(errno);
             cPool.recoverConnection(newc);
             return 1;
         }
 
-        newc->serverIdx_ = ev->c->serverIdx_;
+        newc->serverIdx_ = ev->c_->serverIdx_;
 
         setNonblocking(newc->fd_.getFd());
 
-        newc->read_.handler = waitRequest;
+        newc->read_.handler_ = waitRequest;
 
-        if (cyclePtr->multiplexer->addFd(newc->fd_.getFd(), EVENTS(IN | ET), newc) == 0)
+        if (serverPtr->multiplexer_->addFd(newc->fd_.getFd(), EVENTS(IN | ET), newc) == 0)
         {
             LOG_WARN << "Add client fd failed, FD:" << newc->fd_.getFd();
         }
 
-        cyclePtr->timer_.Add(newc->fd_.getFd(), getTickMs() + 60000, setEventTimeout, (void *)&newc->read_);
+        serverPtr->timer_.Add(newc->fd_.getFd(), getTickMs() + 60000, setEventTimeout, (void *)&newc->read_);
 
-        LOG_INFO << "NEW CONNECTION FROM FD:" << ev->c->fd_.getFd() << ", WITH FD:" << newc->fd_.getFd();
+        LOG_INFO << "NEW CONNECTION FROM FD:" << ev->c_->fd_.getFd() << ", WITH FD:" << newc->fd_.getFd();
 #ifdef LOOP_ACCEPT
     }
 #endif
@@ -244,20 +244,20 @@ int newConnection(Event *ev)
 
 int waitRequest(Event *ev)
 {
-    if (ev->timeout == TimeoutStatus::TIMEOUT)
+    if (ev->timeout_ == TimeoutStatus::TIMEOUT)
     {
-        LOG_INFO << "Client timeout, FD:" << ev->c->fd_.getFd();
-        finalizeConnection(ev->c);
+        LOG_INFO << "Client timeout, FD:" << ev->c_->fd_.getFd();
+        finalizeConnection(ev->c_);
         return -1;
     }
 
-    cyclePtr->timer_.Remove(ev->c->fd_.getFd());
+    serverPtr->timer_.Remove(ev->c_->fd_.getFd());
 
-    Connection *c = ev->c;
+    Connection *c = ev->c_;
 
     LOG_INFO << "waitRequest recv from FD:" << c->fd_.getFd();
 
-    int len = c->readBuffer_.cRecvFd(c->fd_.getFd(), &errno, 0);
+    int len = c->readBuffer_.recvFd(c->fd_.getFd(), 0);
 
     if (len == 0)
     {
@@ -281,35 +281,35 @@ int waitRequest(Event *ev)
     }
 
     std::shared_ptr<Request> r(new Request());
-    r->c = c;
+    r->c_ = c;
     c->request_ = r;
 
-    ev->handler = processRequestLine;
+    ev->handler_ = processRequestLine;
     processRequestLine(ev);
     return 0;
 }
 
 int waitRequestAgain(Event *ev)
 {
-    if (ev->timeout == TimeoutStatus::TIMEOUT)
+    if (ev->timeout_ == TimeoutStatus::TIMEOUT)
     {
-        LOG_INFO << "Client timeout, FD:" << ev->c->fd_.getFd();
-        finalizeRequest(ev->c->request_);
+        LOG_INFO << "Client timeout, FD:" << ev->c_->fd_.getFd();
+        finalizeRequest(ev->c_->request_);
         return -1;
     }
 
-    cyclePtr->timer_.Remove(ev->c->fd_.getFd());
+    serverPtr->timer_.Remove(ev->c_->fd_.getFd());
 
-    Connection *c = ev->c;
+    Connection *c = ev->c_;
 
     LOG_INFO << "keepAlive recv from FD:" << c->fd_.getFd();
 
-    int len = c->readBuffer_.cRecvFd(c->fd_.getFd(), &errno, 0);
+    int len = c->readBuffer_.recvFd(c->fd_.getFd(), 0);
 
     if (len == 0)
     {
         LOG_INFO << "Client close connection";
-        finalizeRequest(ev->c->request_);
+        finalizeRequest(ev->c_->request_);
         return -1;
     }
 
@@ -318,7 +318,7 @@ int waitRequestAgain(Event *ev)
         if (errno != EAGAIN)
         {
             LOG_WARN << "Read error: " << strerror(errno);
-            finalizeRequest(ev->c->request_);
+            finalizeRequest(ev->c_->request_);
             return -1;
         }
         else
@@ -327,7 +327,7 @@ int waitRequestAgain(Event *ev)
         }
     }
 
-    ev->handler = processRequestLine;
+    ev->handler_ = processRequestLine;
     processRequestLine(ev);
     return 0;
 }
@@ -335,7 +335,7 @@ int waitRequestAgain(Event *ev)
 int processRequestLine(Event *ev)
 {
     // LOG_INFO << "process request line";
-    Connection *c = ev->c;
+    Connection *c = ev->c_;
     std::shared_ptr<Request> r = c->request_;
 
     int ret = AGAIN;
@@ -355,25 +355,27 @@ int processRequestLine(Event *ev)
         if (ret == OK)
         {
             // the request line has been parsed successfully
-            if (r->requestEnd < r->requestStart || r->requestEnd > r->requestStart + r->c->readBuffer_.now->getSize())
+            if (r->requestEnd_ < r->requestStart_ ||
+                r->requestEnd_ > r->requestStart_ + r->c_->readBuffer_.now_->getSize())
             {
                 LOG_WARN << "request line too long";
                 finalizeRequest(r);
                 break;
             }
 
-            r->requestLine.len = r->requestEnd - r->requestStart;
-            r->requestLine.data = r->requestStart;
-            r->requestLength = r->c->readBuffer_.now->start + r->c->readBuffer_.now->pos - r->requestStart;
+            r->requestLine_.len_ = r->requestEnd_ - r->requestStart_;
+            r->requestLine_.data_ = r->requestStart_;
+            r->requestLength_ = r->c_->readBuffer_.now_->start_ + r->c_->readBuffer_.now_->pos_ - r->requestStart_;
 
-            LOG_INFO << "request line:" << std::string(r->requestLine.data, r->requestLine.data + r->requestLine.len);
+            LOG_INFO << "request line:"
+                     << std::string(r->requestLine_.data_, r->requestLine_.data_ + r->requestLine_.len_);
 
-            r->methodName.len = r->methodEnd - r->requestStart + 1;
-            r->methodName.data = r->requestLine.data;
+            r->methodName_.len_ = r->methodEnd_ - r->requestStart_ + 1;
+            r->methodName_.data_ = r->requestLine_.data_;
 
-            if (r->protocol.data)
+            if (r->protocol_.data_)
             {
-                r->protocol.len = r->requestEnd - r->protocol.data;
+                r->protocol_.len_ = r->requestEnd_ - r->protocol_.data_;
             }
 
             if (handleRequestUri(r) != OK)
@@ -381,19 +383,19 @@ int processRequestLine(Event *ev)
                 break;
             }
 
-            if (r->schemaEnd)
+            if (r->schemaEnd_)
             {
-                r->schema.len = r->schemaEnd - r->schemaStart;
-                r->schema.data = r->schemaStart;
+                r->schema_.len_ = r->schemaEnd_ - r->schemaStart_;
+                r->schema_.data_ = r->schemaStart_;
             }
 
-            if (r->hostEnd)
+            if (r->hostEnd_)
             {
-                r->host.len = r->hostEnd - r->hostStart;
-                r->host.data = r->hostStart;
+                r->host_.len_ = r->hostEnd_ - r->hostStart_;
+                r->host_.data_ = r->hostStart_;
             }
 
-            ev->handler = processRequestHeaders;
+            ev->handler_ = processRequestHeaders;
             processRequestHeaders(ev);
 
             break;
@@ -406,11 +408,11 @@ int processRequestLine(Event *ev)
             break;
         }
 
-        if (r->c->readBuffer_.now->pos == r->c->readBuffer_.now->len)
+        if (r->c_->readBuffer_.now_->pos_ == r->c_->readBuffer_.now_->len_)
         {
-            if (r->c->readBuffer_.now->next)
+            if (r->c_->readBuffer_.now_->next_)
             {
-                r->c->readBuffer_.now = r->c->readBuffer_.now->next;
+                r->c_->readBuffer_.now_ = r->c_->readBuffer_.now_->next_;
             }
         }
     }
@@ -423,7 +425,7 @@ int processRequestHeaders(Event *ev)
     Connection *c;
     std::shared_ptr<Request> r;
 
-    c = ev->c;
+    c = ev->c_;
     r = c->request_;
 
     LOG_INFO << "process request headers";
@@ -434,11 +436,11 @@ int processRequestHeaders(Event *ev)
     {
         if (rc == AGAIN)
         {
-            if (r->c->readBuffer_.now->pos == r->c->readBuffer_.now->len)
+            if (r->c_->readBuffer_.now_->pos_ == r->c_->readBuffer_.now_->len_)
             {
-                if (r->c->readBuffer_.now->next)
+                if (r->c_->readBuffer_.now_->next_)
                 {
-                    r->c->readBuffer_.now = r->c->readBuffer_.now->next;
+                    r->c_->readBuffer_.now_ = r->c_->readBuffer_.now_->next_;
                 }
             }
 
@@ -455,20 +457,20 @@ int processRequestHeaders(Event *ev)
         if (rc == OK)
         {
 
-            r->requestLength += r->c->readBuffer_.now->start + r->c->readBuffer_.now->pos - r->headerNameStart;
+            r->requestLength_ += r->c_->readBuffer_.now_->start_ + r->c_->readBuffer_.now_->pos_ - r->headerNameStart_;
 
-            if (r->invalidHeader)
+            if (r->invalidHeader_)
             {
                 LOG_WARN << "Client sent invalid header line";
                 continue;
             }
 
             // a header line has been parsed successfully
-            r->inInfo.headers.emplace_back(std::string(r->headerNameStart, r->headerNameEnd),
-                                           std::string(r->headerValueStart, r->headerValueEnd));
+            r->inInfo_.headers_.emplace_back(std::string(r->headerNameStart_, r->headerNameEnd_),
+                                             std::string(r->headerValueStart_, r->headerValueEnd_));
 
-            Header &now = r->inInfo.headers.back();
-            r->inInfo.headerNameValueMap[toLower(now.name)] = now;
+            Header &now = r->inInfo_.headers_.back();
+            r->inInfo_.headerNameValueMap_[toLower(now.name_)] = now;
 
 #ifdef LOG_HEADER
             LOG_INFO << now.name << ": " << now.value;
@@ -483,7 +485,7 @@ int processRequestHeaders(Event *ev)
 
             LOG_INFO << "http header done";
 
-            r->requestLength += r->c->readBuffer_.now->start + r->c->readBuffer_.now->pos - r->headerNameStart;
+            r->requestLength_ += r->c_->readBuffer_.now_->start_ + r->c_->readBuffer_.now_->pos_ - r->headerNameStart_;
 
             rc = handleRequestHeader(r, 1);
 
@@ -492,9 +494,9 @@ int processRequestHeaders(Event *ev)
                 break;
             }
 
-            LOG_INFO << "Host: " << r->inInfo.headerNameValueMap["host"].value;
+            LOG_INFO << "Host: " << r->inInfo_.headerNameValueMap_["host"].value_;
 
-            LOG_INFO << "Port: " << cyclePtr->servers_[r->c->serverIdx_].port;
+            LOG_INFO << "Port: " << serverPtr->servers_[r->c_->serverIdx_].port_;
 
             processRequest(r);
 
@@ -521,7 +523,7 @@ int processRequestHeaders(Event *ev)
 int readRequest(std::shared_ptr<Request> r)
 {
     // LOG_INFO << "read request header";
-    Connection *c = r->c;
+    Connection *c = r->c_;
     if (c == NULL)
     {
         LOG_WARN << "connection is NULL";
@@ -535,7 +537,7 @@ int readRequest(std::shared_ptr<Request> r)
         return 1;
     }
 
-    n = c->readBuffer_.cRecvFd(c->fd_.getFd(), &errno, 0);
+    n = c->readBuffer_.recvFd(c->fd_.getFd(), 0);
 
     if (n < 0)
     {
@@ -561,29 +563,29 @@ int readRequest(std::shared_ptr<Request> r)
 
 int handleRequestUri(std::shared_ptr<Request> r)
 {
-    if (r->argsStart)
+    if (r->argsStart_)
     {
-        r->uri.len = r->argsStart - 1 - r->uriStart;
+        r->uri_.len_ = r->argsStart_ - 1 - r->uriStart_;
     }
     else
     {
-        r->uri.len = r->uriEnd - r->uriStart;
+        r->uri_.len_ = r->uriEnd_ - r->uriStart_;
     }
 
-    if (r->complexUri || r->quotedUri || r->emptyPathInUri)
+    if (r->complexUri_ || r->quotedUri_ || r->emptyPathInUri_)
     {
 
-        if (r->emptyPathInUri)
+        if (r->emptyPathInUri_)
         {
-            r->uri.len++;
+            r->uri_.len_++;
         }
 
         // free in Request::init()
-        r->uri.data = (u_char *)heap.hMalloc(r->uri.len);
+        r->uri_.data_ = (u_char *)heap.hMalloc(r->uri_.len_);
 
         if (parseComplexUri(r, 1) != OK)
         {
-            r->uri.len = 0;
+            r->uri_.len_ = 0;
             LOG_WARN << "Client sent invalid request";
             finalizeRequest(r);
             return ERROR;
@@ -591,44 +593,44 @@ int handleRequestUri(std::shared_ptr<Request> r)
     }
     else
     {
-        r->uri.data = r->uriStart;
+        r->uri_.data_ = r->uriStart_;
     }
 
-    r->unparsedUri.len = r->uriEnd - r->uriStart;
-    r->unparsedUri.data = r->uriStart;
+    r->unparsedUri_.len_ = r->uriEnd_ - r->uriStart_;
+    r->unparsedUri_.data_ = r->uriStart_;
 
-    r->validUnparsedUri = r->emptyPathInUri ? 0 : 1;
+    r->validUnparsedUri_ = r->emptyPathInUri_ ? 0 : 1;
 
-    if (r->uriExt)
+    if (r->uriExt_)
     {
-        if (r->argsStart)
+        if (r->argsStart_)
         {
-            r->exten.len = r->argsStart - 1 - r->uriExt;
+            r->exten_.len_ = r->argsStart_ - 1 - r->uriExt_;
         }
         else
         {
-            r->exten.len = r->uriEnd - r->uriExt;
+            r->exten_.len_ = r->uriEnd_ - r->uriExt_;
         }
 
-        r->exten.data = r->uriExt;
+        r->exten_.data_ = r->uriExt_;
     }
 
-    if (r->argsStart && r->uriEnd > r->argsStart)
+    if (r->argsStart_ && r->uriEnd_ > r->argsStart_)
     {
-        r->args.len = r->uriEnd - r->argsStart;
-        r->args.data = r->argsStart;
+        r->args_.len_ = r->uriEnd_ - r->argsStart_;
+        r->args_.data_ = r->argsStart_;
     }
 
-    LOG_INFO << "http uri:" << std::string(r->uri.data, r->uri.data + r->uri.len);
-    LOG_INFO << "http args:" << std::string(r->args.data, r->args.data + r->args.len);
-    LOG_INFO << "http exten:" << std::string(r->exten.data, r->exten.data + r->exten.len);
+    LOG_INFO << "http uri:" << std::string(r->uri_.data_, r->uri_.data_ + r->uri_.len_);
+    LOG_INFO << "http args:" << std::string(r->args_.data_, r->args_.data_ + r->args_.len_);
+    LOG_INFO << "http exten:" << std::string(r->exten_.data_, r->exten_.data_ + r->exten_.len_);
 
     return OK;
 }
 
 int handleRequestHeader(std::shared_ptr<Request> r, int needHost)
 {
-    auto &mp = r->inInfo.headerNameValueMap;
+    auto &mp = r->inInfo_.headerNameValueMap_;
 
     if (mp.count("host"))
     {
@@ -642,35 +644,35 @@ int handleRequestHeader(std::shared_ptr<Request> r, int needHost)
 
     if (mp.count("content-length"))
     {
-        r->inInfo.contentLength = atoi(mp["content-length"].value.c_str());
+        r->inInfo_.contentLength_ = atoi(mp["content-length"].value_.c_str());
     }
     else
     {
-        r->inInfo.contentLength = 0;
+        r->inInfo_.contentLength_ = 0;
     }
 
     if (mp.count("transfer-encoding"))
     {
-        r->inInfo.isChunked = (0 == strcmp("chunked", mp["transfer-encoding"].value.c_str()));
+        r->inInfo_.isChunked_ = (0 == strcmp("chunked", mp["transfer-encoding"].value_.c_str()));
     }
     else
     {
-        r->inInfo.isChunked = 0;
+        r->inInfo_.isChunked_ = 0;
     }
 
     if (mp.count("connection"))
     {
-        auto &type = mp["connection"].value;
+        auto &type = mp["connection"].value_;
         bool alive = (!strcmp("keep-alive", type.c_str())) || (!strcmp("Keep-Alive", type.c_str()));
-        r->inInfo.connectionType = alive ? ConnectionType::KEEP_ALIVE : ConnectionType::CLOSED;
+        r->inInfo_.connectionType_ = alive ? ConnectionType::KEEP_ALIVE : ConnectionType::CLOSED;
     }
-    else if (r->httpVersion > 1000)
+    else if (r->httpVersion_ > 1000)
     {
-        r->inInfo.connectionType = ConnectionType::KEEP_ALIVE;
+        r->inInfo_.connectionType_ = ConnectionType::KEEP_ALIVE;
     }
     else
     {
-        r->inInfo.connectionType = ConnectionType::CLOSED;
+        r->inInfo_.connectionType_ = ConnectionType::CLOSED;
     }
 
     return OK;
@@ -678,35 +680,35 @@ int handleRequestHeader(std::shared_ptr<Request> r, int needHost)
 
 int processRequest(std::shared_ptr<Request> r)
 {
-    Connection *c = r->c;
-    c->read_.handler = blockReading;
+    Connection *c = r->c_;
+    c->read_.handler_ = blockReading;
 
     // // register EPOLLOUT
-    // cyclePtr->eventProccessor->modFd(c->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, c);
+    // serverPtr->eventProccessor->modFd(c->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, c);
     // c->write_.handler = runPhases;
 
-    r->atPhase = 0;
+    r->atPhase_ = 0;
     runPhases(&c->write_);
     return OK;
 }
 
 int processUpsStatusLine(std::shared_ptr<Request> upsr)
 {
-    std::shared_ptr<Upstream> ups = upsr->c->upstream_;
+    std::shared_ptr<Upstream> ups = upsr->c_->upstream_;
 
-    int ret = parseStatusLine(upsr, &ups->ctx.status);
+    int ret = parseStatusLine(upsr, &ups->ctx_.status_);
     if (ret != OK)
     {
         return ret;
     }
 
-    ups->processHandler = processUpsHeaders;
+    ups->processHandler_ = processUpsHeaders;
     return processUpsHeaders(upsr);
 }
 
 int processUpsHeaders(std::shared_ptr<Request> upsr)
 {
-    std::shared_ptr<Upstream> ups = upsr->c->upstream_;
+    std::shared_ptr<Upstream> ups = upsr->c_->upstream_;
     int ret;
 
     while (1)
@@ -714,10 +716,10 @@ int processUpsHeaders(std::shared_ptr<Request> upsr)
         ret = parseHeaderLine(upsr, 1);
         if (ret == OK)
         {
-            upsr->inInfo.headers.emplace_back(std::string(upsr->headerNameStart, upsr->headerNameEnd),
-                                              std::string(upsr->headerValueStart, upsr->headerValueEnd));
-            Header &now = upsr->inInfo.headers.back();
-            upsr->inInfo.headerNameValueMap[toLower(now.name)] = now;
+            upsr->inInfo_.headers_.emplace_back(std::string(upsr->headerNameStart_, upsr->headerNameEnd_),
+                                                std::string(upsr->headerValueStart_, upsr->headerValueEnd_));
+            Header &now = upsr->inInfo_.headers_.back();
+            upsr->inInfo_.headerNameValueMap_[toLower(now.name_)] = now;
             continue;
         }
 
@@ -732,7 +734,7 @@ int processUpsHeaders(std::shared_ptr<Request> upsr)
             LOG_INFO << "Upstream header done";
             handleRequestHeader(upsr, 0);
 
-            ups->processHandler = processUpsBody;
+            ups->processHandler_ = processUpsBody;
             return processUpsBody(upsr);
         }
     }
@@ -743,13 +745,13 @@ int processUpsBody(std::shared_ptr<Request> upsr)
     int ret = 0;
 
     // no content-length && not chunked
-    if (upsr->inInfo.contentLength == 0 && !upsr->inInfo.isChunked)
+    if (upsr->inInfo_.contentLength_ == 0 && !upsr->inInfo_.isChunked_)
     {
         LOG_INFO << "Upstream process body done";
         return OK;
     }
 
-    upsr->requestBody.rest = -1;
+    upsr->requestBody_.left_ = -1;
 
     // for (auto &x : upsr->c->readBuffer_.nodes)
     // {
@@ -763,7 +765,7 @@ int processUpsBody(std::shared_ptr<Request> upsr)
 
     if (ret == OK)
     {
-        upsr->c->read_.handler = blockReading;
+        upsr->c_->read_.handler_ = blockReading;
         LOG_INFO << "Upstream process body done";
         return OK;
     }
@@ -785,13 +787,13 @@ int runPhases(Event *ev)
     LOG_INFO << "Phase running";
 
     int ret = OK;
-    std::shared_ptr<Request> r = ev->c->request_;
+    std::shared_ptr<Request> r = ev->c_->request_;
 
     // OK: keep running phases
     // ERROR/DONE: quit phase running
-    while ((size_t)r->atPhase < phases.size() && phases[r->atPhase].checker)
+    while ((size_t)r->atPhase_ < phases.size() && phases[r->atPhase_].checker)
     {
-        ret = phases[r->atPhase].checker(r, &phases[r->atPhase]);
+        ret = phases[r->atPhase_].checker(r, &phases[r->atPhase_]);
         if (ret == OK)
         {
             continue;
@@ -807,12 +809,12 @@ int runPhases(Event *ev)
 
 int writeResponse(Event *ev)
 {
-    std::shared_ptr<Request> r = ev->c->request_;
-    auto &buffer = ev->c->writeBuffer_;
+    std::shared_ptr<Request> r = ev->c_->request_;
+    auto &buffer = ev->c_->writeBuffer_;
 
     if (buffer.allRead() != 1)
     {
-        int len = buffer.sendFd(ev->c->fd_.getFd(), &errno, 0);
+        int len = buffer.sendFd(ev->c_->fd_.getFd(), 0);
 
         if (len < 0 && errno != EAGAIN)
         {
@@ -823,28 +825,28 @@ int writeResponse(Event *ev)
 
         if (buffer.allRead() != 1)
         {
-            r->c->write_.handler = writeResponse;
-            cyclePtr->multiplexer->modFd(ev->c->fd_.getFd(), EVENTS(IN | OUT | ET), ev->c);
+            r->c_->write_.handler_ = writeResponse;
+            serverPtr->multiplexer_->modFd(ev->c_->fd_.getFd(), EVENTS(IN | OUT | ET), ev->c_);
             return PHASE_QUIT;
         }
     }
 
-    r->c->write_.handler = blockWriting;
-    cyclePtr->multiplexer->modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
+    r->c_->write_.handler_ = blockWriting;
+    serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), EVENTS(IN | ET), r->c_);
 
-    if (r->outInfo.restype == ResponseType::FILE)
+    if (r->outInfo_.resType_ == ResponseType::FILE)
     {
-        sendfileEvent(&r->c->write_);
+        sendfileEvent(&r->c_->write_);
     }
-    else if (r->outInfo.restype == ResponseType::STRING)
+    else if (r->outInfo_.resType_ == ResponseType::STRING)
     {
-        sendStrEvent(&r->c->write_);
+        sendStrEvent(&r->c_->write_);
     }
     else // RES_EMPTY
     {
         LOG_INFO << "RESPONSED";
 
-        if (r->inInfo.connectionType == ConnectionType::KEEP_ALIVE)
+        if (r->inInfo_.connectionType_ == ConnectionType::KEEP_ALIVE)
         {
             keepAliveRequest(r);
         }
@@ -859,20 +861,20 @@ int writeResponse(Event *ev)
 
 int blockReading(Event *ev)
 {
-    LOG_WARN << "Block reading triggered, FD:" << ev->c->fd_.getFd();
+    LOG_WARN << "Block reading triggered, FD:" << ev->c_->fd_.getFd();
     return OK;
 }
 
 int blockWriting(Event *ev)
 {
-    LOG_WARN << "Block writing triggered, FD:" << ev->c->fd_.getFd();
+    LOG_WARN << "Block writing triggered, FD:" << ev->c_->fd_.getFd();
     return OK;
 }
 
 // @return OK AGAIN ERROR
 int processRequestBody(std::shared_ptr<Request> r)
 {
-    if (r->inInfo.isChunked)
+    if (r->inInfo_.isChunked_)
     {
         return processBodyChunked(r);
     }
@@ -885,21 +887,21 @@ int processRequestBody(std::shared_ptr<Request> r)
 // @return OK AGAIN ERROR
 int processBodyLength(std::shared_ptr<Request> r)
 {
-    auto &buffer = r->c->readBuffer_;
-    auto &rb = r->requestBody;
+    auto &buffer = r->c_->readBuffer_;
+    auto &rb = r->requestBody_;
 
-    if (rb.rest == -1)
+    if (rb.left_ == -1)
     {
-        rb.rest = r->inInfo.contentLength;
+        rb.left_ = r->inInfo_.contentLength_;
     }
 
     while (buffer.allRead() != 1)
     {
-        int rlen = buffer.now->len - buffer.now->pos;
-        if (rlen <= rb.rest)
+        int rlen = buffer.now_->len_ - buffer.now_->pos_;
+        if (rlen <= rb.left_)
         {
-            rb.rest -= rlen;
-            rb.listBody.emplace_back(buffer.now->start + buffer.now->pos, rlen);
+            rb.left_ -= rlen;
+            rb.listBody_.emplace_back(buffer.now_->start_ + buffer.now_->pos_, rlen);
             buffer.retrieve(rlen);
         }
         else
@@ -908,16 +910,16 @@ int processBodyLength(std::shared_ptr<Request> r)
             return ERROR;
         }
 
-        if (buffer.now->pos == buffer.now->len)
+        if (buffer.now_->pos_ == buffer.now_->len_)
         {
-            if (buffer.now->next != NULL)
+            if (buffer.now_->next_ != NULL)
             {
-                buffer.now = buffer.now->next;
+                buffer.now_ = buffer.now_->next_;
             }
         }
     }
 
-    if (rb.rest == 0)
+    if (rb.left_ == 0)
     {
         return OK;
     }
@@ -930,10 +932,10 @@ int processBodyLength(std::shared_ptr<Request> r)
 // @return OK AGAIN ERROR
 int processBodyChunked(std::shared_ptr<Request> r)
 {
-    auto &buffer = r->c->readBuffer_;
-    auto &rb = r->requestBody;
+    auto &buffer = r->c_->readBuffer_;
+    auto &rb = r->requestBody_;
 
-    if (rb.rest == -1)
+    if (rb.left_ == -1)
     {
         // do nothing
     }
@@ -952,17 +954,17 @@ int processBodyChunked(std::shared_ptr<Request> r)
 
         if (ret == DONE)
         {
-            rb.rest = 0;
+            rb.left_ = 0;
             return OK;
         }
 
         if (ret == AGAIN)
         {
-            if (buffer.now->pos == buffer.now->len)
+            if (buffer.now_->pos_ == buffer.now_->len_)
             {
-                if (buffer.now->next != NULL)
+                if (buffer.now_->next_ != NULL)
                 {
-                    buffer.now = buffer.now->next;
+                    buffer.now_ = buffer.now_->next_;
                     // since there are still data left, keep parsing
                     continue;
                 }
@@ -988,12 +990,12 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
 {
     int ret = 0;
     int preRead = 0;
-    auto &buffer = r->c->readBuffer_;
+    auto &buffer = r->c_->readBuffer_;
 
     // no content-length && not chunked
-    if (r->inInfo.contentLength == 0 && !r->inInfo.isChunked)
+    if (r->inInfo_.contentLength_ == 0 && !r->inInfo_.isChunked_)
     {
-        r->c->read_.handler = blockReading;
+        r->c_->read_.handler_ = blockReading;
         if (postHandler)
         {
             LOG_INFO << "To post_handler";
@@ -1002,10 +1004,10 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
         return OK;
     }
 
-    r->requestBody.rest = -1;
-    r->requestBody.postHandler = postHandler;
+    r->requestBody_.left_ = -1;
+    r->requestBody_.postHandler_ = postHandler;
 
-    preRead = buffer.now->pos;
+    preRead = buffer.now_->pos_;
 
     ret = processRequestBody(r);
 
@@ -1015,14 +1017,14 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
         return ret;
     }
 
-    r->requestLength += preRead;
+    r->requestLength_ += preRead;
 
-    r->c->read_.handler = readRequestBodyInner;
-    cyclePtr->multiplexer->modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
+    r->c_->read_.handler_ = readRequestBodyInner;
+    serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), EVENTS(IN | ET), r->c_);
 
-    r->c->write_.handler = blockWriting;
+    r->c_->write_.handler_ = blockWriting;
 
-    ret = readRequestBodyInner(&r->c->read_);
+    ret = readRequestBodyInner(&r->c_->read_);
 
     return ret;
 }
@@ -1030,20 +1032,20 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
 // @return OK AGAIN ERROR
 int readRequestBodyInner(Event *ev)
 {
-    Connection *c = ev->c;
+    Connection *c = ev->c_;
     std::shared_ptr<Request> r = c->request_;
 
-    auto &rb = r->requestBody;
+    auto &rb = r->requestBody_;
     auto &buffer = c->readBuffer_;
 
     while (1)
     {
-        if (rb.rest == 0)
+        if (rb.left_ == 0)
         {
             break;
         }
 
-        int ret = buffer.cRecvFd(c->fd_.getFd(), &errno, 0);
+        int ret = buffer.recvFd(c->fd_.getFd(), 0);
 
         if (ret == 0)
         {
@@ -1067,7 +1069,7 @@ int readRequestBodyInner(Event *ev)
         }
         else
         {
-            r->requestLength += ret;
+            r->requestLength_ += ret;
             ret = processRequestBody(r);
 
             if (ret == OK)
@@ -1079,11 +1081,11 @@ int readRequestBodyInner(Event *ev)
         }
     }
 
-    r->c->read_.handler = blockReading;
-    if (rb.postHandler)
+    r->c_->read_.handler_ = blockReading;
+    if (rb.postHandler_)
     {
         LOG_INFO << "To post handler";
-        rb.postHandler(r);
+        rb.postHandler_(r);
     }
 
     return OK;
@@ -1091,11 +1093,11 @@ int readRequestBodyInner(Event *ev)
 
 int sendfileEvent(Event *ev)
 {
-    std::shared_ptr<Request> r = ev->c->request_;
-    auto &filebody = r->outInfo.fileBody;
+    std::shared_ptr<Request> r = ev->c_->request_;
+    auto &filebody = r->outInfo_.fileBody_;
 
-    ssize_t len =
-        sendfile(r->c->fd_.getFd(), filebody.filefd.getFd(), &filebody.offset, filebody.fileSize - filebody.offset);
+    ssize_t len = sendfile(r->c_->fd_.getFd(), filebody.filefd_.getFd(), &filebody.offset_,
+                           filebody.fileSize_ - filebody.offset_);
 
     if (len < 0 && errno != EAGAIN)
     {
@@ -1110,20 +1112,20 @@ int sendfileEvent(Event *ev)
         return ERROR;
     }
 
-    if (filebody.fileSize - filebody.offset > 0)
+    if (filebody.fileSize_ - filebody.offset_ > 0)
     {
-        r->c->write_.handler = sendfileEvent;
-        cyclePtr->multiplexer->modFd(r->c->fd_.getFd(), EVENTS(IN | OUT | ET), r->c);
+        r->c_->write_.handler_ = sendfileEvent;
+        serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), EVENTS(IN | OUT | ET), r->c_);
         return AGAIN;
     }
 
-    cyclePtr->multiplexer->modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
-    r->c->write_.handler = blockWriting;
-    filebody.filefd.closeFd();
+    serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), EVENTS(IN | ET), r->c_);
+    r->c_->write_.handler_ = blockWriting;
+    filebody.filefd_.closeFd();
 
     LOG_INFO << "SENDFILE RESPONSED";
 
-    if (r->inInfo.connectionType == ConnectionType::KEEP_ALIVE)
+    if (r->inInfo_.connectionType_ == ConnectionType::KEEP_ALIVE)
     {
         keepAliveRequest(r);
     }
@@ -1137,13 +1139,13 @@ int sendfileEvent(Event *ev)
 
 int sendStrEvent(Event *ev)
 {
-    std::shared_ptr<Request> r = ev->c->request_;
-    auto &strbody = r->outInfo.strBody;
+    std::shared_ptr<Request> r = ev->c_->request_;
+    auto &strbody = r->outInfo_.strBody_;
 
     static int offset = 0;
     int bodysize = strbody.size();
 
-    int len = send(r->c->fd_.getFd(), strbody.c_str() + offset, bodysize - offset, 0);
+    int len = send(r->c_->fd_.getFd(), strbody.c_str() + offset, bodysize - offset, 0);
 
     if (len < 0 && errno != EAGAIN)
     {
@@ -1161,18 +1163,18 @@ int sendStrEvent(Event *ev)
     offset += len;
     if (bodysize - offset > 0)
     {
-        r->c->write_.handler = sendStrEvent;
-        cyclePtr->multiplexer->modFd(r->c->fd_.getFd(), EVENTS(IN | OUT | ET), r->c);
+        r->c_->write_.handler_ = sendStrEvent;
+        serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), EVENTS(IN | OUT | ET), r->c_);
         return AGAIN;
     }
 
     offset = 0;
-    cyclePtr->multiplexer->modFd(r->c->fd_.getFd(), EVENTS(IN | ET), r->c);
-    r->c->write_.handler = blockWriting;
+    serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), EVENTS(IN | ET), r->c_);
+    r->c_->write_.handler_ = blockWriting;
 
     LOG_INFO << "SENDSTR RESPONSED";
 
-    if (r->inInfo.connectionType == ConnectionType::KEEP_ALIVE)
+    if (r->inInfo_.connectionType_ == ConnectionType::KEEP_ALIVE)
     {
         keepAliveRequest(r);
     }
@@ -1186,21 +1188,21 @@ int sendStrEvent(Event *ev)
 
 int keepAliveRequest(std::shared_ptr<Request> r)
 {
-    int fd = r->c->fd_.getFd();
+    int fd = r->c_->fd_.getFd();
 
-    Connection *c = r->c;
+    Connection *c = r->c_;
 
     r->init();
 
-    r->c = c;
+    r->c_ = c;
 
-    c->read_.handler = waitRequestAgain;
-    c->write_.handler = std::function<int(Event *)>();
+    c->read_.handler_ = waitRequestAgain;
+    c->write_.handler_ = std::function<int(Event *)>();
 
     c->readBuffer_.init();
     c->writeBuffer_.init();
 
-    cyclePtr->timer_.Add(c->fd_.getFd(), getTickMs() + 60000, setEventTimeout, (void *)&c->read_);
+    serverPtr->timer_.Add(c->fd_.getFd(), getTickMs() + 60000, setEventTimeout, (void *)&c->read_);
 
     LOG_INFO << "KEEPALIVE CONNECTION DONE, FD:" << fd;
 
@@ -1216,7 +1218,7 @@ int finalizeConnection(Connection *c)
     }
     int fd = c->fd_.getFd();
 
-    c->quit = 1;
+    c->quit_ = 1;
 
     // delete c at the end of a eventloop
     // cPool.recoverConnection(c);
@@ -1227,12 +1229,12 @@ int finalizeConnection(Connection *c)
 
 int finalizeRequest(std::shared_ptr<Request> r)
 {
-    r->quit = 1;
-    finalizeConnection(r->c);
+    r->quit_ = 1;
+    finalizeConnection(r->c_);
     return 0;
 }
 
-std::string cacheControl(int fd)
+std::string getEtag(int fd)
 {
     if (fd < 0)
         return "";
@@ -1265,18 +1267,18 @@ bool matchEtag(int fd, std::string b_etag)
 void setErrorResponse(std::shared_ptr<Request> r, ResponseCode code)
 {
     HttpCode hc = getByCode(code);
-    r->outInfo.resCode = code;
-    r->outInfo.statusLine = getStatusLineByCode(code);
-    r->outInfo.restype = ResponseType::STRING;
-    auto &str = r->outInfo.strBody;
-    str.append("<html>\n<head>\n\t<title>").append(hc.str).append("</title>\n</head>\n");
+    r->outInfo_.resCode_ = code;
+    r->outInfo_.statusLine_ = getStatusLineByCode(code);
+    r->outInfo_.resType_ = ResponseType::STRING;
+    auto &str = r->outInfo_.strBody_;
+    str.append("<html>\n<head>\n\t<title>").append(hc.str_).append("</title>\n</head>\n");
     str.append("<body>\n\t<center>\n\t\t<h1>")
-        .append(hc.str)
+        .append(hc.str_)
         .append("</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
 
-    r->outInfo.headers.emplace_back("Content-Type", getContentType("html", Charset::UTF_8));
-    r->outInfo.headers.emplace_back("Content-Length", std::to_string(str.length()));
-    r->outInfo.headers.emplace_back("Connection", "Keep-Alive");
+    r->outInfo_.headers_.emplace_back("Content-Type", getContentType("html", Charset::UTF_8));
+    r->outInfo_.headers_.emplace_back("Content-Length", std::to_string(str.length()));
+    r->outInfo_.headers_.emplace_back("Connection", "Keep-Alive");
 }
 
 HttpCode getByCode(ResponseCode code)
@@ -1312,7 +1314,7 @@ HttpCode getByCode(ResponseCode code)
 std::string getStatusLineByCode(ResponseCode code)
 {
     HttpCode hc = getByCode(code);
-    return "HTTP/1.1 " + hc.str + "\r\n";
+    return "HTTP/1.1 " + hc.str_ + "\r\n";
 }
 
 std::string getContentType(std::string exten, Charset charset)

@@ -33,10 +33,10 @@ class Buffer
     void append(const void *data, size_t len);
     void append(const Buffer &buff);
 
-    ssize_t readFd(int fd, int *saveErrno);
-    ssize_t writeFd(int fd, int *saveErrno);
-    ssize_t recvFd(int fd, int *saveErrno, int flags, int n = 65536);
-    ssize_t sendFd(int fd, int *saveErrno, int flags);
+    ssize_t readFd(int fd);
+    ssize_t writeFd(int fd);
+    ssize_t recvFd(int fd, int flags, int n = 65536);
+    ssize_t sendFd(int fd, int flags);
 
     char *beginPtr();
     const char *beginPtr() const;
@@ -66,15 +66,15 @@ class LinkedBufferNode
     size_t append(const u_char *data, size_t len);
     size_t append(const char *data, size_t len);
 
-    u_char *start;
-    u_char *end;
+    u_char *start_;
+    u_char *end_;
 
     // read begins at pos
-    size_t pos;
-    size_t len;
+    size_t pos_;
+    size_t len_;
 
-    LinkedBufferNode *prev;
-    LinkedBufferNode *next;
+    LinkedBufferNode *prev_;
+    LinkedBufferNode *next_;
 };
 
 class LinkedBuffer
@@ -83,13 +83,13 @@ class LinkedBuffer
     LinkedBuffer();
     void init();
 
-    std::list<LinkedBufferNode> nodes;
-    LinkedBufferNode *now;
+    std::list<LinkedBufferNode> nodes_;
+    LinkedBufferNode *now_;
 
     bool allRead();
-    ssize_t recvFd(int fd, int *saveErrno, int flags);
-    ssize_t cRecvFd(int fd, int *saveErrno, int flags);
-    ssize_t sendFd(int fd, int *saveErrno, int flags);
+    ssize_t recvFdOnce(int fd, int flags);
+    ssize_t recvFd(int fd, int flags);
+    ssize_t sendFd(int fd, int flags);
     void append(const u_char *data, size_t len);
     void append(const char *data, size_t len);
     void append(const std::string &str);

@@ -4,7 +4,7 @@
 
 #include "../memory/memory_manage.hpp"
 
-Cycle *cyclePtr;
+Server *serverPtr;
 ConnectionPool cPool;
 extern HeapMemory heap;
 
@@ -65,20 +65,20 @@ void Fd::reset(Fd &&fd)
     fd.fd_ = -1;
 }
 
-Event::Event(Connection *c) : c(c), type(EventType::NORMAL), timeout(TimeoutStatus::NOT_TIMEOUT)
+Event::Event(Connection *c) : c_(c), type_(EventType::NORMAL), timeout_(TimeoutStatus::NOT_TIMEOUT)
 {
 }
 
 void Event::init(Connection *conn)
 {
-    c = conn;
-    type = EventType::NORMAL;
-    timeout = TimeoutStatus::NOT_TIMEOUT;
-    handler = std::function<int(Event *)>();
+    c_ = conn;
+    type_ = EventType::NORMAL;
+    timeout_ = TimeoutStatus::NOT_TIMEOUT;
+    handler_ = std::function<int(Event *)>();
 }
 
 Connection::Connection(ResourceType type)
-    : read_(this), write_(this), serverIdx_(-1), request_(NULL), upstream_(NULL), quit(0), type_(type)
+    : read_(this), write_(this), serverIdx_(-1), request_(NULL), upstream_(NULL), quit_(0), type_(type)
 {
 }
 
@@ -101,7 +101,7 @@ void Connection::init(ResourceType type)
     request_.reset();
     upstream_.reset();
 
-    quit = 0;
+    quit_ = 0;
 
     type_ = type;
 }
@@ -111,14 +111,14 @@ ConnectionPool::ConnectionPool(int size)
     for (int i = 0; i < size; i++)
     {
         Connection *c = new Connection(ResourceType::POOL);
-        connectionList.push_back(c);
-        connectionPtrs.push_back(c);
+        connectionList_.push_back(c);
+        connectionPtrs_.push_back(c);
     }
 }
 
 ConnectionPool::~ConnectionPool()
 {
-    for (auto c : connectionPtrs)
+    for (auto c : connectionPtrs_)
     {
         delete c;
     }
@@ -126,10 +126,10 @@ ConnectionPool::~ConnectionPool()
 
 Connection *ConnectionPool::getNewConnection()
 {
-    if (!connectionList.empty())
+    if (!connectionList_.empty())
     {
-        auto c = connectionList.front();
-        connectionList.pop_front();
+        auto c = connectionList_.front();
+        connectionList_.pop_front();
         return c;
     }
     else
@@ -148,7 +148,7 @@ void ConnectionPool::recoverConnection(Connection *c)
     if (c->type_ == ResourceType::POOL)
     {
         c->init(ResourceType::POOL);
-        connectionList.push_back(c);
+        connectionList_.push_back(c);
     }
     else
     {
@@ -161,25 +161,25 @@ void ConnectionPool::recoverConnection(Connection *c)
 ServerAttribute::ServerAttribute(int port, std::string &&root, std::string &&index, std::string &&from,
                                  std::string &&to, bool auto_index, std::vector<std::string> &&tryfiles,
                                  std::vector<std::string> &&auth_path)
-    : port(port), root(root), index(index), from(from), to(to), auto_index(auto_index), try_files(tryfiles),
-      auth_path(auth_path)
+    : port_(port), root_(root), index_(index), from_(from), to_(to), auto_index_(auto_index), tryFiles_(tryfiles),
+      authPaths_(auth_path)
 {
 }
 
-Cycle::Cycle(ConnectionPool *pool, Logger *logger) : pool_(pool), logger_(logger), multiplexer(NULL)
+Server::Server(ConnectionPool *pool, Logger *logger) : pool_(pool), logger_(logger), multiplexer_(NULL)
 {
 }
 
-Cycle::~Cycle()
+Server::~Server()
 {
     if (logger_ != NULL)
     {
         delete logger_;
         logger_ = NULL;
     }
-    if (multiplexer != NULL)
+    if (multiplexer_ != NULL)
     {
-        delete multiplexer;
+        delete multiplexer_;
     }
 }
 
@@ -218,41 +218,41 @@ void *SharedMemory::getAddr()
 }
 
 FileInfo::FileInfo(std::string &&name, unsigned char type, off_t size_byte, timespec mtime)
-    : name(name), type(type), size_byte(size_byte), mtime(mtime)
+    : name_(name), type_(type), sizeBytes_(size_byte), mtime_(mtime)
 {
 }
 
 bool FileInfo::operator<(FileInfo &other)
 {
-    if (type != other.type)
+    if (type_ != other.type_)
     {
-        return type < other.type;
+        return type_ < other.type_;
     }
-    int ret = name.compare(other.name);
+    int ret = name_.compare(other.name_);
     if (ret != 0)
     {
         return ret < 0;
     }
-    if (size_byte != other.size_byte)
+    if (sizeBytes_ != other.sizeBytes_)
     {
-        return size_byte < other.size_byte;
+        return sizeBytes_ < other.sizeBytes_;
     }
-    return mtime.tv_sec < other.mtime.tv_sec;
+    return mtime_.tv_sec < other.mtime_.tv_sec;
 }
 
-Dir::Dir(DIR *dirr) : dir(dirr)
+Dir::Dir(DIR *dir) : dir_(dir)
 {
 }
 
 Dir::~Dir()
 {
-    closedir(dir);
+    closedir(dir_);
 }
 
 int Dir::readDir()
 {
-    de = readdir(dir);
-    if (de)
+    de_ = readdir(dir_);
+    if (de_)
     {
         return OK;
     }
@@ -264,7 +264,7 @@ int Dir::readDir()
 
 int Dir::getStat()
 {
-    stat(de->d_name, &info);
+    stat(de_->d_name, &info_);
     return OK;
 }
 
@@ -272,31 +272,31 @@ int Dir::getInfos(std::string root)
 {
     while (this->readDir() == OK)
     {
-        if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0)
+        if (strcmp(de_->d_name, ".") == 0 || strcmp(de_->d_name, "..") == 0)
         {
             continue;
         }
 
-        stat((root + "/" + std::string(de->d_name)).c_str(), &info);
+        stat((root + "/" + std::string(de_->d_name)).c_str(), &info_);
 
-        if (de->d_type == DT_DIR)
+        if (de_->d_type == DT_DIR)
         {
-            infos.emplace_back(std::string(de->d_name) + "/", de->d_type, info.st_size, info.st_mtim);
+            infos_.emplace_back(std::string(de_->d_name) + "/", de_->d_type, info_.st_size, info_.st_mtim);
         }
         else
         {
-            infos.emplace_back(de->d_name, de->d_type, info.st_size, info.st_mtim);
+            infos_.emplace_back(de_->d_name, de_->d_type, info_.st_size, info_.st_mtim);
         }
     }
-    std::sort(infos.begin(), infos.end());
+    std::sort(infos_.begin(), infos_.end());
     return OK;
 }
 
-c_str::c_str(u_char *data, size_t len) : data(data), len(len)
+c_str::c_str(u_char *data, size_t len) : data_(data), len_(len)
 {
 }
 
 std::string c_str::toString()
 {
-    return std::string(data, data + len);
+    return std::string(data_, data_ + len_);
 }

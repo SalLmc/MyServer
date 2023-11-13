@@ -4,7 +4,7 @@
 
 #include "poller.h"
 
-extern Cycle *cyclePtr;
+extern Server *serverPtr;
 
 Poller::Poller()
 {
@@ -61,7 +61,7 @@ int Poller::processEvents(int flags, int timeoutMs)
     int size = 0;
     for (auto &x : fdCtxMap_)
     {
-        fds[size++] = x.second.pfd;
+        fds[size++] = x.second.pfd_;
     }
 
     int ret = poll(fds, size, timeoutMs);
@@ -76,39 +76,39 @@ int Poller::processEvents(int flags, int timeoutMs)
             continue;
         }
 
-        Connection *c = (Connection *)fdCtxMap_[x.fd].ctx;
+        Connection *c = (Connection *)fdCtxMap_[x.fd].ctx_;
 
         short int revents = x.revents;
         if (revents & (POLLERR | POLLHUP))
         {
             revents |= POLLIN | POLLOUT;
         }
-        if (c->quit == 1)
+        if (c->quit_ == 1)
         {
             goto recover;
         }
 
-        if ((revents & POLLIN) && c->read_.handler)
+        if ((revents & POLLIN) && c->read_.handler_)
         {
-            c->read_.handler(&c->read_);
+            c->read_.handler_(&c->read_);
         }
 
-        if (c->quit == 1)
+        if (c->quit_ == 1)
         {
             goto recover;
         }
 
-        if ((revents & POLLOUT) && c->write_.handler)
+        if ((revents & POLLOUT) && c->write_.handler_)
         {
-            c->write_.handler(&c->write_);
+            c->write_.handler_(&c->write_);
         }
 
     recover:
-        if (c->quit)
+        if (c->quit_)
         {
             int fd = c->fd_.getFd();
             delFd(fd);
-            cyclePtr->pool_->recoverConnection(c);
+            serverPtr->pool_->recoverConnection(c);
             LOG_INFO << "Connection recover, FD:" << fd;
         }
     }

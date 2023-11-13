@@ -11,7 +11,7 @@
 #include "src/utils/json.hpp"
 
 extern ConnectionPool cPool;
-extern Cycle *cyclePtr;
+extern Server *serverPtr;
 extern SharedMemory shmForAMtx;
 extern ProcessMutex acceptMutex;
 extern long cores;
@@ -39,8 +39,8 @@ int main(int argc, char *argv[])
         }
     }
 
-    std::unique_ptr<Cycle> cycle(new Cycle(&cPool, new Logger("log/", "startup")));
-    cyclePtr = cycle.get();
+    std::unique_ptr<Server> cycle(new Server(&cPool, new Logger("log/", "startup")));
+    serverPtr = cycle.get();
 
     if (getOption(argc, argv, &mp) == ERROR)
     {
@@ -126,15 +126,15 @@ int main(int argc, char *argv[])
     if (use_epoll)
     {
         LOG_INFO << "Use epoll";
-        cycle->multiplexer = new Epoller();
+        cycle->multiplexer_ = new Epoller();
     }
     else
     {
         LOG_INFO << "Use poll";
-        cycle->multiplexer = new Poller();
+        cycle->multiplexer_ = new Poller();
     }
 
-    masterProcessCycle(cyclePtr);
+    masterProcessCycle(serverPtr);
 }
 
 template <class T> T getValue(const nlohmann::json &json, const std::string &key, T defaultValue)
@@ -152,17 +152,17 @@ template <class T> T getValue(const nlohmann::json &json, const std::string &key
 ServerAttribute getServer(nlohmann::json config)
 {
     ServerAttribute server;
-    server.port = getValue(config, "port", 80);
-    server.root = getValue(config, "root", std::string("static"));
-    server.index = getValue(config, "index", std::string("index.html"));
+    server.port_ = getValue(config, "port", 80);
+    server.root_ = getValue(config, "root", std::string("static"));
+    server.index_ = getValue(config, "index", std::string("index.html"));
 
-    server.from = getValue(config, "from", std::string());
-    server.to = getValue(config, "to", std::string());
+    server.from_ = getValue(config, "from", std::string());
+    server.to_ = getValue(config, "to", std::string());
 
-    server.auto_index = getValue(config, "auto_index", 0);
-    server.try_files = getValue(config, "try_files", std::vector<std::string>());
+    server.auto_index_ = getValue(config, "auto_index", 0);
+    server.tryFiles_ = getValue(config, "try_files", std::vector<std::string>());
 
-    server.auth_path = getValue(config, "auth_path", std::vector<std::string>());
+    server.authPaths_ = getValue(config, "auth_path", std::vector<std::string>());
 
     return server;
 }
@@ -186,7 +186,7 @@ void init()
 
     for (long unsigned i = 0; i < servers.size(); i++)
     {
-        cyclePtr->servers_.push_back(getServer(servers[i]));
+        serverPtr->servers_.push_back(getServer(servers[i]));
     }
 
     is_daemon = getValue(config, "daemon", 0);

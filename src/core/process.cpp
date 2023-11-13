@@ -11,7 +11,7 @@
 
 #include "../memory/memory_manage.hpp"
 
-extern Cycle *cyclePtr;
+extern Server *serverPtr;
 extern ProcessMutex acceptMutex;
 extern HeapMemory heap;
 extern std::list<Event *> posted_accept_events;
@@ -20,7 +20,7 @@ extern int processes;
 
 Process procs[MAX_PROCESS_N];
 
-void masterProcessCycle(Cycle *cycle)
+void masterProcessCycle(Server *cycle)
 {
     // signal
     sigset_t set;
@@ -75,7 +75,7 @@ void masterProcessCycle(Cycle *cycle)
     LOG_INFO << "Quit";
 }
 
-void startWorkerProcesses(Cycle *cycle, int n)
+void startWorkerProcesses(Server *cycle, int n)
 {
     int num = std::min(n, MAX_PROCESS_N);
     for (int i = 0; i < num && !isChild; i++)
@@ -84,7 +84,7 @@ void startWorkerProcesses(Cycle *cycle, int n)
     }
 }
 
-pid_t spawnProcesses(Cycle *cycle, std::function<void(Cycle *)> proc)
+pid_t spawnProcesses(Server *cycle, std::function<void(Server *)> proc)
 {
     pid_t pid = fork();
 
@@ -92,8 +92,8 @@ pid_t spawnProcesses(Cycle *cycle, std::function<void(Cycle *)> proc)
     {
     case 0: // worker
         isChild = 1;
-        procs[slot].pid = getpid();
-        procs[slot].status = ProcessStatus::ACTIVE;
+        procs[slot].pid_ = getpid();
+        procs[slot].status_ = ProcessStatus::ACTIVE;
 
         proc(cycle);
         break;
@@ -103,8 +103,8 @@ pid_t spawnProcesses(Cycle *cycle, std::function<void(Cycle *)> proc)
         break;
 
     default: // master
-        procs[slot].pid = pid;
-        procs[slot].status = ProcessStatus::ACTIVE;
+        procs[slot].pid_ = pid;
+        procs[slot].status_ = ProcessStatus::ACTIVE;
 
         slot++;
         break;
@@ -116,7 +116,7 @@ int recvFromMaster(Event *rev)
 {
     char buffer[64];
     memset(buffer, 0, sizeof(buffer));
-    recv(rev->c->fd_.getFd(), buffer, 63, 0);
+    recv(rev->c_->fd_.getFd(), buffer, 63, 0);
     printf("slot:%d, recv from worker:%s\n", slot, buffer);
     return 0;
 }
@@ -125,17 +125,17 @@ void signalWorkerProcesses(int sig)
 {
     for (int i = 0; i < MAX_PROCESS_N; i++)
     {
-        if (procs[i].status == ProcessStatus::ACTIVE)
+        if (procs[i].status_ == ProcessStatus::ACTIVE)
         {
-            if (kill(procs[i].pid, sig) == -1)
+            if (kill(procs[i].pid_, sig) == -1)
             {
-                LOG_CRIT << "Send signals to " << procs[i].pid << " failed";
+                LOG_CRIT << "Send signals to " << procs[i].pid_ << " failed";
             }
         }
     }
 }
 
-void workerProcessCycle(Cycle *cycle)
+void workerProcessCycle(Server *cycle)
 {
     // log
     char name[20];
@@ -160,16 +160,16 @@ void workerProcessCycle(Cycle *cycle)
     }
 
     // listen
-    for (auto &x : cyclePtr->servers_)
+    for (auto &x : serverPtr->servers_)
     {
-        if (initListen(cyclePtr, x.port) == ERROR)
+        if (initListen(serverPtr, x.port_) == ERROR)
         {
             LOG_CRIT << "init listen failed";
         }
     }
 
     // epoll
-    Epoller *epoller = dynamic_cast<Epoller *>(cyclePtr->multiplexer);
+    Epoller *epoller = dynamic_cast<Epoller *>(serverPtr->multiplexer_);
     if (epoller)
     {
         epoller->setEpollFd(epoll_create1(0));
@@ -178,7 +178,7 @@ void workerProcessCycle(Cycle *cycle)
     for (auto &listen : cycle->listening_)
     {
         // use LT on listenfd
-        if (cyclePtr->multiplexer->addFd(listen->fd_.getFd(), EVENTS(IN), listen) == 0)
+        if (serverPtr->multiplexer_->addFd(listen->fd_.getFd(), EVENTS(IN), listen) == 0)
         {
             LOG_CRIT << "Listenfd add failed, errno:" << strerror(errno);
         }
@@ -187,7 +187,7 @@ void workerProcessCycle(Cycle *cycle)
     // timer
     if (enable_logger)
     {
-        cyclePtr->timer_.Add(-1, getTickMs() + 3000, logging, (void *)3000);
+        serverPtr->timer_.Add(-1, getTickMs() + 3000, logging, (void *)3000);
     }
 
     LOG_INFO << "Worker Looping";
@@ -204,14 +204,14 @@ void workerProcessCycle(Cycle *cycle)
     LOG_INFO << "Worker Quit";
 }
 
-void processEventsAndTimers(Cycle *cycle)
+void processEventsAndTimers(Server *cycle)
 {
     int flags = 0;
 
     unsigned long long nextTick = cycle->timer_.GetNextTick();
     nextTick = ((nextTick == (unsigned long long)-1) ? -1 : (nextTick - getTickMs()));
 
-    int ret = cyclePtr->multiplexer->processEvents(flags, nextTick);
+    int ret = serverPtr->multiplexer_->processEvents(flags, nextTick);
     if (ret == -1)
     {
         LOG_WARN << "process events errno: " << strerror(errno);
@@ -226,7 +226,7 @@ void processEventsAndTimers(Cycle *cycle)
 
 int logging(void *arg)
 {
-    cyclePtr->logger_->wakeup();
-    cyclePtr->timer_.Again(-1, getTickMs() + (long long)arg);
+    serverPtr->logger_->wakeup();
+    serverPtr->timer_.Again(-1, getTickMs() + (long long)arg);
     return 0;
 }

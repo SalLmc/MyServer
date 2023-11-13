@@ -31,9 +31,9 @@ class LogLine
     LogLine &operator<<(const char *arg);
 
     char buffer_[1024];
-    int pos = 0;
+    int pos_ = 0;
 
-    Level level;
+    Level level_;
 };
 
 class AtomicSpinlock
@@ -116,9 +116,9 @@ class Logger
     if (enable_logger)                                                                                                 \
     __LOG_CRIT
 
-#define __LOG_INFO __LOG_INFO_INNER(*cyclePtr->logger_)
-#define __LOG_WARN __LOG_WARN_INNER(*cyclePtr->logger_)
-#define __LOG_CRIT __LOG_CRIT_INNER(*cyclePtr->logger_)
+#define __LOG_INFO __LOG_INFO_INNER(*serverPtr->logger_)
+#define __LOG_WARN __LOG_WARN_INNER(*serverPtr->logger_)
+#define __LOG_CRIT __LOG_CRIT_INNER(*serverPtr->logger_)
 
 #define __LOG_INFO_INNER(logger) (logger) += LogLine(Level::INFO, __FILE__, __func__, __LINE__)
 #define __LOG_WARN_INNER(logger) (logger) += LogLine(Level::WARN, __FILE__, __func__, __LINE__)

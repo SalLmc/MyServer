@@ -6,165 +6,151 @@
 
 extern HeapMemory heap;
 
-Header::Header(std::string &&name, std::string &&value) : name(name), value(value)
+Header::Header(std::string &&name, std::string &&value) : name_(name), value_(value)
 {
 }
 
 ChunkedInfo::ChunkedInfo()
 {
-    state = ChunkedState::START;
-    size = 0;
-    length = 0;
-    dataOffset = 0;
+    state_ = ChunkedState::START;
+    size_ = 0;
+    length_ = 0;
+    dataOffset_ = 0;
 }
 
 RequestBody::RequestBody()
 {
-    rest = -1;
-    postHandler = NULL;
+    left_ = -1;
+    postHandler_ = NULL;
 }
 
 Request::~Request()
 {
-    if (complexUri || quotedUri || emptyPathInUri)
+    if (complexUri_ || quotedUri_ || emptyPathInUri_)
     {
-        heap.hFree(uri.data);
+        heap.hFree(uri_.data_);
     }
 }
 
 void Request::init()
 {
-    nowProxyPass = 0;
-    quit = 0;
-    c = NULL;
-    httpVersion = 0;
+    nowProxyPass_ = 0;
+    quit_ = 0;
+    c_ = NULL;
+    httpVersion_ = 0;
 
-    requestBody.rest = -1;
-    requestBody.postHandler = NULL;
-    requestBody.listBody.clear();
-    requestBody.chunkedInfo.state = ChunkedState::START;
-    requestBody.chunkedInfo.size = 0;
-    requestBody.chunkedInfo.length = 0;
-    requestBody.chunkedInfo.dataOffset = 0;
+    requestBody_.left_ = -1;
+    requestBody_.postHandler_ = NULL;
+    requestBody_.listBody_.clear();
+    requestBody_.chunkedInfo_.state_ = ChunkedState::START;
+    requestBody_.chunkedInfo_.size_ = 0;
+    requestBody_.chunkedInfo_.length_ = 0;
+    requestBody_.chunkedInfo_.dataOffset_ = 0;
 
-    headerState = HeaderState::START;
-    requestState = RequestState::START;
-    responseState = ResponseState::START;
+    headerState_ = HeaderState::START;
+    requestState_ = RequestState::START;
+    responseState_ = ResponseState::START;
 
-    inInfo.isChunked = 0;
-    inInfo.connectionType = ConnectionType::CLOSED;
-    inInfo.contentLength = 0;
-    inInfo.headerNameValueMap.clear();
-    inInfo.headers.clear();
+    inInfo_.isChunked_ = 0;
+    inInfo_.connectionType_ = ConnectionType::CLOSED;
+    inInfo_.contentLength_ = 0;
+    inInfo_.headerNameValueMap_.clear();
+    inInfo_.headers_.clear();
 
-    outInfo.headers.clear();
-    outInfo.headerNameValueMap.clear();
-    outInfo.contentLength = 0;
-    outInfo.isChunked = 0;
-    outInfo.resCode = ResponseCode::HTTP_OK;
-    outInfo.statusLine.clear();
-    outInfo.strBody.clear();
-    outInfo.fileBody.filefd.closeFd();
-    outInfo.fileBody.fileSize = 0;
-    outInfo.fileBody.offset = 0;
-    outInfo.restype = ResponseType::EMPTY;
+    outInfo_.headers_.clear();
+    outInfo_.headerNameValueMap_.clear();
+    outInfo_.contentLength_ = 0;
+    outInfo_.isChunked_ = 0;
+    outInfo_.resCode_ = ResponseCode::HTTP_OK;
+    outInfo_.statusLine_.clear();
+    outInfo_.strBody_.clear();
+    outInfo_.fileBody_.filefd_.closeFd();
+    outInfo_.fileBody_.fileSize_ = 0;
+    outInfo_.fileBody_.offset_ = 0;
+    outInfo_.resType_ = ResponseType::EMPTY;
 
-    protocol.data = NULL;
-    methodName.data = NULL;
-    schema.data = NULL;
-    host.data = NULL;
-    requestLine.data = NULL;
-    args.data = NULL;
-    if (complexUri || quotedUri || emptyPathInUri)
+    protocol_.data_ = NULL;
+    methodName_.data_ = NULL;
+    schema_.data_ = NULL;
+    host_.data_ = NULL;
+    requestLine_.data_ = NULL;
+    args_.data_ = NULL;
+    if (complexUri_ || quotedUri_ || emptyPathInUri_)
     {
-        heap.hFree(uri.data);
+        heap.hFree(uri_.data_);
     }
-    uri.data = NULL;
-    exten.data = NULL;
-    unparsedUri.data = NULL;
-    protocol.len = 0;
-    methodName.len = 0;
-    schema.len = 0;
-    host.len = 0;
-    requestLine.len = 0;
-    args.len = 0;
-    uri.len = 0;
-    exten.len = 0;
-    unparsedUri.len = 0;
+    uri_.data_ = NULL;
+    exten_.data_ = NULL;
+    unparsedUri_.data_ = NULL;
+    protocol_.len_ = 0;
+    methodName_.len_ = 0;
+    schema_.len_ = 0;
+    host_.len_ = 0;
+    requestLine_.len_ = 0;
+    args_.len_ = 0;
+    uri_.len_ = 0;
+    exten_.len_ = 0;
+    unparsedUri_.len_ = 0;
 
-    requestLength = 0;
+    requestLength_ = 0;
 
-    atPhase = 0;
+    atPhase_ = 0;
 
-    complexUri = 0;
-    quotedUri = 0;
-    plusInUri = 0;
-    emptyPathInUri = 0;
-    invalidHeader = 0;
-    validUnparsedUri = 0;
+    complexUri_ = 0;
+    quotedUri_ = 0;
+    plusInUri_ = 0;
+    emptyPathInUri_ = 0;
+    invalidHeader_ = 0;
+    validUnparsedUri_ = 0;
 
-    pos = NULL;
+    headerNameStart_ = NULL;
+    headerNameEnd_ = NULL;
+    headerValueStart_ = NULL;
+    headerValueEnd_ = NULL;
 
-    headerNameStart = NULL;
-    headerNameEnd = NULL;
-    headerValueStart = NULL;
-    headerValueEnd = NULL;
+    uriStart_ = NULL;
+    uriEnd_ = NULL;
+    uriExt_ = NULL;
+    argsStart_ = NULL;
+    requestStart_ = NULL;
+    requestEnd_ = NULL;
+    methodEnd_ = NULL;
+    schemaStart_ = NULL;
+    schemaEnd_ = NULL;
+    hostStart_ = NULL;
+    hostEnd_ = NULL;
+    portStart_ = NULL;
+    portEnd_ = NULL;
 
-    uriStart = NULL;
-    uriEnd = NULL;
-    uriExt = NULL;
-    argsStart = NULL;
-    requestStart = NULL;
-    requestEnd = NULL;
-    methodEnd = NULL;
-    schemaStart = NULL;
-    schemaEnd = NULL;
-    hostStart = NULL;
-    hostEnd = NULL;
-    portStart = NULL;
-    portEnd = NULL;
-
-    httpMinor = 0;
-    httpMajor = 0;
+    httpMinor_ = 0;
+    httpMajor_ = 0;
 }
 
-Status::Status() : httpVersion(0), code(0), count(0), start(NULL), end(NULL)
+Status::Status() : httpVersion_(0), code_(0), count_(0), start_(NULL), end_(NULL)
 {
 }
 
 void Status::init()
 {
-    httpVersion = 0;
-    code = 0;
-    count = 0;
-    start = NULL;
-    end = NULL;
+    httpVersion_ = 0;
+    code_ = 0;
+    count_ = 0;
+    start_ = NULL;
+    end_ = NULL;
 }
 
-ProxyCtx::ProxyCtx()
+void UpstreamContext::init()
 {
-    internalBodyLength = 0;
-    head = 0;
-    internalChunked = 0;
-    headerSent = 0;
-}
-
-void ProxyCtx::init()
-{
-    status.init();
-    internalBodyLength = 0;
-    head = 0;
-    internalChunked = 0;
-    headerSent = 0;
+    status_.init();
 }
 
 Upstream::Upstream()
 {
-    upstream = NULL;
-    client = NULL;
-    processHandler = NULL;
+    upstream_ = NULL;
+    client_ = NULL;
+    processHandler_ = NULL;
 }
 
-HttpCode::HttpCode(int code, std::string &&str) : code(code), str(str)
+HttpCode::HttpCode(int code, std::string &&str) : code_(code), str_(str)
 {
 }

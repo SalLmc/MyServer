@@ -5,6 +5,8 @@
 
 #include "../core/core.h"
 
+extern Server *serverPtr;
+
 class Request;
 
 enum class HeaderState
@@ -137,64 +139,61 @@ class Header
   public:
     Header() = default;
     Header(std::string &&name, std::string &&value);
-    std::string name;
-    std::string value;
+    std::string name_;
+    std::string value_;
 };
 
 class InfoRecv
 {
   public:
-    std::list<Header> headers;
-    std::unordered_map<std::string, Header> headerNameValueMap;
-    unsigned long contentLength;
-    bool isChunked;
-    ConnectionType connectionType;
+    std::list<Header> headers_;
+    std::unordered_map<std::string, Header> headerNameValueMap_;
+    unsigned long contentLength_;
+    bool isChunked_;
+    ConnectionType connectionType_;
 };
 
 class InfoSend
 {
   public:
-    std::list<Header> headers;
-    std::unordered_map<std::string, Header> headerNameValueMap;
-    unsigned long contentLength;
-    bool isChunked;
+    std::list<Header> headers_;
+    std::unordered_map<std::string, Header> headerNameValueMap_;
+    unsigned long contentLength_;
+    bool isChunked_;
 
-    ResponseCode resCode;
-    std::string statusLine;
+    ResponseCode resCode_;
+    std::string statusLine_;
 
-    std::string strBody;
+    std::string strBody_;
     struct
     {
-        Fd filefd;
-        off_t fileSize;
-        off_t offset;
-    } fileBody;
+        Fd filefd_;
+        off_t fileSize_;
+        off_t offset_;
+    } fileBody_;
 
-    ResponseType restype = ResponseType::EMPTY;
+    ResponseType resType_ = ResponseType::EMPTY;
 };
 
 class ChunkedInfo
 {
   public:
     ChunkedInfo();
-    ChunkedState state;
-    size_t size;
-    size_t length;
-    size_t dataOffset;
+    ChunkedState state_;
+    size_t size_;
+    size_t length_;
+    size_t dataOffset_;
 };
 
 class RequestBody
 {
   public:
     RequestBody();
-    off_t rest;
-    ChunkedInfo chunkedInfo;
-    // c_str body;
-    std::list<c_str> listBody;
-    std::function<int(std::shared_ptr<Request>)> postHandler;
+    off_t left_;
+    ChunkedInfo chunkedInfo_;
+    std::list<c_str> listBody_;
+    std::function<int(std::shared_ptr<Request>)> postHandler_;
 };
-
-extern Cycle *cyclePtr;
 
 class Request
 {
@@ -202,74 +201,71 @@ class Request
     ~Request();
     void init();
 
-    int nowProxyPass = 0;
-    int quit = 0;
-    Connection *c;
+    bool nowProxyPass_ = 0;
+    bool quit_ = 0;
+    Connection *c_;
 
-    RequestBody requestBody;
+    RequestBody requestBody_;
 
-    Method method;
-    HeaderState headerState = HeaderState::START;
-    RequestState requestState = RequestState::START;
-    ResponseState responseState = ResponseState::START;
+    Method method_;
+    HeaderState headerState_ = HeaderState::START;
+    RequestState requestState_ = RequestState::START;
+    ResponseState responseState_ = ResponseState::START;
 
-    unsigned long httpVersion;
+    unsigned int httpVersion_;
 
-    InfoRecv inInfo;
-    InfoSend outInfo;
+    InfoRecv inInfo_;
+    InfoSend outInfo_;
 
-    c_str protocol;
-    c_str methodName;
-    c_str schema;
-    c_str host;
+    c_str protocol_;
+    c_str methodName_;
+    c_str schema_;
+    c_str host_;
 
-    c_str requestLine;
-    c_str args;
-    c_str uri;
-    c_str exten;
-    c_str unparsedUri;
+    c_str requestLine_;
+    c_str args_;
+    c_str uri_;
+    c_str exten_;
+    c_str unparsedUri_;
 
-    off_t requestLength;
+    off_t requestLength_;
 
-    int atPhase;
+    int atPhase_;
 
     // URI with "/." and on Win32 with "//"
-    unsigned complexUri : 1;
+    bool complexUri_ ;
     // URI with "%"
-    unsigned quotedUri : 1;
+    bool quotedUri_ ;
     // URI with "+"
-    unsigned plusInUri : 1;
+    bool plusInUri_ ;
     // URI with empty path
-    unsigned emptyPathInUri : 1;
-    unsigned invalidHeader : 1;
-    unsigned validUnparsedUri : 1;
-
-    // used for parse http headers
-    u_char *pos;
+    bool emptyPathInUri_ ;
+    bool invalidHeader_ ;
+    bool validUnparsedUri_ ;
 
     // all end pointers point to the place after the content, except methodEnd
-    u_char *headerNameStart;
-    u_char *headerNameEnd;
-    u_char *headerValueStart;
-    u_char *headerValueEnd;
+    u_char *headerNameStart_;
+    u_char *headerNameEnd_;
+    u_char *headerValueStart_;
+    u_char *headerValueEnd_;
 
-    u_char *uriStart;
-    u_char *uriEnd;
-    u_char *uriExt;
-    u_char *argsStart;
-    u_char *requestStart;
-    u_char *requestEnd;
+    u_char *uriStart_;
+    u_char *uriEnd_;
+    u_char *uriExt_;
+    u_char *argsStart_;
+    u_char *requestStart_;
+    u_char *requestEnd_;
     // methodEnd points to the last character of method, not the place after it
-    u_char *methodEnd;
-    u_char *schemaStart;
-    u_char *schemaEnd;
-    u_char *hostStart;
-    u_char *hostEnd;
-    u_char *portStart;
-    u_char *portEnd;
+    u_char *methodEnd_;
+    u_char *schemaStart_;
+    u_char *schemaEnd_;
+    u_char *hostStart_;
+    u_char *hostEnd_;
+    u_char *portStart_;
+    u_char *portEnd_;
 
-    unsigned httpMinor : 16;
-    unsigned httpMajor : 16;
+    unsigned int httpMinor_;
+    unsigned int httpMajor_;
 };
 
 class Status
@@ -277,33 +273,28 @@ class Status
   public:
     Status();
     void init();
-    int httpVersion;
-    int code;
-    int count;
-    u_char *start;
-    u_char *end;
+    int httpVersion_;
+    int code_;
+    int count_;
+    u_char *start_;
+    u_char *end_;
 };
 
-class ProxyCtx
+class UpstreamContext
 {
   public:
-    ProxyCtx();
     void init();
-    Status status;
-    off_t internalBodyLength;
-    unsigned head : 1;
-    unsigned internalChunked : 1;
-    unsigned headerSent : 1;
+    Status status_;
 };
 
 class Upstream
 {
   public:
     Upstream();
-    Connection *upstream;
-    Connection *client;
-    ProxyCtx ctx;
-    std::function<int(std::shared_ptr<Request> r)> processHandler;
+    Connection *upstream_;
+    Connection *client_;
+    UpstreamContext ctx_;
+    std::function<int(std::shared_ptr<Request> r)> processHandler_;
 };
 
 class HttpCode
@@ -311,12 +302,12 @@ class HttpCode
   public:
     HttpCode() = default;
     HttpCode(int code, std::string &&str);
-    int code;
-    std::string str;
+    int code_;
+    std::string str_;
 };
 
-int initListen(Cycle *cycle, int port);
-Connection *addListen(Cycle *cycle, int port);
+int initListen(Server *cycle, int port);
+Connection *addListen(Server *cycle, int port);
 
 int newConnection(Event *ev);
 int waitRequest(Event *ev);
@@ -350,7 +341,7 @@ int finalizeRequest(std::shared_ptr<Request> r);
 int finalizeConnection(Connection *c);
 
 // others
-std::string cacheControl(int fd);
+std::string getEtag(int fd);
 bool matchEtag(int fd, std::string browserEtag);
 int blockReading(Event *ev);
 int blockWriting(Event *ev);
