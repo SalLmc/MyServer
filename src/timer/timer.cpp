@@ -1,29 +1,45 @@
 #include "../headers.h"
 
-#include "timer.h"
 #include "../utils/utils_declaration.h"
+#include "timer.h"
 
-void HeapTimer::SwapNode(size_t i, size_t j)
+TimerNode::TimerNode(int id, std::string name, unsigned long long expires, unsigned long long newExpires,
+                     std::function<int(void *)> callback, void *arg)
+    : id_(id), name_(name), expires_(expires), newExpires_(newExpires), callback_(callback), arg_(arg)
 {
-    std::swap(heap_[i], heap_[j]);
-    ref_[heap_[i].id_] = i;
-    ref_[heap_[j].id_] = j;
 }
 
-void HeapTimer::SiftUp(size_t i)
+HeapTimer::HeapTimer()
+{
+    heap_.reserve(64);
+}
+
+HeapTimer::~HeapTimer()
+{
+    clear();
+}
+
+void HeapTimer::swapNode(size_t i, size_t j)
+{
+    std::swap(heap_[i], heap_[j]);
+    idIndexMap[heap_[i].id_] = i;
+    idIndexMap[heap_[j].id_] = j;
+}
+
+void HeapTimer::siftUp(size_t i)
 {
     size_t j = (i - 1) / 2; // father
     while (j >= 0 && j < heap_.size())
     {
         if (heap_[j] < heap_[i]) // smallest at top
             break;
-        SwapNode(i, j);
+        swapNode(i, j);
         i = j;
         j = (i - 1) / 2;
     }
 }
 
-bool HeapTimer::SiftDown(size_t index, size_t n)
+bool HeapTimer::siftDown(size_t index, size_t n)
 {
     size_t i = index;
     size_t j = i * 2 + 1; // left child
@@ -35,94 +51,95 @@ bool HeapTimer::SiftDown(size_t index, size_t n)
         if (heap_[i] < heap_[j])
             break;
 
-        SwapNode(i, j);
+        swapNode(i, j);
         i = j;
         j = i * 2 + 1;
     }
     return i > index; // true means siftdown happened
 }
 
-void HeapTimer::Add(int id, unsigned long long timeoutstamp_ms, const std::function<int(void *)> &cb, void *arg)
+void HeapTimer::add(int id, std::string name, unsigned long long expireTimestampMs,
+                    const std::function<int(void *)> &cb, void *arg)
 {
     size_t i;
-    if (ref_.count(id) == 0) // new node
+    if (idIndexMap.count(id) == 0) // new node
     {
         i = heap_.size();
-        ref_[id] = i;
-        heap_.push_back({id, timeoutstamp_ms, 0, cb, arg});
-        SiftUp(i);
+        idIndexMap[id] = i;
+        heap_.emplace_back(id, name, expireTimestampMs, 0, cb, arg);
+        siftUp(i);
     }
     else
     {
-        i = ref_[id];
-        heap_[i].expires_ = timeoutstamp_ms;
+        i = idIndexMap[id];
+        heap_[i].expires_ = expireTimestampMs;
         heap_[i].callback_ = cb;
-        if (!SiftDown(i, heap_.size()))
+        if (!siftDown(i, heap_.size()))
         {
-            SiftUp(i);
+            siftUp(i);
         }
     }
 }
 
-void HeapTimer::Del(size_t index)
+void HeapTimer::del(size_t index)
 {
     size_t i = index;
     size_t n = heap_.size() - 1;
     if (i < n)
     {
-        SwapNode(i, n);
-        if (!SiftDown(i, n))
+        swapNode(i, n);
+        if (!siftDown(i, n))
         {
-            SiftUp(i);
+            siftUp(i);
         }
     }
-    ref_.erase(heap_.back().id_);
+    idIndexMap.erase(heap_.back().id_);
     heap_.pop_back();
 }
 
-void HeapTimer::Remove(int id)
+void HeapTimer::remove(int id)
 {
-    if (heap_.empty() || ref_.count(id) == 0)
+    if (heap_.empty() || idIndexMap.count(id) == 0)
     {
         return;
     }
-    Del(ref_[id]);
+    del(idIndexMap[id]);
 }
 
-void HeapTimer::DoWork(int id)
+void HeapTimer::handle(int id)
 {
-    if (heap_.empty() || ref_.count(id) == 0)
+    if (heap_.empty() || idIndexMap.count(id) == 0)
     {
         return;
     }
-    size_t i = ref_[id];
+    size_t i = idIndexMap[id];
     TimerNode node = heap_[i];
     node.callback_(node.arg_);
-    Del(i);
+    del(i);
 }
 
-void HeapTimer::Adjust(int id, unsigned long long new_timeout_ms)
+void HeapTimer::adjust(int id, unsigned long long new_timeout_ms)
 {
-    size_t i = ref_[id];
+    size_t i = idIndexMap[id];
     size_t n = heap_.size();
     heap_[i].expires_ = new_timeout_ms;
-    if (!SiftDown(i, n))
+    if (!siftDown(i, n))
     {
-        SiftUp(i);
+        siftUp(i);
     }
 }
 
-void HeapTimer::Again(int id, unsigned long long new_timeout_ms)
+void HeapTimer::again(int id, unsigned long long newExpireMs)
 {
-    heap_[ref_[id]].newExpires_ = new_timeout_ms;
+    heap_[idIndexMap[id]].newExpires_ = newExpireMs;
 }
 
-void HeapTimer::Pop()
+void HeapTimer::pop()
 {
-    Del(0);
+    del(0);
 }
 
-void HeapTimer::Tick()
+void HeapTimer::tick()
 {
     // callback expired node
     while (!heap_.empty())
@@ -137,23 +154,23 @@ void HeapTimer::Tick()
 
         if (node->newExpires_ == 0)
         {
-            Pop();
+            pop();
         }
         else
         {
-            Adjust(node->id_, node->newExpires_);
+            adjust(node->id_, node->newExpires_);
             node->newExpires_ = 0;
         }
     }
 }
 
-void HeapTimer::Clear()
+void HeapTimer::clear()
 {
-    ref_.clear();
+    idIndexMap.clear();
     heap_.clear();
 }
 
-unsigned long long HeapTimer::GetNextTick()
+unsigned long long HeapTimer::getNextTick()
 {
     unsigned long long res = -1;
     if (!heap_.empty())
@@ -161,4 +178,12 @@ unsigned long long HeapTimer::GetNextTick()
         res = heap_.front().expires_;
     }
     return res;
+}
+
+void HeapTimer::printActiveTimer()
+{
+    for (auto &x : heap_)
+    {
+        printf("id: %d, name:%s\n", x.id_, x.name_.c_str());
+    }
 }

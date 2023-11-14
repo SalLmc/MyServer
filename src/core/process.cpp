@@ -186,7 +186,7 @@ void workerProcessCycle(Server *server)
     // timer
     if (enable_logger)
     {
-        serverPtr->timer_.Add(-1, getTickMs() + 3000, logging, (void *)3000);
+        serverPtr->timer_.add(-1, "logger timer", getTickMs() + 3000, logging, (void *)3000);
     }
 
     LOG_INFO << "Worker Looping";
@@ -207,7 +207,7 @@ void processEventsAndTimers(Server *server)
 {
     int flags = 0;
 
-    unsigned long long nextTick = server->timer_.GetNextTick();
+    unsigned long long nextTick = server->timer_.getNextTick();
     nextTick = ((nextTick == (unsigned long long)-1) ? -1 : (nextTick - getTickMs()));
 
     int ret = serverPtr->multiplexer_->processEvents(flags, nextTick);
@@ -218,7 +218,7 @@ void processEventsAndTimers(Server *server)
 
     processEventsList(&posted_accept_events);
 
-    server->timer_.Tick();
+    server->timer_.tick();
 
     processEventsList(&posted_events);
 }
@@ -226,6 +226,6 @@ void processEventsAndTimers(Server *server)
 int logging(void *arg)
 {
     serverPtr->logger_->wakeup();
-    serverPtr->timer_.Again(-1, getTickMs() + (long long)arg);
+    serverPtr->timer_.again(-1, getTickMs() + (long long)arg);
     return 0;
 }

@@ -232,7 +232,8 @@ int newConnection(Event *ev)
             LOG_WARN << "Add client fd failed, FD:" << newc->fd_.getFd();
         }
 
-        serverPtr->timer_.Add(newc->fd_.getFd(), getTickMs() + 60000, setEventTimeout, (void *)&newc->read_);
+        serverPtr->timer_.add(newc->fd_.getFd(), "Connection timeout", getTickMs() + 60000, setEventTimeout,
+                              (void *)&newc->read_);
 
         LOG_INFO << "NEW CONNECTION FROM FD:" << ev->c_->fd_.getFd() << ", WITH FD:" << newc->fd_.getFd();
 #ifdef LOOP_ACCEPT
@@ -251,7 +252,7 @@ int waitRequest(Event *ev)
         return -1;
     }
 
-    serverPtr->timer_.Remove(ev->c_->fd_.getFd());
+    serverPtr->timer_.remove(ev->c_->fd_.getFd());
 
     Connection *c = ev->c_;
 
@@ -298,7 +299,7 @@ int waitRequestAgain(Event *ev)
         return -1;
     }
 
-    serverPtr->timer_.Remove(ev->c_->fd_.getFd());
+    serverPtr->timer_.remove(ev->c_->fd_.getFd());
 
     Connection *c = ev->c_;
 
@@ -1202,7 +1203,8 @@ int keepAliveRequest(std::shared_ptr<Request> r)
     c->readBuffer_.init();
     c->writeBuffer_.init();
 
-    serverPtr->timer_.Add(c->fd_.getFd(), getTickMs() + 60000, setEventTimeout, (void *)&c->read_);
+    serverPtr->timer_.add(c->fd_.getFd(), "Connection timeout", getTickMs() + 60000, setEventTimeout,
+                          (void *)&c->read_);
 
     LOG_INFO << "KEEPALIVE CONNECTION DONE, FD:" << fd;
 
