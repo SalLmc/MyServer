@@ -11,8 +11,8 @@
 | use_epoll         | True to use epoll, else use poll                            | true                       |
 | processes         | The number of worker processes                              | The number of cores (AUTO) |
 | server.port       | Port to listen to                                           | 80                         |
-| server.root       | Root resource location                                      | "./static"                 |
-| server.index      | Index page                                                  | "index"                    |
+| server.root       | Root resource location                                      | "static"                   |
+| server.index      | Index page                                                  | "index.html"               |
 | server.from       | Proxy pass source uri                                       | ""                         |
 | server.to         | Proxy pass target uri                                       | ""                         |
 | server.auto_index | True to enable directory index                              | false                      |
