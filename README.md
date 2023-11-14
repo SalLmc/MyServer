@@ -74,6 +74,10 @@ Use Nginx style
 }
 ```
 
+Put your password in file "authcode_$(port)" and add it to header like "code: $(YOUR_CODE)" to gain access to authenticated paths
+
+It's better if your auth-file doesn't contains CR,LF. Since the header parsing process ignores useless CRLF
+
 ## Usage
 
 ### Start
