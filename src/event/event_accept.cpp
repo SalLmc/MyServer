@@ -126,7 +126,7 @@ void shmtxUnlock(ProcessMutex *mtx)
     }
 }
 
-int acceptexTryLock(Server *cycle)
+int acceptexTryLock(Server *server)
 {
     if (shmtxTryLock(&acceptMutex))
     {
@@ -136,7 +136,7 @@ int acceptexTryLock(Server *cycle)
             return 1;
         }
 
-        for (auto &listen : cycle->listening_)
+        for (auto &listen : server->listening_)
         {
             if (serverPtr->multiplexer_->addFd(listen->fd_.getFd(), EVENTS(IN | ET), listen) == 0)
             {
@@ -153,7 +153,7 @@ int acceptexTryLock(Server *cycle)
 
     if (acceptMutexHeld)
     {
-        for (auto &listen : cycle->listening_)
+        for (auto &listen : server->listening_)
         {
             if (serverPtr->multiplexer_->delFd(listen->fd_.getFd()) == 0)
             {
