@@ -3,6 +3,7 @@
 #include "core.h"
 
 #include "../memory/memory_manage.hpp"
+#include "../utils/utils_declaration.h"
 
 Server *serverPtr;
 ConnectionPool cPool;
@@ -181,6 +182,26 @@ Server::~Server()
     {
         delete multiplexer_;
     }
+}
+
+void Server::eventLoop()
+{
+    int flags = NORMAL;
+
+    unsigned long long nextTick = timer_.getNextTick();
+    nextTick = ((nextTick == (unsigned long long)-1) ? -1 : (nextTick - getTickMs()));
+
+    int ret = serverPtr->multiplexer_->processEvents(flags, nextTick);
+    if (ret == -1)
+    {
+        LOG_WARN << "process events errno: " << strerror(errno);
+    }
+
+    multiplexer_->processPostedAcceptEvents();
+
+    timer_.tick();
+
+    multiplexer_->processPostedEvents();
 }
 
 SharedMemory::SharedMemory() : addr_(NULL)

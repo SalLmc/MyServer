@@ -137,12 +137,12 @@ std::unordered_map<int, HttpCode> httpCodeMap = {
 
 };
 
-int initListen(Server *cycle, int port)
+int initListen(Server *server, int port)
 {
-    Connection *listen = addListen(cycle, port);
-    listen->serverIdx_ = cycle->listening_.size();
+    Connection *listen = addListen(server, port);
+    listen->serverIdx_ = server->listening_.size();
 
-    cycle->listening_.push_back(listen);
+    server->listening_.push_back(listen);
 
     listen->read_.type_ = EventType::ACCEPT;
     listen->read_.handler_ = newConnection;
@@ -150,39 +150,39 @@ int initListen(Server *cycle, int port)
     return OK;
 }
 
-Connection *addListen(Server *cycle, int port)
+Connection *addListen(Server *server, int port)
 {
-    ConnectionPool *pool = cycle->pool_;
-    Connection *listenC = pool->getNewConnection();
+    ConnectionPool *pool = server->pool_;
+    Connection *listenConn = pool->getNewConnection();
     int reuse = 1;
 
-    if (listenC == NULL)
+    if (listenConn == NULL)
     {
         LOG_CRIT << "get listen failed";
         return NULL;
     }
 
-    listenC->addr_.sin_addr.s_addr = INADDR_ANY;
-    listenC->addr_.sin_family = AF_INET;
-    listenC->addr_.sin_port = htons(port);
+    listenConn->addr_.sin_addr.s_addr = INADDR_ANY;
+    listenConn->addr_.sin_family = AF_INET;
+    listenConn->addr_.sin_port = htons(port);
 
-    listenC->fd_ = socket(AF_INET, SOCK_STREAM, 0);
-    if (listenC->fd_.getFd() < 0)
+    listenConn->fd_ = socket(AF_INET, SOCK_STREAM, 0);
+    if (listenConn->fd_.getFd() < 0)
     {
         LOG_CRIT << "open listenfd failed";
         goto bad;
     }
 
-    setsockopt(listenC->fd_.getFd(), SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse, sizeof(reuse));
-    setNonblocking(listenC->fd_.getFd());
+    setsockopt(listenConn->fd_.getFd(), SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse, sizeof(reuse));
+    setNonblocking(listenConn->fd_.getFd());
 
-    if (bind(listenC->fd_.getFd(), (sockaddr *)&listenC->addr_, sizeof(listenC->addr_)) != 0)
+    if (bind(listenConn->fd_.getFd(), (sockaddr *)&listenConn->addr_, sizeof(listenConn->addr_)) != 0)
     {
         LOG_CRIT << "bind failed";
         goto bad;
     }
 
-    if (listen(listenC->fd_.getFd(), 4096) != 0)
+    if (listen(listenConn->fd_.getFd(), 4096) != 0)
     {
         LOG_CRIT << "listen failed";
         goto bad;
@@ -190,10 +190,10 @@ Connection *addListen(Server *cycle, int port)
 
     LOG_INFO << "listen to " << port;
 
-    return listenC;
+    return listenConn;
 
 bad:
-    pool->recoverConnection(listenC);
+    pool->recoverConnection(listenConn);
     return NULL;
 }
 
@@ -232,7 +232,8 @@ int newConnection(Event *ev)
             LOG_WARN << "Add client fd failed, FD:" << newc->fd_.getFd();
         }
 
-        serverPtr->timer_.Add(newc->fd_.getFd(), getTickMs() + 60000, setEventTimeout, (void *)&newc->read_);
+        serverPtr->timer_.add(newc->fd_.getFd(), "Connection timeout", getTickMs() + 60000, setEventTimeout,
+                              (void *)&newc->read_);
 
         LOG_INFO << "NEW CONNECTION FROM FD:" << ev->c_->fd_.getFd() << ", WITH FD:" << newc->fd_.getFd();
 #ifdef LOOP_ACCEPT
@@ -251,7 +252,7 @@ int waitRequest(Event *ev)
         return -1;
     }
 
-    serverPtr->timer_.Remove(ev->c_->fd_.getFd());
+    serverPtr->timer_.remove(ev->c_->fd_.getFd());
 
     Connection *c = ev->c_;
 
@@ -298,7 +299,7 @@ int waitRequestAgain(Event *ev)
         return -1;
     }
 
-    serverPtr->timer_.Remove(ev->c_->fd_.getFd());
+    serverPtr->timer_.remove(ev->c_->fd_.getFd());
 
     Connection *c = ev->c_;
 
@@ -1202,7 +1203,8 @@ int keepAliveRequest(std::shared_ptr<Request> r)
     c->readBuffer_.init();
     c->writeBuffer_.init();
 
-    serverPtr->timer_.Add(c->fd_.getFd(), getTickMs() + 60000, setEventTimeout, (void *)&c->read_);
+    serverPtr->timer_.add(c->fd_.getFd(), "Connection timeout", getTickMs() + 60000, setEventTimeout,
+                          (void *)&c->read_);
 
     LOG_INFO << "KEEPALIVE CONNECTION DONE, FD:" << fd;
 

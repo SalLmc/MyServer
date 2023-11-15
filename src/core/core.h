@@ -135,6 +135,9 @@ class Server
     Server() = delete;
     Server(ConnectionPool *pool, Logger *logger);
     ~Server();
+
+    void eventLoop();
+
     ConnectionPool *pool_;
     std::vector<Connection *> listening_;
     std::vector<ServerAttribute> servers_;

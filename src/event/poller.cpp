@@ -90,7 +90,21 @@ int Poller::processEvents(int flags, int timeoutMs)
 
         if ((revents & POLLIN) && c->read_.handler_)
         {
-            c->read_.handler_(&c->read_);
+            if (flags & POSTED)
+            {
+                if (c->read_.type_ == EventType::ACCEPT)
+                {
+                    postedAcceptEvents_.push_back(&c->read_);
+                }
+                else
+                {
+                    postedEvents_.push_back(&c->read_);
+                }
+            }
+            else
+            {
+                c->read_.handler_(&c->read_);
+            }
         }
 
         if (c->quit_ == 1)
@@ -100,7 +114,14 @@ int Poller::processEvents(int flags, int timeoutMs)
 
         if ((revents & POLLOUT) && c->write_.handler_)
         {
-            c->write_.handler_(&c->write_);
+            if (flags & POSTED)
+            {
+                postedEvents_.push_back(&c->write_);
+            }
+            else
+            {
+                c->write_.handler_(&c->write_);
+            }
         }
 
     recover:
@@ -113,4 +134,30 @@ int Poller::processEvents(int flags, int timeoutMs)
         }
     }
     return 0;
+}
+
+void Poller::processPostedAcceptEvents()
+{
+    while (!postedAcceptEvents_.empty())
+    {
+        auto &now = postedAcceptEvents_.front();
+        if (now->handler_)
+        {
+            now->handler_(now);
+        }
+        postedAcceptEvents_.pop_front();
+    }
+}
+
+void Poller::processPostedEvents()
+{
+    while (!postedEvents_.empty())
+    {
+        auto &now = postedEvents_.front();
+        if (now->handler_)
+        {
+            now->handler_(now);
+        }
+        postedEvents_.pop_front();
+    }
 }

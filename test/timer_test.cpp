@@ -9,16 +9,17 @@ int main()
 {
     HeapTimer timer;
     printf("time:%lld\n", getTickMs());
-    timer.Add(
-        1, getTickMs(),
+    timer.add(
+        1, "test", getTickMs(),
         [&](void *arg) {
             printf("timer msg:%s\n", (char *)arg);
             printf("time triggered:%lld\n", getTickMs());
-            timer.Again(1, getTickMs() + 1000);
+            timer.again(1, getTickMs() + 1000);
             return 1;
         },
         (void *)"HELLO");
-    timer.Tick();
-    timer.Tick();
-    timer.Tick();
+    timer.printActiveTimer();
+    timer.tick();
+    sleep(1);
+    timer.tick();
 }

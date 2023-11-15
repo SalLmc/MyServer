@@ -5,8 +5,6 @@
 
 #include "event.h"
 
-#define POST_EVENTS 1
-
 class Epoller : public Multiplexer
 {
   public:
@@ -19,11 +17,15 @@ class Epoller : public Multiplexer
     bool modFd(int fd, EVENTS events, void *ctx);
     bool delFd(int fd);
     int processEvents(int flags = 0, int timeoutMs = -1);
+    void processPostedAcceptEvents();
+    void processPostedEvents();
 
   private:
     int epollfd_ = -1;
     int size_ = 0;
     epoll_event *events_;
+    std::list<Event *> postedAcceptEvents_;
+    std::list<Event *> postedEvents_;
 };
 
 #endif

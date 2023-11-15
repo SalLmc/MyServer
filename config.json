@@ -14,6 +14,15 @@
             "to": "http://cn.bing.com/"
         },
         {
+            "port": 8001,
+            "root": "./",
+            "index": "xxxx",
+            "auto_index": 1,
+            "auth_path": [
+                "*README*"
+            ]
+        },
+        {
             "port": 8082,
             "root": "/mnt/d/A_File",
             "index": "sdfsdf",

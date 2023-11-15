@@ -30,9 +30,13 @@ class Poller : public Multiplexer
     bool modFd(int fd, EVENTS events, void *ctx);
     bool delFd(int fd);
     int processEvents(int flags = 0, int timeoutMs = -1);
+    void processPostedAcceptEvents();
+    void processPostedEvents();
 
   private:
     std::unordered_map<int, PollCtx> fdCtxMap_;
+    std::list<Event *> postedAcceptEvents_;
+    std::list<Event *> postedEvents_;
 };
 
 #endif

@@ -82,9 +82,12 @@ std::string mtime2Str(timespec *mtime)
 
 std::string byte2ProperStr(off_t bytes)
 {
-    int K = 1024;
-    int M = 1024 * K;
-    int G = 1024 * M;
+    double K = 1024;
+    double M = 1024 * K;
+    double G = 1024 * M;
+
+    double ans;
+    std::ostringstream stream;
 
     if (bytes < K)
     {
@@ -92,21 +95,28 @@ std::string byte2ProperStr(off_t bytes)
     }
     else if (bytes < M)
     {
-        return std::to_string(bytes / K + (bytes % K != 0)) + "K";
+        ans = bytes / K;
+        stream << std::fixed << std::setprecision(1) << ans;
+        return stream.str() + "K";
     }
     else if (bytes < G)
     {
-        return std::to_string(bytes / M + (bytes % M != 0)) + "M";
+        ans = bytes / M;
+        stream << std::fixed << std::setprecision(1) << ans;
+        return stream.str() + "M";
     }
     else
     {
-        return std::to_string(bytes / G + (bytes % G != 0)) + "G";
+        ans = bytes / G;
+        stream << std::fixed << std::setprecision(1) << ans;
+        return stream.str() + "G";
     }
 }
 
 /// @brief get ip/hostname and port from a URI
-/// @param addr 
-/// @return < [ipLeft, ipRight], [portLeft, portRight] >. if addr doesn't have port, then portLeft == ipLeft && portRight == ipRight
+/// @param addr
+/// @return < [ipLeft, ipRight], [portLeft, portRight] >. if addr doesn't have port, then portLeft == ipLeft &&
+/// portRight == ipRight
 static std::pair<std::pair<int, int>, std::pair<int, int>> getServerInner(std::string addr)
 {
     // [l, r]

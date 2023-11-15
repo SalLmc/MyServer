@@ -39,8 +39,8 @@ int main(int argc, char *argv[])
         }
     }
 
-    std::unique_ptr<Server> cycle(new Server(&cPool, new Logger("log/", "startup")));
-    serverPtr = cycle.get();
+    std::unique_ptr<Server> server(new Server(&cPool, new Logger("log/", "startup")));
+    serverPtr = server.get();
 
     if (getOption(argc, argv, &mp) == ERROR)
     {
@@ -102,17 +102,17 @@ int main(int argc, char *argv[])
 
     if (is_daemon)
     {
-        if (cycle->logger_ != NULL)
+        if (server->logger_ != NULL)
         {
-            delete cycle->logger_;
-            cycle->logger_ = NULL;
+            delete server->logger_;
+            server->logger_ = NULL;
         }
 
         daemonize();
 
-        if (cycle->logger_ == NULL)
+        if (server->logger_ == NULL)
         {
-            cycle->logger_ = new Logger("log/", "startup");
+            server->logger_ = new Logger("log/", "startup");
         }
     }
 
@@ -126,12 +126,12 @@ int main(int argc, char *argv[])
     if (use_epoll)
     {
         LOG_INFO << "Use epoll";
-        cycle->multiplexer_ = new Epoller();
+        server->multiplexer_ = new Epoller();
     }
     else
     {
         LOG_INFO << "Use poll";
-        cycle->multiplexer_ = new Poller();
+        server->multiplexer_ = new Poller();
     }
 
     masterProcessCycle(serverPtr);
