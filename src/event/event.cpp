@@ -31,19 +31,6 @@ int setEventTimeout(void *ev)
     return 1;
 }
 
-void processEventsList(std::list<Event *> *events)
-{
-    while (!events->empty())
-    {
-        auto &now = events->front();
-        if (now->handler_)
-        {
-            now->handler_(now);
-        }
-        events->pop_front();
-    }
-}
-
 uint32_t events2epoll(EVENTS events)
 {
     uint32_t e = 0;

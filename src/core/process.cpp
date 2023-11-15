@@ -14,8 +14,6 @@
 extern Server *serverPtr;
 extern ProcessMutex acceptMutex;
 extern HeapMemory heap;
-extern std::list<Event *> posted_accept_events;
-extern std::list<Event *> posted_events;
 extern int processes;
 
 Process procs[MAX_PROCESS_N];
@@ -205,7 +203,7 @@ void workerProcessCycle(Server *server)
 
 void processEventsAndTimers(Server *server)
 {
-    int flags = 0;
+    int flags = NORMAL;
 
     unsigned long long nextTick = server->timer_.getNextTick();
     nextTick = ((nextTick == (unsigned long long)-1) ? -1 : (nextTick - getTickMs()));
@@ -216,11 +214,11 @@ void processEventsAndTimers(Server *server)
         LOG_WARN << "process events errno: " << strerror(errno);
     }
 
-    processEventsList(&posted_accept_events);
+    server->multiplexer_->processPostedAcceptEvents();
 
     server->timer_.tick();
 
-    processEventsList(&posted_events);
+    server->multiplexer_->processPostedEvents();
 }
 
 int logging(void *arg)

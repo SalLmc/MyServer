@@ -6,9 +6,6 @@
 
 extern Server *serverPtr;
 
-std::list<Event *> posted_accept_events;
-std::list<Event *> posted_events;
-
 Epoller::Epoller(int maxEvent)
     : epollfd_(-1), size_(maxEvent), events_((epoll_event *)malloc(sizeof(epoll_event) * size_))
 {
@@ -91,15 +88,15 @@ int Epoller::processEvents(int flags, int timeoutMs)
 
         if ((revents & EPOLLIN) && c->read_.handler_)
         {
-            if (flags & POST_EVENTS)
+            if (flags & POSTED)
             {
                 if (c->read_.type_ == EventType::ACCEPT)
                 {
-                    posted_accept_events.push_back(&c->read_);
+                    postedAcceptEvents_.push_back(&c->read_);
                 }
                 else
                 {
-                    posted_events.push_back(&c->read_);
+                    postedEvents_.push_back(&c->read_);
                 }
             }
             else
@@ -115,9 +112,9 @@ int Epoller::processEvents(int flags, int timeoutMs)
 
         if ((revents & EPOLLOUT) && c->write_.handler_)
         {
-            if (flags & POST_EVENTS)
+            if (flags & POSTED)
             {
-                posted_events.push_back(&c->write_);
+                postedEvents_.push_back(&c->write_);
             }
             else
             {
@@ -135,4 +132,30 @@ int Epoller::processEvents(int flags, int timeoutMs)
         }
     }
     return 0;
+}
+
+void Epoller::processPostedAcceptEvents()
+{
+    while (!postedAcceptEvents_.empty())
+    {
+        auto &now = postedAcceptEvents_.front();
+        if (now->handler_)
+        {
+            now->handler_(now);
+        }
+        postedAcceptEvents_.pop_front();
+    }
+}
+
+void Epoller::processPostedEvents()
+{
+    while (!postedEvents_.empty())
+    {
+        auto &now = postedEvents_.front();
+        if (now->handler_)
+        {
+            now->handler_(now);
+        }
+        postedEvents_.pop_front();
+    }
 }
