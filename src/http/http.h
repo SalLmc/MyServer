@@ -5,8 +5,6 @@
 
 #include "../core/core.h"
 
-extern Server *serverPtr;
-
 class Request;
 
 enum class HeaderState

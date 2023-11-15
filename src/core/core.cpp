@@ -191,7 +191,7 @@ void Server::eventLoop()
     unsigned long long nextTick = timer_.getNextTick();
     nextTick = ((nextTick == (unsigned long long)-1) ? -1 : (nextTick - getTickMs()));
 
-    int ret = serverPtr->multiplexer_->processEvents(flags, nextTick);
+    int ret = multiplexer_->processEvents(flags, nextTick);
     if (ret == -1)
     {
         LOG_WARN << "process events errno: " << strerror(errno);

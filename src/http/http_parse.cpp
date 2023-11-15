@@ -3,8 +3,6 @@
 #include "http.h"
 #include "http_parse.h"
 
-extern Server *serverPtr;
-
 // usage: usual[ch >> 5] & (1U << (ch & 0x1f))
 // if the expression above is true then the char is in this table
 uint32_t usual[] = {

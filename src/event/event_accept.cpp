@@ -138,7 +138,7 @@ int acceptexTryLock(Server *server)
 
         for (auto &listen : server->listening_)
         {
-            if (serverPtr->multiplexer_->addFd(listen->fd_.getFd(), EVENTS(IN | ET), listen) == 0)
+            if (server->multiplexer_->addFd(listen->fd_.getFd(), EVENTS(IN | ET), listen) == 0)
             {
                 LOG_CRIT << "Addfd failed, " << strerror(errno) << " " << acceptMutexHeld;
                 shmtxUnlock(&acceptMutex);
@@ -155,7 +155,7 @@ int acceptexTryLock(Server *server)
     {
         for (auto &listen : server->listening_)
         {
-            if (serverPtr->multiplexer_->delFd(listen->fd_.getFd()) == 0)
+            if (server->multiplexer_->delFd(listen->fd_.getFd()) == 0)
             {
                 LOG_CRIT << "accept mutex delfd failed, errno:" << errno;
                 return -1;

@@ -463,11 +463,11 @@ int initUpstream(std::shared_ptr<Request> r)
     return send2Upstream(&upc->write_);
 }
 
-int recvFromUpstream(Event *upc_ev)
+int recvFromUpstream(Event *upcEv)
 {
     int n;
     int ret;
-    Connection *upc = upc_ev->c_;
+    Connection *upc = upcEv->c_;
     std::shared_ptr<Upstream> ups = upc->upstream_;
     std::shared_ptr<Request> cr = ups->client_->request_;
     std::shared_ptr<Request> upsr = ups->upstream_->request_;
@@ -546,9 +546,9 @@ int recvFromUpstream(Event *upc_ev)
     return send2Client(&upc->write_);
 }
 
-int send2Upstream(Event *upc_ev)
+int send2Upstream(Event *upcEv)
 {
-    Connection *upc = upc_ev->c_;
+    Connection *upc = upcEv->c_;
     std::shared_ptr<Upstream> ups = upc->upstream_;
     std::shared_ptr<Request> cr = upc->upstream_->client_->request_;
     int ret = 0;
@@ -795,9 +795,9 @@ int doResponse(std::shared_ptr<Request> r)
     return writeResponse(&r->c_->write_);
 }
 
-int send2Client(Event *upc_ev)
+int send2Client(Event *upcEv)
 {
-    Connection *upc = upc_ev->c_;
+    Connection *upc = upcEv->c_;
     std::shared_ptr<Upstream> ups = upc->upstream_;
     Connection *c = ups->client_;
     std::shared_ptr<Request> cr = c->request_;
