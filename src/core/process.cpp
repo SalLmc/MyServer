@@ -157,16 +157,16 @@ void workerProcessCycle(Server *server)
     }
 
     // listen
-    for (auto &x : serverPtr->servers_)
+    for (auto &x : server->servers_)
     {
-        if (initListen(serverPtr, x.port_) == ERROR)
+        if (initListen(server, x.port_) == ERROR)
         {
             LOG_CRIT << "init listen failed";
         }
     }
 
     // epoll
-    Epoller *epoller = dynamic_cast<Epoller *>(serverPtr->multiplexer_);
+    Epoller *epoller = dynamic_cast<Epoller *>(server->multiplexer_);
     if (epoller)
     {
         epoller->setEpollFd(epoll_create1(0));
@@ -175,7 +175,7 @@ void workerProcessCycle(Server *server)
     for (auto &listen : server->listening_)
     {
         // use LT on listenfd
-        if (serverPtr->multiplexer_->addFd(listen->fd_.getFd(), EVENTS(IN), listen) == 0)
+        if (server->multiplexer_->addFd(listen->fd_.getFd(), EVENTS(IN), listen) == 0)
         {
             LOG_CRIT << "Listenfd add failed, errno:" << strerror(errno);
         }
@@ -184,13 +184,13 @@ void workerProcessCycle(Server *server)
     // timer
     if (enable_logger)
     {
-        serverPtr->timer_.add(-1, "logger timer", getTickMs() + 3000, logging, (void *)3000);
+        server->timer_.add(-1, "logger timer", getTickMs() + 3000, logging, (void *)3000);
     }
 
     LOG_INFO << "Worker Looping";
     for (;;)
     {
-        processEventsAndTimers(server);
+        server->eventLoop();
 
         if (quit)
         {
@@ -199,26 +199,6 @@ void workerProcessCycle(Server *server)
     }
 
     LOG_INFO << "Worker Quit";
-}
-
-void processEventsAndTimers(Server *server)
-{
-    int flags = NORMAL;
-
-    unsigned long long nextTick = server->timer_.getNextTick();
-    nextTick = ((nextTick == (unsigned long long)-1) ? -1 : (nextTick - getTickMs()));
-
-    int ret = serverPtr->multiplexer_->processEvents(flags, nextTick);
-    if (ret == -1)
-    {
-        LOG_WARN << "process events errno: " << strerror(errno);
-    }
-
-    server->multiplexer_->processPostedAcceptEvents();
-
-    server->timer_.tick();
-
-    server->multiplexer_->processPostedEvents();
 }
 
 int logging(void *arg)
