@@ -318,6 +318,8 @@ std::list<LinkedBufferNode>::iterator LinkedBuffer::insertNewNode(std::list<Link
         newNode.next_ = &(*iter);
         iter->prev_ = &newNode;
 
+        memoryMap.insert({(uint64_t)newNode.start_, &newNode});
+
         return nodes_.begin();
     }
     else if (iter == nodes_.end())
@@ -327,6 +329,8 @@ std::list<LinkedBufferNode>::iterator LinkedBuffer::insertNewNode(std::list<Link
         auto &newNode = nodes_.back();
         newNode.prev_ = &(*lastNode);
         lastNode->next_ = &newNode;
+
+        memoryMap.insert({(uint64_t)newNode.start_, &newNode});
 
         return std::prev(nodes_.end());
     }
@@ -338,7 +342,9 @@ std::list<LinkedBufferNode>::iterator LinkedBuffer::insertNewNode(std::list<Link
         newNode->next_ = &(*iter);
         prevNode->next_ = &(*newNode);
         iter->prev_ = &(*newNode);
-        
+
+        memoryMap.insert({(uint64_t)newNode->start_, &(*newNode)});
+
         return newNode;
     }
 }

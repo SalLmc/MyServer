@@ -37,6 +37,7 @@ int main()
 
     printf("<<<<<<<<<<<<<<<<<<\n");
     LinkedBuffer buffer;
+    buffer.insertNewNode(buffer.nodes_.end());
     buffer.append("123456789");
     auto beginPtr = &buffer.nodes_.front();
     auto thisIter = buffer.nodes_.begin();
@@ -44,9 +45,14 @@ int main()
     buffer.insertNewNode(thisIter);
     beginPtr->next_->append("xyz", 3);
 
-    while(beginPtr!=NULL)
+    while (beginPtr != NULL)
     {
-        printf("%s\n",beginPtr->toString().c_str());
-        beginPtr=beginPtr->next_;
+        printf("%s\n", beginPtr->toString().c_str());
+        beginPtr = beginPtr->next_;
+    }
+
+    for (auto &x : buffer.memoryMap)
+    {
+        printf("%ld, %ld\n", x.first, (uint64_t)x.second->start_);
     }
 }
