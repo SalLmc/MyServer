@@ -14,7 +14,6 @@ ChunkedInfo::ChunkedInfo()
 {
     state_ = ChunkedState::START;
     size_ = 0;
-    length_ = 0;
     dataOffset_ = 0;
 }
 
@@ -44,7 +43,6 @@ void Request::init()
     requestBody_.listBody_.clear();
     requestBody_.chunkedInfo_.state_ = ChunkedState::START;
     requestBody_.chunkedInfo_.size_ = 0;
-    requestBody_.chunkedInfo_.length_ = 0;
     requestBody_.chunkedInfo_.dataOffset_ = 0;
 
     headerState_ = HeaderState::START;
@@ -91,8 +89,6 @@ void Request::init()
     uri_.len_ = 0;
     exten_.len_ = 0;
     unparsedUri_.len_ = 0;
-
-    requestLength_ = 0;
 
     atPhase_ = 0;
 

@@ -366,7 +366,6 @@ int processRequestLine(Event *ev)
 
             r->requestLine_.len_ = r->requestEnd_ - r->requestStart_;
             r->requestLine_.data_ = r->requestStart_;
-            r->requestLength_ = r->c_->readBuffer_.now_->start_ + r->c_->readBuffer_.now_->pos_ - r->requestStart_;
 
             LOG_INFO << "request line:"
                      << std::string(r->requestLine_.data_, r->requestLine_.data_ + r->requestLine_.len_);
@@ -457,9 +456,6 @@ int processRequestHeaders(Event *ev)
 
         if (rc == OK)
         {
-
-            r->requestLength_ += r->c_->readBuffer_.now_->start_ + r->c_->readBuffer_.now_->pos_ - r->headerNameStart_;
-
             if (r->invalidHeader_)
             {
                 LOG_WARN << "Client sent invalid header line";
@@ -485,8 +481,6 @@ int processRequestHeaders(Event *ev)
             // all headers have been parsed successfully
 
             LOG_INFO << "http header done";
-
-            r->requestLength_ += r->c_->readBuffer_.now_->start_ + r->c_->readBuffer_.now_->pos_ - r->headerNameStart_;
 
             rc = handleRequestHeader(r, 1);
 
@@ -990,8 +984,6 @@ int processBodyChunked(std::shared_ptr<Request> r)
 int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_ptr<Request>)> postHandler)
 {
     int ret = 0;
-    int preRead = 0;
-    auto &buffer = r->c_->readBuffer_;
 
     // no content-length && not chunked
     if (r->inInfo_.contentLength_ == 0 && !r->inInfo_.isChunked_)
@@ -1008,8 +1000,6 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
     r->requestBody_.left_ = -1;
     r->requestBody_.postHandler_ = postHandler;
 
-    preRead = buffer.now_->pos_;
-
     ret = processRequestBody(r);
 
     if (ret == ERROR)
@@ -1017,8 +1007,6 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
         LOG_WARN << "ERROR";
         return ret;
     }
-
-    r->requestLength_ += preRead;
 
     r->c_->read_.handler_ = readRequestBodyInner;
     serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), EVENTS(IN | ET), r->c_);
@@ -1070,7 +1058,6 @@ int readRequestBodyInner(Event *ev)
         }
         else
         {
-            r->requestLength_ += ret;
             ret = processRequestBody(r);
 
             if (ret == OK)

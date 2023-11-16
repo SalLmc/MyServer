@@ -179,7 +179,6 @@ class ChunkedInfo
     ChunkedInfo();
     ChunkedState state_;
     size_t size_;
-    size_t length_;
     size_t dataOffset_;
 };
 
@@ -225,8 +224,6 @@ class Request
     c_str uri_;
     c_str exten_;
     c_str unparsedUri_;
-
-    off_t requestLength_;
 
     int atPhase_;
 

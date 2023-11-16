@@ -6,7 +6,7 @@
 class Buffer
 {
   public:
-    Buffer(int buffSize = 5120);
+    Buffer(int buffSize = 4096);
     ~Buffer() = default;
 
     size_t writableBytes() const;
@@ -52,9 +52,10 @@ class Buffer
 class LinkedBufferNode
 {
   public:
-    const static int NODE_SIZE = 4096;
+    const static size_t NODE_SIZE = 4;
 
     LinkedBufferNode(size_t size = LinkedBufferNode::NODE_SIZE);
+    LinkedBufferNode(LinkedBufferNode &&other);
     ~LinkedBufferNode();
 
     void init(size_t size = LinkedBufferNode::NODE_SIZE);
@@ -69,7 +70,7 @@ class LinkedBufferNode
     u_char *start_;
     u_char *end_;
 
-    // read begins at pos
+    // content <=> [start_+pos_, start_+len_)
     size_t pos_;
     size_t len_;
 
@@ -85,7 +86,11 @@ class LinkedBuffer
 
     std::list<LinkedBufferNode> nodes_;
     LinkedBufferNode *now_;
+    std::unordered_map<uint64_t, LinkedBufferNode *> memoryMap;
 
+    void appendNewNode();
+    std::list<LinkedBufferNode>::iterator insertNewNode(std::list<LinkedBufferNode>::iterator iter);
+    LinkedBufferNode *getNodeByAddr(uint64_t addr);
     bool allRead();
     ssize_t recvFdOnce(int fd, int flags);
     ssize_t recvFd(int fd, int flags);

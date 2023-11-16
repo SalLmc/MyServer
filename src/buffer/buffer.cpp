@@ -174,7 +174,8 @@ void Buffer::makeSpace(size_t len)
 
 LinkedBufferNode::LinkedBufferNode(size_t size)
 {
-    start_ = (u_char *)calloc(size, 1);
+    start_ = (u_char *)aligned_alloc(LinkedBufferNode::NODE_SIZE, size);
+    memset(start_, 0, sizeof(size));
     end_ = start_ + size;
     pos_ = 0;
     len_ = 0;
@@ -182,15 +183,32 @@ LinkedBufferNode::LinkedBufferNode(size_t size)
     next_ = NULL;
 }
 
+LinkedBufferNode::LinkedBufferNode(LinkedBufferNode &&other)
+{
+    start_ = other.start_;
+    end_ = other.end_;
+    pos_ = other.pos_;
+    len_ = other.len_;
+    prev_ = other.prev_;
+    next_ = other.next_;
+
+    other.start_ = NULL;
+}
+
 LinkedBufferNode::~LinkedBufferNode()
 {
-    free(start_);
-    len_ = 0;
+    if (start_ != NULL)
+    {
+        free(start_);
+    }
 }
 
 void LinkedBufferNode::init(size_t size)
 {
-    free(start_);
+    if (start_ != NULL)
+    {
+        free(start_);
+    }
     start_ = (u_char *)calloc(size, 1);
     end_ = start_ + size;
     pos_ = 0;
@@ -255,15 +273,84 @@ size_t LinkedBufferNode::append(const char *data, size_t len)
 
 LinkedBuffer::LinkedBuffer()
 {
-    nodes_.emplace_back();
+    appendNewNode();
     now_ = &nodes_.front();
 }
 
 void LinkedBuffer::init()
 {
     nodes_.clear();
-    nodes_.emplace_back();
+    appendNewNode();
     now_ = &nodes_.front();
+}
+
+void LinkedBuffer::appendNewNode()
+{
+    if (!nodes_.empty())
+    {
+        // connect next, prev pointers
+        auto lastBack = &nodes_.back();
+
+        nodes_.emplace_back();
+        auto now = &nodes_.back();
+        uint64_t start = (uint64_t)now->start_;
+        memoryMap.insert({start, now});
+
+        lastBack->next_ = now;
+        now->prev_ = lastBack;
+    }
+    else
+    {
+        nodes_.emplace_back();
+        auto now = &nodes_.back();
+        uint64_t start = (uint64_t)now->start_;
+        memoryMap.insert({start, now});
+    }
+}
+
+// insert before iter
+std::list<LinkedBufferNode>::iterator LinkedBuffer::insertNewNode(std::list<LinkedBufferNode>::iterator iter)
+{
+    if (iter == nodes_.begin())
+    {
+        nodes_.push_front(LinkedBufferNode());
+        auto &newNode = nodes_.front();
+        newNode.next_ = &(*iter);
+        iter->prev_ = &newNode;
+
+        return nodes_.begin();
+    }
+    else if (iter == nodes_.end())
+    {
+        auto lastNode = std::prev(iter);
+        nodes_.push_back(LinkedBufferNode());
+        auto &newNode = nodes_.back();
+        newNode.prev_ = &(*lastNode);
+        lastNode->next_ = &newNode;
+
+        return std::prev(nodes_.end());
+    }
+    else
+    {
+        auto newNode = nodes_.insert(iter, LinkedBufferNode());
+        auto prevNode = std::prev(newNode);
+        newNode->prev_ = &(*prevNode);
+        newNode->next_ = &(*iter);
+        prevNode->next_ = &(*newNode);
+        iter->prev_ = &(*newNode);
+        
+        return newNode;
+    }
+}
+
+LinkedBufferNode *LinkedBuffer::getNodeByAddr(uint64_t addr)
+{
+    uint64_t startAddr = addr & (~(LinkedBufferNode::NODE_SIZE - 1));
+    if (memoryMap.count(startAddr))
+    {
+        return memoryMap[startAddr];
+    }
+    return NULL;
 }
 
 bool LinkedBuffer::allRead()
@@ -286,10 +373,7 @@ ssize_t LinkedBuffer::recvFdOnce(int fd, int flags)
         nowr.len_ += n;
         if (nowr.writableBytes() == 0)
         {
-            nodes_.emplace_back();
-            auto newNode = &nodes_.back();
-            nowr.next_ = newNode;
-            newNode->prev_ = &nowr;
+            appendNewNode();
         }
     }
     return n;
@@ -357,11 +441,8 @@ void LinkedBuffer::append(const u_char *data, size_t len)
         }
         done = len - left;
 
-        nodes_.emplace_back();
-        auto newNode = &nodes_.back();
-        now->next_ = newNode;
-        newNode->prev_ = now;
-        now = now->next_;
+        appendNewNode();
+        now = &nodes_.back();
     }
 }
 
@@ -379,11 +460,8 @@ void LinkedBuffer::append(const char *data, size_t len)
         }
         done = len - left;
 
-        nodes_.emplace_back();
-        auto newNode = &nodes_.back();
-        now->next_ = newNode;
-        newNode->prev_ = now;
-        now = now->next_;
+        appendNewNode();
+        now = &nodes_.back();
     }
 }
 
