@@ -11,7 +11,7 @@ extern std::unordered_map<std::string, std::string> extenContentTypeMap;
 extern HeapMemory heap;
 extern Server *serverPtr;
 
-u_char exten_save[16];
+u_char extenSave[16];
 
 int testPhaseHandler(std::shared_ptr<Request> r)
 {
@@ -215,9 +215,9 @@ int contentAccessHandler(std::shared_ptr<Request> r)
                 int extenlen = filePath.length() - pos - 1;
                 for (int i = 0; i < extenlen; i++)
                 {
-                    exten_save[i] = filePath[i + pos + 1];
+                    extenSave[i] = filePath[i + pos + 1];
                 }
-                r->exten_.data_ = exten_save;
+                r->exten_.data_ = extenSave;
                 r->exten_.len_ = extenlen;
             }
 
@@ -245,9 +245,9 @@ int contentAccessHandler(std::shared_ptr<Request> r)
                             int extenlen = filePath.length() - pos - 1;
                             for (int i = 0; i < extenlen; i++)
                             {
-                                exten_save[i] = filePath[i + pos + 1];
+                                extenSave[i] = filePath[i + pos + 1];
                             }
-                            r->exten_.data_ = exten_save;
+                            r->exten_.data_ = extenSave;
                             r->exten_.len_ = extenlen;
                         }
 
@@ -463,11 +463,11 @@ int initUpstream(std::shared_ptr<Request> r)
     return send2Upstream(&upc->write_);
 }
 
-int recvFromUpstream(Event *upc_ev)
+int recvFromUpstream(Event *upcEv)
 {
     int n;
     int ret;
-    Connection *upc = upc_ev->c_;
+    Connection *upc = upcEv->c_;
     std::shared_ptr<Upstream> ups = upc->upstream_;
     std::shared_ptr<Request> cr = ups->client_->request_;
     std::shared_ptr<Request> upsr = ups->upstream_->request_;
@@ -546,9 +546,9 @@ int recvFromUpstream(Event *upc_ev)
     return send2Client(&upc->write_);
 }
 
-int send2Upstream(Event *upc_ev)
+int send2Upstream(Event *upcEv)
 {
-    Connection *upc = upc_ev->c_;
+    Connection *upc = upcEv->c_;
     std::shared_ptr<Upstream> ups = upc->upstream_;
     std::shared_ptr<Request> cr = upc->upstream_->client_->request_;
     int ret = 0;
@@ -664,8 +664,8 @@ int autoIndexHandler(std::shared_ptr<Request> r)
     // setup
     r->outInfo_.resType_ = ResponseType::STRING;
 
-    exten_save[0] = 'h', exten_save[1] = 't', exten_save[2] = 'm', exten_save[3] = 'l', exten_save[4] = '\0';
-    r->exten_.data_ = exten_save;
+    extenSave[0] = 'h', extenSave[1] = 't', extenSave[2] = 'm', extenSave[3] = 'l', extenSave[4] = '\0';
+    r->exten_.data_ = extenSave;
     r->exten_.len_ = 4;
 
     // auto index
@@ -795,9 +795,9 @@ int doResponse(std::shared_ptr<Request> r)
     return writeResponse(&r->c_->write_);
 }
 
-int send2Client(Event *upc_ev)
+int send2Client(Event *upcEv)
 {
-    Connection *upc = upc_ev->c_;
+    Connection *upc = upcEv->c_;
     std::shared_ptr<Upstream> ups = upc->upstream_;
     Connection *c = ups->client_;
     std::shared_ptr<Request> cr = c->request_;

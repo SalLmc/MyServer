@@ -5,8 +5,6 @@
 
 #include "../core/core.h"
 
-extern Server *serverPtr;
-
 class Request;
 
 enum class HeaderState
@@ -181,7 +179,6 @@ class ChunkedInfo
     ChunkedInfo();
     ChunkedState state_;
     size_t size_;
-    size_t length_;
     size_t dataOffset_;
 };
 
@@ -227,8 +224,6 @@ class Request
     c_str uri_;
     c_str exten_;
     c_str unparsedUri_;
-
-    off_t requestLength_;
 
     int atPhase_;
 
@@ -317,6 +312,7 @@ int processRequestLine(Event *ev);
 int readRequest(std::shared_ptr<Request> r);
 int handleRequestUri(std::shared_ptr<Request> r);
 int processRequestHeaders(Event *ev);
+int tryMoveHeader(std::shared_ptr<Request> r, bool isName);
 int handleRequestHeader(std::shared_ptr<Request> r, int needHost);
 int processRequest(std::shared_ptr<Request> r);
 

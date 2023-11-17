@@ -27,6 +27,9 @@ signal_test: signal_test.o
 timer_test: timer_test.o
 	$(BUILDEXEWITHLIB)
 
+buffer_test: buffer_test.o
+	$(BUILDEXEWITHLIB)
+
 test: test.o
 	$(BUILDEXEWITHLIB)
 

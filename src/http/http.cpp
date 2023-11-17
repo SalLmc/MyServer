@@ -366,7 +366,6 @@ int processRequestLine(Event *ev)
 
             r->requestLine_.len_ = r->requestEnd_ - r->requestStart_;
             r->requestLine_.data_ = r->requestStart_;
-            r->requestLength_ = r->c_->readBuffer_.now_->start_ + r->c_->readBuffer_.now_->pos_ - r->requestStart_;
 
             LOG_INFO << "request line:"
                      << std::string(r->requestLine_.data_, r->requestLine_.data_ + r->requestLine_.len_);
@@ -420,6 +419,73 @@ int processRequestLine(Event *ev)
     return OK;
 }
 
+int tryMoveHeader(std::shared_ptr<Request> r, bool isName)
+{
+    u_char *left, *right;
+
+    if (isName)
+    {
+        left = r->headerNameStart_;
+        right = r->headerNameEnd_;
+    }
+    else
+    {
+        left = r->headerValueStart_;
+        right = r->headerValueEnd_;
+    }
+
+    if (right < left || right > left + LinkedBufferNode::NODE_SIZE)
+    {
+        LinkedBufferNode *a = r->c_->readBuffer_.getNodeByAddr((uint64_t)left);
+        LinkedBufferNode *b = r->c_->readBuffer_.getNodeByAddr((uint64_t)right);
+
+        auto iter = r->c_->readBuffer_.nodes_.begin();
+        size_t totalLen = 0;
+
+        // check length
+        {
+            totalLen += a->start_ + a->len_ - left;
+            totalLen += right - b->start_;
+            LinkedBufferNode *now = a->next_;
+            while (now != b)
+            {
+                totalLen += now->readableBytes();
+                now = now->next_;
+            }
+            if (totalLen > LinkedBufferNode::NODE_SIZE)
+            {
+                return ERROR;
+            }
+        }
+
+        while ((*iter) != (*b))
+        {
+            iter = std::next(iter);
+        }
+
+        // insert a new node, since we only need to make sure [start, end) is valid
+        // we can also make it by "malloc"
+        iter = r->c_->readBuffer_.insertNewNode(iter);
+        iter->append(left, a->start_ + a->len_ - left);
+        iter->append(b->start_, right - b->start_);
+
+        if (isName)
+        {
+            r->headerNameStart_ = iter->start_ + iter->pos_;
+            r->headerNameEnd_ = iter->start_ + iter->len_;
+        }
+        else
+        {
+            r->headerValueStart_ = iter->start_ + iter->pos_;
+            r->headerValueEnd_ = iter->start_ + iter->len_;
+        }
+
+        iter->pos_ = iter->len_;
+    }
+
+    return OK;
+}
+
 int processRequestHeaders(Event *ev)
 {
     int rc;
@@ -457,13 +523,24 @@ int processRequestHeaders(Event *ev)
 
         if (rc == OK)
         {
-
-            r->requestLength_ += r->c_->readBuffer_.now_->start_ + r->c_->readBuffer_.now_->pos_ - r->headerNameStart_;
-
             if (r->invalidHeader_)
             {
                 LOG_WARN << "Client sent invalid header line";
                 continue;
+            }
+
+            if (tryMoveHeader(r, 1) == ERROR)
+            {
+                LOG_WARN << "Header name too long";
+                finalizeRequest(r);
+                break;
+            }
+
+            if (tryMoveHeader(r, 0) == ERROR)
+            {
+                LOG_WARN << "Header value too long";
+                finalizeRequest(r);
+                break;
             }
 
             // a header line has been parsed successfully
@@ -485,8 +562,6 @@ int processRequestHeaders(Event *ev)
             // all headers have been parsed successfully
 
             LOG_INFO << "http header done";
-
-            r->requestLength_ += r->c_->readBuffer_.now_->start_ + r->c_->readBuffer_.now_->pos_ - r->headerNameStart_;
 
             rc = handleRequestHeader(r, 1);
 
@@ -990,8 +1065,6 @@ int processBodyChunked(std::shared_ptr<Request> r)
 int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_ptr<Request>)> postHandler)
 {
     int ret = 0;
-    int preRead = 0;
-    auto &buffer = r->c_->readBuffer_;
 
     // no content-length && not chunked
     if (r->inInfo_.contentLength_ == 0 && !r->inInfo_.isChunked_)
@@ -1008,8 +1081,6 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
     r->requestBody_.left_ = -1;
     r->requestBody_.postHandler_ = postHandler;
 
-    preRead = buffer.now_->pos_;
-
     ret = processRequestBody(r);
 
     if (ret == ERROR)
@@ -1017,8 +1088,6 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
         LOG_WARN << "ERROR";
         return ret;
     }
-
-    r->requestLength_ += preRead;
 
     r->c_->read_.handler_ = readRequestBodyInner;
     serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), EVENTS(IN | ET), r->c_);
@@ -1070,7 +1139,6 @@ int readRequestBodyInner(Event *ev)
         }
         else
         {
-            r->requestLength_ += ret;
             ret = processRequestBody(r);
 
             if (ret == OK)
