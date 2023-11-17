@@ -52,11 +52,14 @@ class Buffer
 class LinkedBufferNode
 {
   public:
-    const static size_t NODE_SIZE = 4;
+    const static size_t NODE_SIZE = 4096;
 
     LinkedBufferNode(size_t size = LinkedBufferNode::NODE_SIZE);
     LinkedBufferNode(LinkedBufferNode &&other);
     ~LinkedBufferNode();
+
+    bool operator==(const LinkedBufferNode &other);
+    bool operator!=(const LinkedBufferNode &other);
 
     void init(size_t size = LinkedBufferNode::NODE_SIZE);
     size_t getSize();

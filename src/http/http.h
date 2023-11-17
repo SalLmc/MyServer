@@ -312,6 +312,7 @@ int processRequestLine(Event *ev);
 int readRequest(std::shared_ptr<Request> r);
 int handleRequestUri(std::shared_ptr<Request> r);
 int processRequestHeaders(Event *ev);
+int tryMoveHeader(std::shared_ptr<Request> r, bool isName);
 int handleRequestHeader(std::shared_ptr<Request> r, int needHost);
 int processRequest(std::shared_ptr<Request> r);
 

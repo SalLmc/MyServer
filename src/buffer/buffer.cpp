@@ -203,6 +203,16 @@ LinkedBufferNode::~LinkedBufferNode()
     }
 }
 
+bool LinkedBufferNode::operator==(const LinkedBufferNode &other)
+{
+    return (start_ == other.start_) && (end_ == other.end_);
+}
+
+bool LinkedBufferNode::operator!=(const LinkedBufferNode &other)
+{
+    return (start_ != other.start_) || (end_ != other.end_);
+}
+
 void LinkedBufferNode::init(size_t size)
 {
     if (start_ != NULL)
@@ -279,6 +289,7 @@ LinkedBuffer::LinkedBuffer()
 
 void LinkedBuffer::init()
 {
+    memoryMap.clear();
     nodes_.clear();
     appendNewNode();
     now_ = &nodes_.front();
