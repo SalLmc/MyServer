@@ -226,9 +226,8 @@ int contentAccessHandler(std::shared_ptr<Request> r)
 
             goto fileok;
         }
-        else
+        else // try_files
         {
-            // try_files
             for (auto &name : server.tryFiles_)
             {
                 filePath = path + name;
@@ -310,6 +309,14 @@ autoindex:
     }
     else
     {
+        // access a directory but uri doesn't end with '/'
+        if (uri.back() != '/')
+        {
+            setErrorResponse(r, ResponseCode::HTTP_MOVED_PERMANENTLY);
+            r->outInfo_.headers_.emplace_back("Location", uri + "/");
+            return doResponse(r);
+        }
+
         r->outInfo_.resCode_ = ResponseCode::HTTP_OK;
         r->outInfo_.statusLine_ = getStatusLineByCode(r->outInfo_.resCode_);
         r->outInfo_.resType_ = ResponseType::AUTO_INDEX;

@@ -767,7 +767,7 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
     u_char ch;
     u_char decoded;
     u_char *old, *now;
-    
+
     enum
     {
         USUAL = 0,
@@ -1401,7 +1401,8 @@ int parseChunked(std::shared_ptr<Request> r)
     //     printf("value:%d\n",*tmp);
     // }
 
-    for (pos = buffer.now_->start_ + buffer.now_->pos_ + ctx->dataOffset_; pos < buffer.now_->start_ + buffer.now_->len_; pos++)
+    for (pos = buffer.now_->start_ + buffer.now_->pos_ + ctx->dataOffset_;
+         pos < buffer.now_->start_ + buffer.now_->len_; pos++)
     {
         // printf("%d %d ", ctx->data_offset, *pos);
         once = 1;
@@ -1604,8 +1605,8 @@ data:
 
     if (rc == OK) // right after chunked size, we need to add the chunk size too!
     {
-        left = pos - buffer.now_->start_ -
-               buffer.now_->pos_; // only add "SIZE\r\n", *pos supposed to be the first byte of data
+        // only add "SIZE\r\n", *pos supposed to be the first byte of data
+        left = pos - buffer.now_->start_ - buffer.now_->pos_;
         r->requestBody_.listBody_.emplace_back(buffer.now_->start_ + buffer.now_->pos_, left);
         buffer.now_->pos_ += left;
     }

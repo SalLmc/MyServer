@@ -109,7 +109,8 @@ enum class ResponseCode
     HTTP_UNAUTHORIZED,
     HTTP_FORBIDDEN,
     HTTP_NOT_FOUND,
-    HTTP_INTERNAL_SERVER_ERROR
+    HTTP_INTERNAL_SERVER_ERROR,
+    HTTP_MOVED_PERMANENTLY
 };
 
 enum class Charset
@@ -228,15 +229,15 @@ class Request
     int atPhase_;
 
     // URI with "/." and on Win32 with "//"
-    bool complexUri_ ;
+    bool complexUri_;
     // URI with "%"
-    bool quotedUri_ ;
+    bool quotedUri_;
     // URI with "+"
-    bool plusInUri_ ;
+    bool plusInUri_;
     // URI with empty path
-    bool emptyPathInUri_ ;
-    bool invalidHeader_ ;
-    bool validUnparsedUri_ ;
+    bool emptyPathInUri_;
+    bool invalidHeader_;
+    bool validUnparsedUri_;
 
     // all end pointers point to the place after the content, except methodEnd
     u_char *headerNameStart_;
