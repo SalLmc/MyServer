@@ -29,6 +29,9 @@ timer_test: timer_test.o
 
 buffer_test: buffer_test.o
 	$(BUILDEXEWITHLIB)
+	
+json_test: json_test.o
+	$(BUILDEXEWITHLIB)
 
 test: test.o
 	$(BUILDEXEWITHLIB)

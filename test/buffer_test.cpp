@@ -43,7 +43,7 @@ int main()
 
     auto iter = buffer.nodes_.begin();
     printf("%s\n", iter->toString().c_str());
-    auto thisIter = buffer.insertNewNode(iter);
+    buffer.insertNewNode(iter);
     printf("%s\n", iter->toString().c_str());
     iter++;
 
