@@ -67,7 +67,7 @@ class Logger
 {
   public:
     Logger() = delete;
-    Logger(const char *path, const char *name);
+    Logger(const char *rootPath, const char *logName);
     ~Logger();
     Logger &operator+=(LogLine &line);
 
@@ -77,8 +77,8 @@ class Logger
     void wakeup();
     void tryWakeup();
 
-    const char *filePath_;
-    const char *fileName_;
+    const char *rootPath_;
+    const char *logName_;
 
     unsigned long threshold_;
 

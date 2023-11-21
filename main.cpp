@@ -26,18 +26,20 @@ int main(int argc, char *argv[])
 {
     umask(0);
 
-    system("cat /proc/cpuinfo | grep cores | uniq | awk '{print $NF'} > cores");
-    {
-        int num = readNumberFromFile<int>("cores");
-        if (num != -1)
-        {
-            cores = num;
-        }
-        else
-        {
-            cores = 1;
-        }
-    }
+    cores = std::max(1U, std::thread::hardware_concurrency());
+
+    // system("cat /proc/cpuinfo | grep cores | uniq | awk '{print $NF'} > cores");
+    // {
+    //     int num = readNumberFromFile<int>("cores");
+    //     if (num != -1)
+    //     {
+    //         cores = num;
+    //     }
+    //     else
+    //     {
+    //         cores = 1;
+    //     }
+    // }
 
     std::unique_ptr<Server> server(new Server(&cPool, new Logger("log/", "startup")));
     serverPtr = server.get();
@@ -93,11 +95,7 @@ int main(int argc, char *argv[])
     }
 
     // server init
-    if (system("rm -rf log") == 0)
-    {
-        LOG_WARN << "rm log failed";
-    }
-
+    
     init();
 
     if (is_daemon)

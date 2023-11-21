@@ -132,9 +132,13 @@ extern std::unordered_map<std::string, std::string> extenContentTypeMap;
 // };
 
 std::unordered_map<int, HttpCode> httpCodeMap = {
-    {200, {200, "200 OK"}},        {304, {304, "304 Not Modified"}}, {401, {401, "401 Unauthorized"}},
-    {403, {403, "403 Forbidden"}}, {404, {404, "404 Not Found"}},    {500, {500, "500 Internal Server Error"}},
-
+    {200, {200, "200 OK"}},
+    {301, {301, "301 Moved Permanently"}},
+    {304, {304, "304 Not Modified"}},
+    {401, {401, "401 Unauthorized"}},
+    {403, {403, "403 Forbidden"}},
+    {404, {404, "404 Not Found"}},
+    {500, {500, "500 Internal Server Error"}},
 };
 
 int initListen(Server *server, int port)
@@ -551,7 +555,7 @@ int processRequestHeaders(Event *ev)
             r->inInfo_.headerNameValueMap_[toLower(now.name_)] = now;
 
 #ifdef LOG_HEADER
-            LOG_INFO << now.name << ": " << now.value;
+            LOG_INFO << now.name_ << ": " << now.value_;
 #endif
             continue;
         }
@@ -1370,6 +1374,9 @@ HttpCode getByCode(ResponseCode code)
         break;
     case ResponseCode::HTTP_NOT_FOUND:
         ans = httpCodeMap[404];
+        break;
+    case ResponseCode::HTTP_MOVED_PERMANENTLY:
+        ans = httpCodeMap[301];
         break;
     case ResponseCode::HTTP_INTERNAL_SERVER_ERROR:
         // fall through

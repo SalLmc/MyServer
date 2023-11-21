@@ -126,11 +126,16 @@ LogLine &LogLine::operator<<(const char *arg)
     return *this;
 }
 
-Logger::Logger(const char *path, const char *name)
-    : filePath_(path), fileName_(name), threshold_(1), state_(State::INIT), writeThread_(&Logger::write2File, this)
+Logger::Logger(const char *rootPath, const char *logName)
+    : rootPath_(rootPath), logName_(logName), threshold_(1), state_(State::INIT),
+      writeThread_(&Logger::write2File, this)
 {
-    std::string folder(filePath_);
-    folder.append(fileName_);
+    std::string folder(rootPath);
+    if (folder.back() != '/')
+    {
+        folder.append("/");
+    }
+    folder.append(logName);
 
     if (access(folder.data(), W_OK | R_OK | X_OK | F_OK) != 0)
     {
@@ -138,11 +143,11 @@ Logger::Logger(const char *path, const char *name)
     }
 
     char info[100] = {0};
-    sprintf(info, "%s%s/info.log", filePath_, fileName_);
+    sprintf(info, "%s/info.log", folder.c_str());
     char warn[100] = {0};
-    sprintf(warn, "%s%s/warn.log", filePath_, fileName_);
+    sprintf(warn, "%s/warn.log", folder.c_str());
     char error[100] = {0};
-    sprintf(error, "%s%s/error.log", filePath_, fileName_);
+    sprintf(error, "%s/error.log", folder.c_str());
 
     info_ = open(info, O_RDWR | O_CREAT | O_TRUNC, 0666);
     warn_ = open(warn, O_RDWR | O_CREAT | O_TRUNC, 0666);
