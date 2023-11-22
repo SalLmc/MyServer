@@ -268,6 +268,8 @@ int JsonParser::doParse()
 
             token->type = (c == '{' ? JsonType::OBJECT : JsonType::ARRAY);
             token->start = parser_.pos;
+            
+            // set fatherIdx to current token, Since we need to connect attributes of this object to this token
             parser_.fatherTokenIdx = parser_.nextIdx - 1;
 
             break;
@@ -277,17 +279,24 @@ int JsonParser::doParse()
 
             type = (c == '}' ? JsonType::OBJECT : JsonType::ARRAY);
 
+            // find the token of current object
             for (i = parser_.nextIdx - 1; i >= 0; i--)
             {
                 token = &tokens_->at(i);
+
+                // found
                 if (token->start != -1 && token->end == -1)
                 {
                     if (token->type != type)
                     {
                         return INVALID;
                     }
+
+                    // clear fatherIdx, since an object has been parsed
                     parser_.fatherTokenIdx = -1;
+
                     token->end = parser_.pos + 1;
+
                     break;
                 }
             }
@@ -297,6 +306,7 @@ int JsonParser::doParse()
                 return INVALID;
             }
 
+            // set fatherIdx to previous idx (handle recursive situations)
             for (; i >= 0; i--)
             {
                 token = &tokens_->at(i);
@@ -373,6 +383,7 @@ int JsonParser::doParse()
         }
     }
 
+    // check whether all tokens have been fully parsed
     for (i = parser_.nextIdx - 1; i >= 0; i--)
     {
         if (tokens_->at(i).start != -1 && tokens_->at(i).end == -1)
