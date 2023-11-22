@@ -54,6 +54,9 @@ class JsonResult
 
     JsonResult get(const char *key);
     JsonResult get(int arrIdx);
+
+    int size();
+
     Token *raw();
 
     template <typename T> T value();
@@ -66,11 +69,8 @@ class JsonResult
     int len_;
 
     std::vector<Token> *tokens_;
-
-  public:
     int tokenSize_;
 
-  private:
     Token *now_;
 };
 
@@ -99,6 +99,11 @@ class JsonParser
     std::vector<Token> *tokens_;
     int tokenSize_;
 };
+
+int JsonResult::size()
+{
+    return now_->size;
+}
 
 Token *JsonParser::allocToken()
 {
@@ -268,7 +273,7 @@ int JsonParser::doParse()
 
             token->type = (c == '{' ? JsonType::OBJECT : JsonType::ARRAY);
             token->start = parser_.pos;
-            
+
             // set fatherIdx to current token, Since we need to connect attributes of this object to this token
             parser_.fatherTokenIdx = parser_.nextIdx - 1;
 

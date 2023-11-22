@@ -179,7 +179,7 @@ void init()
 
     JsonResult servers = config["servers"];
 
-    for (int i = 0; i < servers.raw()->size; i++)
+    for (int i = 0; i < servers.size(); i++)
     {
         serverPtr->servers_.push_back(getServer(servers[i]));
     }

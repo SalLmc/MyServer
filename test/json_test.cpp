@@ -16,8 +16,6 @@ int main()
     JsonParser parser(&tokens, file.addr_, file.len_);
     auto json = parser.parse();
 
-    printf("%d\n", json.tokenSize_);
-
     auto tmp = json["daemon"].value<bool>();
 
     cout << tmp << endl;
