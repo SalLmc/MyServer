@@ -77,7 +77,8 @@ class JsonResult
 class JsonParser
 {
   public:
-    JsonParser(std::vector<Token> *tokens, const char *json, int len) : json_(json), len_(len), tokens_(tokens)
+    JsonParser(std::vector<Token> *tokens, const char *json, int len)
+        : json_(json), len_(len), tokens_(tokens), tokenSize_(0)
     {
     }
 
@@ -494,7 +495,7 @@ template <> bool JsonResult::value()
 
     if (tok->type != JsonType::PRIMITIVE)
     {
-        throw std::runtime_error("wrong type at " + __LINE__);
+        throw std::runtime_error("wrong type");
     }
 
     std::istringstream stream(std::string(json_ + tok->start, json_ + tok->end));
@@ -509,7 +510,7 @@ template <> int JsonResult::value()
 
     if (tok->type != JsonType::PRIMITIVE)
     {
-        throw std::runtime_error("wrong type at " + __LINE__);
+        throw std::runtime_error("wrong type");
     }
 
     std::istringstream stream(std::string(json_ + tok->start, json_ + tok->end));
@@ -524,7 +525,7 @@ template <> std::string JsonResult::value()
 
     if (tok->type != JsonType::STRING)
     {
-        throw std::runtime_error("wrong type at " + __LINE__);
+        throw std::runtime_error("wrong type");
     }
 
     return std::string(json_ + tok->start, json_ + tok->end);
@@ -536,7 +537,7 @@ template <> std::vector<std::string> JsonResult::value()
 
     if (tok->type != JsonType::ARRAY)
     {
-        throw std::runtime_error("wrong type at " + __LINE__);
+        throw std::runtime_error("wrong type");
     }
 
     int size = tok->size;
@@ -561,7 +562,7 @@ template <> std::unordered_map<std::string, std::string> JsonResult::value()
 
     if (tok->type != JsonType::OBJECT)
     {
-        throw std::runtime_error("wrong type at " + __LINE__);
+        throw std::runtime_error("wrong type");
     }
 
     int size = tok->size;
