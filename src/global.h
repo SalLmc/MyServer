@@ -18,7 +18,7 @@ extern int processes;
 
 // runtime
 
-extern long cores;
+extern int cores;
 extern bool isChild;
 extern bool quit;
 extern int slot;

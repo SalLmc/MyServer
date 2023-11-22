@@ -10,7 +10,7 @@ int processes = 1;
 
 // runtime
 
-long cores;
+int cores;
 bool isChild;
 bool quit = 0;
 int slot = 0;

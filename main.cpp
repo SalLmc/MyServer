@@ -14,7 +14,7 @@ extern ConnectionPool cPool;
 extern Server *serverPtr;
 extern SharedMemory shmForAMtx;
 extern ProcessMutex acceptMutex;
-extern long cores;
+extern int cores;
 
 std::unordered_map<std::string, std::string> mp;
 std::unordered_map<std::string, std::string> extenContentTypeMap;
@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
     }
 
     // server init
-    
+
     init();
 
     if (is_daemon)
@@ -135,19 +135,7 @@ int main(int argc, char *argv[])
     masterProcessCycle(serverPtr);
 }
 
-template <class T> T getValue(const nlohmann::json &json, const std::string &key, T defaultValue)
-{
-    if (json.contains(key))
-    {
-        return json[key];
-    }
-    else
-    {
-        return defaultValue;
-    }
-}
-
-ServerAttribute getServer(nlohmann::json config)
+ServerAttribute getServer(JsonResult config)
 {
     ServerAttribute server;
     server.port_ = getValue(config, "port", 80);
@@ -167,27 +155,34 @@ ServerAttribute getServer(nlohmann::json config)
 
 void init()
 {
-    std::ifstream typesStream("types.json");
-    nlohmann::json types = nlohmann::json::parse(typesStream);
-    extenContentTypeMap = types.get<std::unordered_map<std::string, std::string>>();
+    Mmap typesFile(open("types.json", O_RDONLY));
+    Mmap configFile(open("config.json", O_RDONLY));
 
-    std::ifstream configStream("config.json");
-    nlohmann::json config = nlohmann::json::parse(configStream);
+    std::vector<Token> typesTokens(512);
+    std::vector<Token> configTokens(512);
+
+    JsonParser typesParser(&typesTokens, typesFile.addr_, typesFile.len_);
+    JsonParser configParser(&configTokens, configFile.addr_, configFile.len_);
+
+    JsonResult types = typesParser.parse();
+    JsonResult config = configParser.parse();
+
+    // get values
+    extenContentTypeMap = types.value<std::unordered_map<std::string, std::string>>();
 
     processes = getValue(config, "processes", cores);
     logger_threshold = getValue(config, "logger_threshold", 1);
     only_worker = getValue(config, "only_worker", 0);
     enable_logger = getValue(config, "enable_logger", 1);
     use_epoll = getValue(config, "use_epoll", 1);
+    is_daemon = getValue(config, "daemon", 0);
 
-    nlohmann::json servers = config["servers"];
+    JsonResult servers = config["servers"];
 
-    for (long unsigned i = 0; i < servers.size(); i++)
+    for (int i = 0; i < servers.raw()->size; i++)
     {
         serverPtr->servers_.push_back(getServer(servers[i]));
     }
-
-    is_daemon = getValue(config, "daemon", 0);
 }
 
 void daemonize()
