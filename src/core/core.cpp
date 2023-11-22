@@ -321,3 +321,36 @@ std::string c_str::toString()
 {
     return std::string(data_, data_ + len_);
 }
+
+Mmap::Mmap(int fd) : fd_(fd), addr_(NULL), len_(0)
+{
+    struct stat st;
+    if (fstat(fd_, &st) == -1)
+    {
+        return;
+    }
+
+    len_ = st.st_size;
+
+    void *rc = mmap(NULL, len_, PROT_READ, MAP_PRIVATE, fd_, 0);
+
+    if (rc == MAP_FAILED)
+    {
+        return;
+    }
+
+    addr_ = (const char *)rc;
+}
+
+Mmap::~Mmap()
+{
+    if (addr_ != NULL)
+    {
+        munmap((void *)addr_, len_);
+    }
+
+    if (fd_ >= 0)
+    {
+        close(fd_);
+    }
+}

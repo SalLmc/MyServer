@@ -210,4 +210,15 @@ class Dir
     std::vector<FileInfo> infos_;
 };
 
+class Mmap
+{
+  public:
+    Mmap() = delete;
+    Mmap(int fd);
+    ~Mmap();
+    int fd_;
+    const char *addr_;
+    size_t len_;
+};
+
 #endif
