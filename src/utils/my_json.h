@@ -1,9 +1,7 @@
 #ifndef JSON_HPP
 #define JSON_HPP
 
-#include <string>
-#include <unordered_map>
-#include <vector>
+#include "../headers.h"
 
 #define OK 0
 #define ERROR -1
@@ -33,36 +31,51 @@ struct Token
 
 struct Parser
 {
+    Parser();
     int pos;
     int nextIdx;
     int fatherTokenIdx;
 };
 
+class JsonResult
+{
+  public:
+    JsonResult(const char *json, int len, std::vector<Token> *tokens);
+    JsonResult get(const char *key);
+    JsonResult get(int arrIdx);
+    Token *value();
+
+  private:
+    // @return idx of the next non-related token
+    int skipToken(Token *token);
+
+    const char *json_;
+    int len_;
+    std::vector<Token> *tokens_;
+    Token *now_;
+};
+
 class JsonParser
 {
-  public: 
-    JsonParser(const char *json, int len, int maxToken = 1024);
+  public:
+    JsonParser(std::vector<Token> *tokens, const char *json, int len, int maxToken = 1024);
     ~JsonParser();
 
-    Token *get(const char *key, Token *root);
-    Token *get(int arrIdx, Token *root);
+    JsonResult parse();
 
+  private:
     Token *allocToken();
     void setToken(Token *token, const JsonType type, const int start, const int end);
     int parsePrimitive();
     int parseString();
     int doParse();
 
-    // @return idx of the next non-related token
-    int skipToken(Token *token);
-
     Parser parser_;
 
     const char *json_;
     int len_;
 
-    std::vector<Token> tokens_;
-    int maxSize_;
+    std::vector<Token> *tokens_;
 };
 
 #endif

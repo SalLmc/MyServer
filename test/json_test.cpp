@@ -10,14 +10,15 @@ int main()
 
     read(fd.getFd(), buffer, 1023);
 
-    JsonParser parser(buffer, 1024);
-    parser.doParse();
+    std::vector<Token> tokens(1024);
 
-    Token *servers = parser.get("servers", &parser.tokens_[0]);
-    Token *sec = parser.get(1, servers);
+    JsonParser parser(&tokens, buffer, 1024);
+    auto json = parser.parse();
 
-    printf("%s\n", sec->toString(buffer).c_str());
+    Token *server = json.get("servers").get(1).value();
 
-    while (1)
-        ;
+    Token *tmp = json.get("servers").get(1).get("auth_path").get(0).value();
+
+    printf("%s\n", server->toString(buffer).c_str());
+    printf("%s\n", tmp->toString(buffer).c_str());
 }
