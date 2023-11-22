@@ -18,7 +18,7 @@ int main()
 
     printf("%d\n", json.tokenSize_);
 
-    auto tmp = getValue(json, "sdf", 100);
+    auto tmp = json["daemon"].value<bool>();
 
-    cout << tmp<< endl;
+    cout << tmp << endl;
 }

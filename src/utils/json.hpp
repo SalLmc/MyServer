@@ -498,10 +498,18 @@ template <> bool JsonResult::value()
         throw std::runtime_error("wrong type");
     }
 
-    std::istringstream stream(std::string(json_ + tok->start, json_ + tok->end));
-    bool ans;
-    stream >> ans;
-    return ans;
+    std::string s(json_ + tok->start, json_ + tok->end);
+
+    if (s == "true" || s == "1")
+    {
+        return true;
+    }
+    else if (s == "false" || s == "0")
+    {
+        return false;
+    }
+
+    throw std::runtime_error("bool value error");
 }
 
 template <> int JsonResult::value()
@@ -513,9 +521,9 @@ template <> int JsonResult::value()
         throw std::runtime_error("wrong type");
     }
 
-    std::istringstream stream(std::string(json_ + tok->start, json_ + tok->end));
-    int ans;
-    stream >> ans;
+    std::string s(json_ + tok->start, json_ + tok->end);
+    int ans = std::stoi(s);
+
     return ans;
 }
 
