@@ -3,10 +3,10 @@
 
 #include "../headers.h"
 
-#define OK 0
-#define ERROR -1
-#define INVALID -2
-#define PART -3
+#define JSON_OK 0
+#define JSON_ERROR -1
+#define JSON_INVALID -2
+#define JSON_INCOMPLETE -3
 
 enum class JsonType
 {
@@ -60,6 +60,7 @@ class JsonResult
     Token *raw();
 
     template <typename T> T value();
+    template <typename T> T value(T defaultValue);
 
   private:
     // @return idx of the next non-related token
@@ -151,7 +152,7 @@ int JsonParser::parsePrimitive()
         if (json_[parser_.pos] < 32 || json_[parser_.pos] >= 127)
         {
             parser_.pos = start;
-            return INVALID;
+            return JSON_INVALID;
         }
     }
 
@@ -222,7 +223,7 @@ int JsonParser::parseString()
                           (json_[parser_.pos] >= 97 && json_[parser_.pos] <= 102)))
                     {
                         parser_.pos = start;
-                        return INVALID;
+                        return JSON_INVALID;
                     }
                     parser_.pos++;
                 }
@@ -230,14 +231,14 @@ int JsonParser::parseString()
                 break;
             default:
                 parser_.pos = start;
-                return INVALID;
+                return JSON_INVALID;
             }
         }
     }
 
     parser_.pos = start;
 
-    return PART;
+    return JSON_INCOMPLETE;
 }
 
 int JsonParser::doParse()
@@ -294,7 +295,7 @@ int JsonParser::doParse()
                 {
                     if (token->type != type)
                     {
-                        return INVALID;
+                        return JSON_INVALID;
                     }
 
                     // clear fatherIdx, since an object has been parsed
@@ -308,7 +309,7 @@ int JsonParser::doParse()
 
             if (i == -1)
             {
-                return INVALID;
+                return JSON_INVALID;
             }
 
             // set fatherIdx to previous idx (handle recursive situations)
@@ -393,7 +394,7 @@ int JsonParser::doParse()
     {
         if (tokens_->at(i).start != -1 && tokens_->at(i).end == -1)
         {
-            return PART;
+            return JSON_INCOMPLETE;
         }
     }
 
@@ -609,11 +610,24 @@ template <> std::unordered_map<std::string, std::string> JsonResult::value()
     return ans;
 }
 
-template <typename T> T getValue(JsonResult &json, const std::string &key, T defaultValue)
+template <typename T> T JsonResult::value(T defaultValue)
 {
     try
     {
-        auto val = json[key.c_str()].value<T>();
+        T val = value<T>();
+        return val;
+    }
+    catch (const std::exception &e)
+    {
+    }
+    return defaultValue;
+}
+
+template <typename T> T getValue(JsonResult &json, const char *key, T defaultValue)
+{
+    try
+    {
+        T val = json[key].value(defaultValue);
         return val;
     }
     catch (const std::exception &e)
