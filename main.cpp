@@ -155,8 +155,8 @@ ServerAttribute getServer(JsonResult config)
 
 void init()
 {
-    Mmap typesFile(open("types.json", O_RDONLY));
-    Mmap configFile(open("config.json", O_RDONLY));
+    MemFile typesFile(open("types.json", O_RDONLY));
+    MemFile configFile(open("config.json", O_RDONLY));
 
     std::vector<Token> typesTokens(512);
     std::vector<Token> configTokens(512);

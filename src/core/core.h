@@ -210,12 +210,12 @@ class Dir
     std::vector<FileInfo> infos_;
 };
 
-class Mmap
+class MemFile
 {
   public:
-    Mmap() = delete;
-    Mmap(int fd);
-    ~Mmap();
+    MemFile() = delete;
+    MemFile(int fd);
+    ~MemFile();
     int fd_;
     const char *addr_;
     size_t len_;

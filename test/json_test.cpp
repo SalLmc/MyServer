@@ -9,7 +9,7 @@ using std::string;
 
 int main()
 {
-    Mmap file(open("../config.json", O_RDONLY));
+    MemFile file(open("../config.json", O_RDONLY));
 
     std::vector<Token> tokens(512);
 

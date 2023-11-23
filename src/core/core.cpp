@@ -322,7 +322,7 @@ std::string c_str::toString()
     return std::string(data_, data_ + len_);
 }
 
-Mmap::Mmap(int fd) : fd_(fd), addr_(NULL), len_(0)
+MemFile::MemFile(int fd) : fd_(fd), addr_(NULL), len_(0)
 {
     struct stat st;
     if (fstat(fd_, &st) == -1)
@@ -342,7 +342,7 @@ Mmap::Mmap(int fd) : fd_(fd), addr_(NULL), len_(0)
     addr_ = (const char *)rc;
 }
 
-Mmap::~Mmap()
+MemFile::~MemFile()
 {
     if (addr_ != NULL)
     {

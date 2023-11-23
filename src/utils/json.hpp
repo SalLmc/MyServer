@@ -163,13 +163,13 @@ found:
     if (token == NULL)
     {
         parser_.pos = start;
-        return ERROR;
+        return JSON_ERROR;
     }
 
     setToken(token, JsonType::PRIMITIVE, start, parser_.pos);
     parser_.pos--;
 
-    return OK;
+    return JSON_OK;
 }
 
 int JsonParser::parseString()
@@ -191,12 +191,12 @@ int JsonParser::parseString()
             if (token == NULL)
             {
                 parser_.pos = start;
-                return ERROR;
+                return JSON_ERROR;
             }
 
             setToken(token, JsonType::STRING, start + 1, parser_.pos);
 
-            return OK;
+            return JSON_OK;
         }
 
         if (c == '\\' && parser_.pos + 1 < len_)
@@ -263,7 +263,7 @@ int JsonParser::doParse()
 
             if (token == NULL)
             {
-                return ERROR;
+                return JSON_ERROR;
             }
 
             if (parser_.fatherTokenIdx != -1)
