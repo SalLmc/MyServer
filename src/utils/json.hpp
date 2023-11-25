@@ -90,6 +90,7 @@ class JsonParser
     void setToken(Token *token, const JsonType type, const int start, const int end);
     int parsePrimitive();
     int parseString();
+    // @return real size of tokens
     int doParse();
 
     Parser parser_;
@@ -199,6 +200,7 @@ int JsonParser::parseString()
             return JSON_OK;
         }
 
+        // handle escape characters
         if (c == '\\' && parser_.pos + 1 < len_)
         {
             parser_.pos++;
@@ -266,16 +268,17 @@ int JsonParser::doParse()
                 return JSON_ERROR;
             }
 
+            token->type = (c == '{' ? JsonType::OBJECT : JsonType::ARRAY);
+            token->start = parser_.pos;
+
+            // belongs to an object
             if (parser_.fatherTokenIdx != -1)
             {
                 Token *tok = &tokens_->at(parser_.fatherTokenIdx);
                 tok->size++;
             }
 
-            token->type = (c == '{' ? JsonType::OBJECT : JsonType::ARRAY);
-            token->start = parser_.pos;
-
-            // set fatherIdx to current token, Since we need to connect attributes of this object to this token
+            // set fatherIdx to current token. Since we need to connect attributes of this object to this token
             parser_.fatherTokenIdx = parser_.nextIdx - 1;
 
             break;
@@ -347,12 +350,19 @@ int JsonParser::doParse()
         case '\n':
         case ' ':
             break;
+
         case ':':
+
             parser_.fatherTokenIdx = parser_.nextIdx - 1;
             break;
 
         case ',':
 
+            // 1. ',' at the end of a line
+            // 2. ',' is the split of an array
+
+            // if situation 1 is true, then we set fatherIdx to previous object
+            // current father.type is STRING, else it should be ARRAY
             if (parser_.fatherTokenIdx != -1 && tokens_->at(parser_.fatherTokenIdx).type != JsonType::ARRAY &&
                 tokens_->at(parser_.fatherTokenIdx).type != JsonType::OBJECT)
             {
