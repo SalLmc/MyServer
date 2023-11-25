@@ -158,11 +158,8 @@ void init()
     MemFile typesFile(open("types.json", O_RDONLY));
     MemFile configFile(open("config.json", O_RDONLY));
 
-    std::vector<Token> typesTokens(512);
-    std::vector<Token> configTokens(512);
-
-    JsonParser typesParser(&typesTokens, typesFile.addr_, typesFile.len_);
-    JsonParser configParser(&configTokens, configFile.addr_, configFile.len_);
+    JsonParser typesParser(typesFile.addr_, typesFile.len_);
+    JsonParser configParser(configFile.addr_, configFile.len_);
 
     JsonResult types = typesParser.parse();
     JsonResult config = configParser.parse();

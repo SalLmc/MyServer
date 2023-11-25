@@ -9,6 +9,7 @@
 #include <condition_variable>
 #include <cstring>
 #include <ctype.h>
+#include <stack>
 #include <dirent.h>
 #include <errno.h>
 #include <exception>

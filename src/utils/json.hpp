@@ -32,21 +32,11 @@ struct Token
     int idx;
 };
 
-struct Parser
-{
-    Parser() : pos(0), nextIdx(0), fatherTokenIdx(-1)
-    {
-    }
-    int pos;
-    int nextIdx;
-    int fatherTokenIdx;
-};
-
 class JsonResult
 {
   public:
-    JsonResult(const char *json, int len, std::vector<Token> *tokens, int tokenSize)
-        : json_(json), len_(len), tokens_(tokens), tokenSize_(tokenSize), now_(&tokens_->at(0))
+    JsonResult(const char *json, int len, std::vector<Token> *tokens)
+        : json_(json), len_(len), tokens_(tokens), now_(&tokens_->at(0))
     {
     }
     JsonResult operator[](const char *key);
@@ -70,7 +60,6 @@ class JsonResult
     int len_;
 
     std::vector<Token> *tokens_;
-    int tokenSize_;
 
     Token *now_;
 };
@@ -78,8 +67,7 @@ class JsonResult
 class JsonParser
 {
   public:
-    JsonParser(std::vector<Token> *tokens, const char *json, int len)
-        : json_(json), len_(len), tokens_(tokens), tokenSize_(0)
+    JsonParser(const char *json, int len) : json_(json), len_(len), pos_(0)
     {
     }
 
@@ -93,13 +81,14 @@ class JsonParser
     // @return real size of tokens
     int doParse();
 
-    Parser parser_;
-
     const char *json_;
     int len_;
 
-    std::vector<Token> *tokens_;
-    int tokenSize_;
+    int pos_;
+
+    std::stack<int> fatherIdx_;
+
+    std::vector<Token> tokens_;
 };
 
 int JsonResult::size()
@@ -109,13 +98,9 @@ int JsonResult::size()
 
 Token *JsonParser::allocToken()
 {
-    Token *tok;
-    if ((size_t)parser_.nextIdx >= tokens_->size())
-    {
-        return NULL;
-    }
-    tok = &tokens_->at(parser_.nextIdx);
-    tok->idx = parser_.nextIdx++;
+    tokens_.emplace_back();
+    Token *tok = &tokens_.back();
+    tok->idx = tokens_.size() - 1;
     tok->start = tok->end = -1;
     tok->size = 0;
     return tok;
@@ -132,10 +117,10 @@ void JsonParser::setToken(Token *token, const JsonType type, const int start, co
 int JsonParser::parsePrimitive()
 {
     Token *token;
-    int start = parser_.pos;
-    for (; parser_.pos < len_ && json_[parser_.pos] != '\0'; parser_.pos++)
+    int start = pos_;
+    for (; pos_ < len_ && json_[pos_] != '\0'; pos_++)
     {
-        switch (json_[parser_.pos])
+        switch (json_[pos_])
         {
         case ':':
         case '\t':
@@ -150,9 +135,9 @@ int JsonParser::parsePrimitive()
             break;
         }
 
-        if (json_[parser_.pos] < 32 || json_[parser_.pos] >= 127)
+        if (json_[pos_] < 32 || json_[pos_] >= 127)
         {
-            parser_.pos = start;
+            pos_ = start;
             return JSON_INVALID;
         }
     }
@@ -163,12 +148,12 @@ found:
 
     if (token == NULL)
     {
-        parser_.pos = start;
+        pos_ = start;
         return JSON_ERROR;
     }
 
-    setToken(token, JsonType::PRIMITIVE, start, parser_.pos);
-    parser_.pos--;
+    setToken(token, JsonType::PRIMITIVE, start, pos_);
+    pos_--;
 
     return JSON_OK;
 }
@@ -177,13 +162,13 @@ int JsonParser::parseString()
 {
     Token *token;
 
-    int start = parser_.pos;
+    int start = pos_;
 
-    parser_.pos++;
+    pos_++;
 
-    for (; parser_.pos < len_ && json_[parser_.pos] != '\0'; parser_.pos++)
+    for (; pos_ < len_ && json_[pos_] != '\0'; pos_++)
     {
-        char c = json_[parser_.pos];
+        char c = json_[pos_];
 
         if (c == '\"')
         {
@@ -191,20 +176,20 @@ int JsonParser::parseString()
 
             if (token == NULL)
             {
-                parser_.pos = start;
+                pos_ = start;
                 return JSON_ERROR;
             }
 
-            setToken(token, JsonType::STRING, start + 1, parser_.pos);
+            setToken(token, JsonType::STRING, start + 1, pos_);
 
             return JSON_OK;
         }
 
         // handle escape characters
-        if (c == '\\' && parser_.pos + 1 < len_)
+        if (c == '\\' && pos_ + 1 < len_)
         {
-            parser_.pos++;
-            switch (json_[parser_.pos])
+            pos_++;
+            switch (json_[pos_])
             {
             case '\"':
             case '/':
@@ -217,28 +202,27 @@ int JsonParser::parseString()
                 break;
             // handle things like '\uXXXX'
             case 'u':
-                parser_.pos++;
-                for (int i = 0; i < 4 && parser_.pos < len_ && json_[parser_.pos] != '\0'; i++)
+                pos_++;
+                for (int i = 0; i < 4 && pos_ < len_ && json_[pos_] != '\0'; i++)
                 {
-                    if (!((json_[parser_.pos] >= 48 && json_[parser_.pos] <= 57) ||
-                          (json_[parser_.pos] >= 65 && json_[parser_.pos] <= 70) ||
-                          (json_[parser_.pos] >= 97 && json_[parser_.pos] <= 102)))
+                    if (!((json_[pos_] >= 48 && json_[pos_] <= 57) || (json_[pos_] >= 65 && json_[pos_] <= 70) ||
+                          (json_[pos_] >= 97 && json_[pos_] <= 102)))
                     {
-                        parser_.pos = start;
+                        pos_ = start;
                         return JSON_INVALID;
                     }
-                    parser_.pos++;
+                    pos_++;
                 }
-                parser_.pos--;
+                pos_--;
                 break;
             default:
-                parser_.pos = start;
+                pos_ = start;
                 return JSON_INVALID;
             }
         }
     }
 
-    parser_.pos = start;
+    pos_ = start;
 
     return JSON_INCOMPLETE;
 }
@@ -248,18 +232,15 @@ int JsonParser::doParse()
     int i, rc;
     JsonType type;
     Token *token;
-    int cnt = parser_.nextIdx;
 
-    for (; parser_.pos < len_ && json_[parser_.pos] != '\0'; parser_.pos++)
+    for (; pos_ < len_ && json_[pos_] != '\0'; pos_++)
     {
-        char c = json_[parser_.pos];
+        char c = json_[pos_];
 
         switch (c)
         {
         case '{':
         case '[':
-
-            cnt++;
 
             token = allocToken();
 
@@ -269,17 +250,17 @@ int JsonParser::doParse()
             }
 
             token->type = (c == '{' ? JsonType::OBJECT : JsonType::ARRAY);
-            token->start = parser_.pos;
+            token->start = pos_;
 
             // belongs to an object
-            if (parser_.fatherTokenIdx != -1)
+            if (!fatherIdx_.empty())
             {
-                Token *tok = &tokens_->at(parser_.fatherTokenIdx);
+                Token *tok = &tokens_[fatherIdx_.top()];
                 tok->size++;
             }
 
-            // set fatherIdx to current token. Since we need to connect attributes of this object to this token
-            parser_.fatherTokenIdx = parser_.nextIdx - 1;
+            // push current token. Since we need to connect attributes of this object to this token
+            fatherIdx_.push(tokens_.size() - 1);
 
             break;
 
@@ -288,43 +269,38 @@ int JsonParser::doParse()
 
             type = (c == '}' ? JsonType::OBJECT : JsonType::ARRAY);
 
-            // find the token of current object
-            for (i = parser_.nextIdx - 1; i >= 0; i--)
-            {
-                token = &tokens_->at(i);
-
-                // found
-                if (token->start != -1 && token->end == -1)
-                {
-                    if (token->type != type)
-                    {
-                        return JSON_INVALID;
-                    }
-
-                    // clear fatherIdx, since an object has been parsed
-                    parser_.fatherTokenIdx = -1;
-
-                    token->end = parser_.pos + 1;
-
-                    break;
-                }
-            }
-
-            if (i == -1)
+            if (fatherIdx_.empty())
             {
                 return JSON_INVALID;
             }
 
-            // set fatherIdx to previous idx (handle recursive situations)
-            for (; i >= 0; i--)
+            /**
+             * {
+             *      "a": 1,
+             *      "b": 2
+             * }
+            */
+            // pop the token "b" when we meet '}'
+            // since we only pop them when we meet ','
+            if (tokens_[fatherIdx_.top()].type == JsonType::STRING)
             {
-                token = &tokens_->at(i);
-                if (token->start != -1 && token->end == -1)
+                fatherIdx_.pop();
+                if (fatherIdx_.empty())
                 {
-                    parser_.fatherTokenIdx = i;
-                    break;
+                    return JSON_INVALID;
                 }
             }
+
+            // get the token of current object
+            token = &tokens_[fatherIdx_.top()];
+            fatherIdx_.pop();
+
+            if (token->type != type)
+            {
+                return JSON_INVALID;
+            }
+
+            token->end = pos_ + 1;
 
             break;
 
@@ -336,11 +312,10 @@ int JsonParser::doParse()
                 return rc;
             }
 
-            cnt++;
-
-            if (parser_.fatherTokenIdx != -1)
+            if (!fatherIdx_.empty())
             {
-                tokens_->at(parser_.fatherTokenIdx).size++;
+                Token *tok = &tokens_[fatherIdx_.top()];
+                tok->size++;
             }
 
             break;
@@ -353,30 +328,23 @@ int JsonParser::doParse()
 
         case ':':
 
-            parser_.fatherTokenIdx = parser_.nextIdx - 1;
+            fatherIdx_.push(tokens_.size() - 1);
             break;
 
         case ',':
 
-            // 1. ',' at the end of a line
-            // 2. ',' is the split of an array
-
-            // if situation 1 is true, then we set fatherIdx to previous object
-            // current father.type is STRING, else it should be ARRAY
-            if (parser_.fatherTokenIdx != -1 && tokens_->at(parser_.fatherTokenIdx).type != JsonType::ARRAY &&
-                tokens_->at(parser_.fatherTokenIdx).type != JsonType::OBJECT)
+            // fatherToken can be: ARRAY, STRING
+            if (!fatherIdx_.empty() && tokens_[fatherIdx_.top()].type != JsonType::ARRAY &&
+                tokens_[fatherIdx_.top()].type != JsonType::OBJECT)
             {
-                for (i = parser_.nextIdx - 1; i >= 0; i--)
-                {
-                    if (tokens_->at(i).type == JsonType::ARRAY || tokens_->at(i).type == JsonType::OBJECT)
-                    {
-                        if (tokens_->at(i).start != -1 && tokens_->at(i).end == -1)
-                        {
-                            parser_.fatherTokenIdx = i;
-                            break;
-                        }
-                    }
-                }
+                // pop when father is a STRING like "a"(check below)
+                /**
+                 * {
+                 *      "a": 0,
+                 *      "b": 1
+                 * }
+                 */
+                fatherIdx_.pop();
             }
             break;
 
@@ -388,11 +356,10 @@ int JsonParser::doParse()
                 return rc;
             }
 
-            cnt++;
-
-            if (parser_.fatherTokenIdx != -1)
+            if (!fatherIdx_.empty())
             {
-                tokens_->at(parser_.fatherTokenIdx).size++;
+                Token *tok = &tokens_[fatherIdx_.top()];
+                tok->size++;
             }
 
             break;
@@ -400,15 +367,15 @@ int JsonParser::doParse()
     }
 
     // check whether all tokens have been fully parsed
-    for (i = parser_.nextIdx - 1; i >= 0; i--)
+    for (i = tokens_.size() - 1; i >= 0; i--)
     {
-        if (tokens_->at(i).start != -1 && tokens_->at(i).end == -1)
+        if (tokens_[i].start != -1 && tokens_[i].end == -1)
         {
             return JSON_INCOMPLETE;
         }
     }
 
-    return cnt;
+    return JSON_OK;
 }
 
 JsonResult JsonParser::parse()
@@ -418,9 +385,8 @@ JsonResult JsonParser::parse()
     {
         throw std::runtime_error("parse failed");
     }
-    tokenSize_ = rc;
 
-    return JsonResult(json_, len_, tokens_, rc);
+    return JsonResult(json_, len_, &tokens_);
 }
 
 JsonResult JsonResult::get(const char *key)
@@ -584,8 +550,11 @@ template <> std::vector<std::string> JsonResult::value()
     for (int i = 0; i < size; i++)
     {
         ans.push_back(value<std::string>());
-        idx = skipToken(now_);
-        now_ = &tokens_->at(idx);
+        if (i + 1 < size)
+        {
+            idx = skipToken(now_);
+            now_ = &tokens_->at(idx);
+        }
     }
 
     return ans;
@@ -613,8 +582,12 @@ template <> std::unordered_map<std::string, std::string> JsonResult::value()
         std::string val = value<std::string>();
 
         ans.insert({key, val});
-        idx = skipToken(now_);
-        now_ = &tokens_->at(idx);
+
+        if (i + 1 < size)
+        {
+            idx = skipToken(now_);
+            now_ = &tokens_->at(idx);
+        }
     }
 
     return ans;
