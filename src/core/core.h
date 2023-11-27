@@ -25,7 +25,7 @@ class Request;
 
 enum class TimeoutStatus
 {
-    NOT_TIMEOUT,
+    NOT_TIMED_OUT,
     TIMEOUT,
     IGNORE
 };
@@ -103,6 +103,7 @@ class ConnectionPool
     ~ConnectionPool();
     Connection *getNewConnection();
     void recoverConnection(Connection *c);
+    int activeCnt;
 
   private:
     std::list<Connection *> connectionList_;

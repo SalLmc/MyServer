@@ -66,7 +66,7 @@ void Fd::reset(Fd &&fd)
     fd.fd_ = -1;
 }
 
-Event::Event(Connection *c) : c_(c), type_(EventType::NORMAL), timeout_(TimeoutStatus::NOT_TIMEOUT)
+Event::Event(Connection *c) : c_(c), type_(EventType::NORMAL), timeout_(TimeoutStatus::NOT_TIMED_OUT)
 {
 }
 
@@ -74,7 +74,7 @@ void Event::init(Connection *conn)
 {
     c_ = conn;
     type_ = EventType::NORMAL;
-    timeout_ = TimeoutStatus::NOT_TIMEOUT;
+    timeout_ = TimeoutStatus::NOT_TIMED_OUT;
     handler_ = std::function<int(Event *)>();
 }
 
@@ -107,7 +107,7 @@ void Connection::init(ResourceType type)
     type_ = type;
 }
 
-ConnectionPool::ConnectionPool(int size)
+ConnectionPool::ConnectionPool(int size) : activeCnt(0)
 {
     for (int i = 0; i < size; i++)
     {
@@ -127,16 +127,24 @@ ConnectionPool::~ConnectionPool()
 
 Connection *ConnectionPool::getNewConnection()
 {
+    Connection *c;
+
     if (!connectionList_.empty())
     {
-        auto c = connectionList_.front();
+        c = connectionList_.front();
         connectionList_.pop_front();
-        return c;
     }
     else
     {
-        return heap.hNew<Connection>(ResourceType::MALLOC);
+        c = heap.hNew<Connection>(ResourceType::MALLOC);
     }
+
+    if (c != NULL)
+    {
+        activeCnt++;
+    }
+
+    return c;
 }
 
 void ConnectionPool::recoverConnection(Connection *c)
@@ -145,6 +153,8 @@ void ConnectionPool::recoverConnection(Connection *c)
     {
         return;
     }
+
+    activeCnt--;
 
     if (c->type_ == ResourceType::POOL)
     {

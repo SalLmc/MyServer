@@ -167,12 +167,16 @@ void init()
     // get values
     extenContentTypeMap = types.value<std::unordered_map<std::string, std::string>>();
 
-    processes = getValue(config, "processes", cores);
-    logger_threshold = getValue(config, "logger_threshold", 1);
-    only_worker = getValue(config, "only_worker", 0);
-    enable_logger = getValue(config, "enable_logger", 1);
-    use_epoll = getValue(config, "use_epoll", 1);
-    is_daemon = getValue(config, "daemon", 0);
+    logger_threshold = getValue(config["logger"], "threshold", 1);
+    enable_logger = getValue(config["logger"], "enable", 1);
+
+    processes = getValue(config["process"], "processes", cores);
+    is_daemon = getValue(config["process"], "daemon", 0);
+    only_worker = getValue(config["process"], "only_worker", 0);
+
+    use_epoll = getValue(config["event"], "use_epoll", 1);
+    delay = getValue(config["event"], "delay", 1);
+    connections = getValue(config["event"], "connections", 1024);
 
     JsonResult servers = config["servers"];
 

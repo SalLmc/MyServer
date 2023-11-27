@@ -7,6 +7,8 @@ bool is_daemon = 0;
 bool only_worker = 0;
 bool use_epoll = 1;
 int processes = 1;
+int delay = 1;
+int connections = 1024;
 
 // runtime
 

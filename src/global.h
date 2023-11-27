@@ -14,6 +14,8 @@ extern bool is_daemon;
 extern bool only_worker;
 extern bool use_epoll;
 extern int processes;
+extern int delay;
+extern int connections;
 
 // runtime
 

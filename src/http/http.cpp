@@ -16,6 +16,7 @@ extern Server *serverPtr;
 extern HeapMemory heap;
 extern std::vector<PhaseHandler> phases;
 extern std::unordered_map<std::string, std::string> extenContentTypeMap;
+extern int connections;
 
 // std::unordered_map<std::string, std::string> extenContentTypeMap = {
 //     {"html", "text/html"},
@@ -201,12 +202,41 @@ bad:
     return NULL;
 }
 
+int acceptDelay(void *ev)
+{
+    Event *event = (Event *)ev;
+    event->timeout_ = TimeoutStatus::NOT_TIMED_OUT;
+    // use LT on listenfd
+    if (serverPtr->multiplexer_->addFd(event->c_->fd_.getFd(), EVENTS(IN), event->c_) == 0)
+    {
+        LOG_CRIT << "Listenfd add failed, errno:" << strerror(errno);
+    }
+
+    return 0;
+}
+
 int newConnection(Event *ev)
 {
 #ifdef LOOP_ACCEPT
     while (1)
     {
 #endif
+        if (ev->timeout_ == TimeoutStatus::TIMEOUT)
+        {
+            return 1;
+        }
+
+        if (cPool.activeCnt >= connections)
+        {
+            ev->timeout_ = TimeoutStatus::TIMEOUT;
+            serverPtr->timer_.add(ACCEPT_DELAY, "Accept delay", getTickMs() + delay * 1000, acceptDelay, (void *)ev);
+            if (serverPtr->multiplexer_->delFd(ev->c_->fd_.getFd()) != 1)
+            {
+                LOG_CRIT << "Del accept event failed";
+            }
+            return 1;
+        }
+
         Connection *newc = cPool.getNewConnection();
         if (newc == NULL)
         {
@@ -217,7 +247,7 @@ int newConnection(Event *ev)
         sockaddr_in *addr = &newc->addr_;
         socklen_t len = sizeof(*addr);
 
-        newc->fd_ = accept(ev->c_->fd_.getFd(), (sockaddr *)addr, &len);
+        newc->fd_ = accept4(ev->c_->fd_.getFd(), (sockaddr *)addr, &len, SOCK_NONBLOCK);
         if (newc->fd_.getFd() < 0)
         {
             LOG_WARN << "Accept from FD:" << ev->c_->fd_.getFd() << " failed, errno: " << strerror(errno);
@@ -226,8 +256,6 @@ int newConnection(Event *ev)
         }
 
         newc->serverIdx_ = ev->c_->serverIdx_;
-
-        setNonblocking(newc->fd_.getFd());
 
         newc->read_.handler_ = waitRequest;
 
@@ -240,6 +268,7 @@ int newConnection(Event *ev)
                               (void *)&newc->read_);
 
         LOG_INFO << "NEW CONNECTION FROM FD:" << ev->c_->fd_.getFd() << ", WITH FD:" << newc->fd_.getFd();
+
 #ifdef LOOP_ACCEPT
     }
 #endif

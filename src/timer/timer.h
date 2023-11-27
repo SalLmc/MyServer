@@ -3,6 +3,12 @@
 
 #include "../headers.h"
 
+enum SpecialTimer
+{
+    LOG = -1,
+    ACCEPT_DELAY = -2
+};
+
 class TimerNode
 {
   public:
@@ -29,7 +35,8 @@ class HeapTimer
 
     void adjust(int id, unsigned long long newExpireMs);
     void again(int id, unsigned long long newExpireMs);
-    void add(int id, std::string name, unsigned long long expireTimestampMs, const std::function<int(void *)> &cb, void *arg);
+    void add(int id, std::string name, unsigned long long expireTimestampMs, const std::function<int(void *)> &cb,
+             void *arg);
     void remove(int id); // remove node
     void handle(int id); // delete node && trigger its callback
     void clear();

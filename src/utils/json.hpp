@@ -1,7 +1,10 @@
 #ifndef JSON_HPP
 #define JSON_HPP
 
-#include "../headers.h"
+#include <stack>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 #define JSON_OK 0
 #define JSON_ERROR -1
@@ -279,7 +282,7 @@ int JsonParser::doParse()
              *      "a": 1,
              *      "b": 2
              * }
-            */
+             */
             // pop the token "b" when we meet '}'
             // since we only pop them when we meet ','
             if (tokens_[fatherIdx_.top()].type == JsonType::STRING)
@@ -607,6 +610,19 @@ template <typename T> T JsonResult::value(T defaultValue)
 }
 
 template <typename T> T getValue(JsonResult &json, const char *key, T defaultValue)
+{
+    try
+    {
+        T val = json[key].value(defaultValue);
+        return val;
+    }
+    catch (const std::exception &e)
+    {
+    }
+    return defaultValue;
+}
+
+template <typename T> T getValue(JsonResult &&json, const char *key, T defaultValue)
 {
     try
     {
