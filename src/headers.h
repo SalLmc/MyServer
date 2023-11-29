@@ -9,7 +9,6 @@
 #include <condition_variable>
 #include <cstring>
 #include <ctype.h>
-#include <stack>
 #include <dirent.h>
 #include <errno.h>
 #include <exception>
@@ -28,6 +27,8 @@
 #include <regex>
 #include <semaphore.h>
 #include <signal.h>
+#include <stack>
+#include <stdexcept>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>

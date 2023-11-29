@@ -1,8 +1,8 @@
 #ifndef JSON_HPP
 #define JSON_HPP
 
-#include <exception>
 #include <stack>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <vector>
