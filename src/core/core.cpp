@@ -6,7 +6,7 @@
 #include "../utils/utils_declaration.h"
 
 Server *serverPtr;
-ConnectionPool cPool;
+ConnectionPool pool;
 extern HeapMemory heap;
 
 Fd::Fd() : fd_(-1)

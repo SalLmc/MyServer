@@ -481,7 +481,7 @@ int recvFromUpstream(Event *upcEv)
 
     while (1)
     {
-        n = upc->readBuffer_.recvFd(upc->fd_.getFd(), 0);
+        n = upc->readBuffer_.bufferRecv(upc->fd_.getFd(), 0);
         if (n < 0 && errno == EAGAIN)
         {
             return AGAIN;
@@ -562,7 +562,7 @@ int send2Upstream(Event *upcEv)
 
     for (; upc->writeBuffer_.allRead() != 1;)
     {
-        ret = upc->writeBuffer_.sendFd(upc->fd_.getFd(), 0);
+        ret = upc->writeBuffer_.bufferSend(upc->fd_.getFd(), 0);
 
         if (upc->writeBuffer_.allRead())
         {
@@ -815,7 +815,7 @@ int send2Client(Event *upcEv)
 
     for (; upc->writeBuffer_.allRead() != 1;)
     {
-        ret = upc->writeBuffer_.sendFd(c->fd_.getFd(), 0);
+        ret = upc->writeBuffer_.bufferSend(c->fd_.getFd(), 0);
 
         if (upc->writeBuffer_.allRead())
         {

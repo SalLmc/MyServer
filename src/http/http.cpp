@@ -11,7 +11,7 @@
 
 #include "../memory/memory_manage.hpp"
 
-extern ConnectionPool cPool;
+extern ConnectionPool pool;
 extern Server *serverPtr;
 extern HeapMemory heap;
 extern std::vector<PhaseHandler> phases;
@@ -226,7 +226,7 @@ int newConnection(Event *ev)
             return 1;
         }
 
-        if (cPool.activeCnt >= connections)
+        if (pool.activeCnt >= connections)
         {
             ev->timeout_ = TimeoutStatus::TIMEOUT;
             serverPtr->timer_.add(ACCEPT_DELAY, "Accept delay", getTickMs() + delay * 1000, acceptDelay, (void *)ev);
@@ -237,7 +237,7 @@ int newConnection(Event *ev)
             return 1;
         }
 
-        Connection *newc = cPool.getNewConnection();
+        Connection *newc = pool.getNewConnection();
         if (newc == NULL)
         {
             LOG_WARN << "Get new connection failed, listenfd:" << ev->c_->fd_.getFd();
@@ -251,7 +251,7 @@ int newConnection(Event *ev)
         if (newc->fd_.getFd() < 0)
         {
             LOG_WARN << "Accept from FD:" << ev->c_->fd_.getFd() << " failed, errno: " << strerror(errno);
-            cPool.recoverConnection(newc);
+            pool.recoverConnection(newc);
             return 1;
         }
 
@@ -291,7 +291,7 @@ int waitRequest(Event *ev)
 
     LOG_INFO << "waitRequest recv from FD:" << c->fd_.getFd();
 
-    int len = c->readBuffer_.recvFd(c->fd_.getFd(), 0);
+    int len = c->readBuffer_.bufferRecv(c->fd_.getFd(), 0);
 
     if (len == 0)
     {
@@ -338,7 +338,7 @@ int waitRequestAgain(Event *ev)
 
     LOG_INFO << "keepAlive recv from FD:" << c->fd_.getFd();
 
-    int len = c->readBuffer_.recvFd(c->fd_.getFd(), 0);
+    int len = c->readBuffer_.bufferRecv(c->fd_.getFd(), 0);
 
     if (len == 0)
     {
@@ -390,7 +390,7 @@ int processRequestLine(Event *ev)
         {
             // the request line has been parsed successfully
             if (r->requestEnd_ < r->requestStart_ ||
-                r->requestEnd_ > r->requestStart_ + r->c_->readBuffer_.now_->getSize())
+                r->requestEnd_ > r->requestStart_ + r->c_->readBuffer_.pivot_->getSize())
             {
                 LOG_WARN << "request line too long";
                 finalizeRequest(r);
@@ -441,11 +441,11 @@ int processRequestLine(Event *ev)
             break;
         }
 
-        if (r->c_->readBuffer_.now_->pos_ == r->c_->readBuffer_.now_->len_)
+        if (r->c_->readBuffer_.pivot_->pos_ == r->c_->readBuffer_.pivot_->len_)
         {
-            if (r->c_->readBuffer_.now_->next_)
+            if (r->c_->readBuffer_.pivot_->next_)
             {
-                r->c_->readBuffer_.now_ = r->c_->readBuffer_.now_->next_;
+                r->c_->readBuffer_.pivot_ = r->c_->readBuffer_.pivot_->next_;
             }
         }
     }
@@ -536,11 +536,11 @@ int processRequestHeaders(Event *ev)
     {
         if (rc == AGAIN)
         {
-            if (r->c_->readBuffer_.now_->pos_ == r->c_->readBuffer_.now_->len_)
+            if (r->c_->readBuffer_.pivot_->pos_ == r->c_->readBuffer_.pivot_->len_)
             {
-                if (r->c_->readBuffer_.now_->next_)
+                if (r->c_->readBuffer_.pivot_->next_)
                 {
-                    r->c_->readBuffer_.now_ = r->c_->readBuffer_.now_->next_;
+                    r->c_->readBuffer_.pivot_ = r->c_->readBuffer_.pivot_->next_;
                 }
             }
 
@@ -646,7 +646,7 @@ int readRequest(std::shared_ptr<Request> r)
         return 1;
     }
 
-    n = c->readBuffer_.recvFd(c->fd_.getFd(), 0);
+    n = c->readBuffer_.bufferRecv(c->fd_.getFd(), 0);
 
     if (n < 0)
     {
@@ -923,7 +923,7 @@ int writeResponse(Event *ev)
 
     if (buffer.allRead() != 1)
     {
-        int len = buffer.sendFd(ev->c_->fd_.getFd(), 0);
+        int len = buffer.bufferSend(ev->c_->fd_.getFd(), 0);
 
         if (len < 0 && errno != EAGAIN)
         {
@@ -1006,11 +1006,11 @@ int processBodyLength(std::shared_ptr<Request> r)
 
     while (buffer.allRead() != 1)
     {
-        int rlen = buffer.now_->len_ - buffer.now_->pos_;
+        int rlen = buffer.pivot_->len_ - buffer.pivot_->pos_;
         if (rlen <= rb.left_)
         {
             rb.left_ -= rlen;
-            rb.listBody_.emplace_back(buffer.now_->start_ + buffer.now_->pos_, rlen);
+            rb.listBody_.emplace_back(buffer.pivot_->start_ + buffer.pivot_->pos_, rlen);
             buffer.retrieve(rlen);
         }
         else
@@ -1019,11 +1019,11 @@ int processBodyLength(std::shared_ptr<Request> r)
             return ERROR;
         }
 
-        if (buffer.now_->pos_ == buffer.now_->len_)
+        if (buffer.pivot_->pos_ == buffer.pivot_->len_)
         {
-            if (buffer.now_->next_ != NULL)
+            if (buffer.pivot_->next_ != NULL)
             {
-                buffer.now_ = buffer.now_->next_;
+                buffer.pivot_ = buffer.pivot_->next_;
             }
         }
     }
@@ -1069,11 +1069,11 @@ int processBodyChunked(std::shared_ptr<Request> r)
 
         if (ret == AGAIN)
         {
-            if (buffer.now_->pos_ == buffer.now_->len_)
+            if (buffer.pivot_->pos_ == buffer.pivot_->len_)
             {
-                if (buffer.now_->next_ != NULL)
+                if (buffer.pivot_->next_ != NULL)
                 {
-                    buffer.now_ = buffer.now_->next_;
+                    buffer.pivot_ = buffer.pivot_->next_;
                     // since there are still data left, keep parsing
                     continue;
                 }
@@ -1148,7 +1148,7 @@ int readRequestBodyInner(Event *ev)
             break;
         }
 
-        int ret = buffer.recvFd(c->fd_.getFd(), 0);
+        int ret = buffer.bufferRecv(c->fd_.getFd(), 0);
 
         if (ret == 0)
         {

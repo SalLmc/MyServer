@@ -283,8 +283,8 @@ int JsonParser::doParse()
              *      "b": 2
              * }
              */
-            // pop the token "b" when we meet '}'
-            // since we only pop them when we meet ','
+            // need to pop the token "b" when we meet '}', since we only pop them when we meet ','
+            // so that we can obtain the right superior token later
             if (tokens_[fatherIdx_.top()].type == JsonType::STRING)
             {
                 fatherIdx_.pop();
@@ -294,7 +294,7 @@ int JsonParser::doParse()
                 }
             }
 
-            // get the token of current object
+            // get the superior token of current object
             token = &tokens_[fatherIdx_.top()];
             fatherIdx_.pop();
 
@@ -336,9 +336,8 @@ int JsonParser::doParse()
 
         case ',':
 
-            // fatherToken can be: ARRAY, STRING
-            if (!fatherIdx_.empty() && tokens_[fatherIdx_.top()].type != JsonType::ARRAY &&
-                tokens_[fatherIdx_.top()].type != JsonType::OBJECT)
+            // fatherToken might be: ARRAY, STRING when meets ','
+            if (!fatherIdx_.empty() && tokens_[fatherIdx_.top()].type == JsonType::STRING)
             {
                 // pop when father is a STRING like "a"(check below)
                 /**

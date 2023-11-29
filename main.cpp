@@ -10,7 +10,7 @@
 
 #include "src/utils/json.hpp"
 
-extern ConnectionPool cPool;
+extern ConnectionPool pool;
 extern Server *serverPtr;
 extern SharedMemory shmForAMtx;
 extern ProcessMutex acceptMutex;
@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
     //     }
     // }
 
-    std::unique_ptr<Server> server(new Server(&cPool, new Logger("log/", "startup")));
+    std::unique_ptr<Server> server(new Server(&pool, new Logger("log/", "startup")));
     serverPtr = server.get();
 
     if (getOption(argc, argv, &mp) == ERROR)
