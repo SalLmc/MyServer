@@ -15,7 +15,7 @@ u_char extenSave[16];
 
 int testPhaseHandler(std::shared_ptr<Request> r)
 {
-    r->outInfo_.resCode_ = ResponseCode::HTTP_OK;
+    r->outInfo_.resCode_ = HTTP_OK;
     r->outInfo_.statusLine_ = getStatusLineByCode(r->outInfo_.resCode_);
     r->outInfo_.resType_ = ResponseType::STRING;
 
@@ -150,7 +150,7 @@ int authAccessHandler(std::shared_ptr<Request> r)
         return PHASE_CONTINUE;
     }
 
-    setErrorResponse(r, ResponseCode::HTTP_UNAUTHORIZED);
+    setErrorResponse(r, HTTP_UNAUTHORIZED);
 
     return doResponse(r);
 }
@@ -176,7 +176,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
     // method check
     if (r->method_ != Method::GET)
     {
-        setErrorResponse(r, ResponseCode::HTTP_FORBIDDEN);
+        setErrorResponse(r, HTTP_FORBIDDEN);
         return doResponse(r);
     }
 
@@ -188,7 +188,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
         if (open(server.root_.c_str(), O_RDONLY) < 0)
         {
             LOG_WARN << "can't open server root location";
-            setErrorResponse(r, ResponseCode::HTTP_INTERNAL_SERVER_ERROR);
+            setErrorResponse(r, HTTP_INTERNAL_SERVER_ERROR);
             return doResponse(r);
         }
         goto send404;
@@ -278,7 +278,7 @@ fileok:
             std::string browser_etag = r->inInfo_.headerNameValueMap_["if-none-match"].value_;
             if (matchEtag(fd.getFd(), browser_etag))
             {
-                r->outInfo_.resCode_ = ResponseCode::HTTP_NOT_MODIFIED;
+                r->outInfo_.resCode_ = HTTP_NOT_MODIFIED;
                 r->outInfo_.statusLine_ = getStatusLineByCode(r->outInfo_.resCode_);
                 r->outInfo_.resType_ = ResponseType::EMPTY;
                 r->outInfo_.headers_.emplace_back("Etag", std::move(browser_etag));
@@ -286,7 +286,7 @@ fileok:
             }
         }
 
-        r->outInfo_.resCode_ = ResponseCode::HTTP_OK;
+        r->outInfo_.resCode_ = HTTP_OK;
         r->outInfo_.statusLine_ = getStatusLineByCode(r->outInfo_.resCode_);
         r->outInfo_.resType_ = ResponseType::FILE;
 
@@ -304,7 +304,7 @@ autoindex:
     if (server.auto_index_ == 0)
     {
     send404:
-        setErrorResponse(r, ResponseCode::HTTP_NOT_FOUND);
+        setErrorResponse(r, HTTP_NOT_FOUND);
         return doResponse(r);
     }
     else
@@ -312,12 +312,12 @@ autoindex:
         // access a directory but uri doesn't end with '/'
         if (uri.back() != '/')
         {
-            setErrorResponse(r, ResponseCode::HTTP_MOVED_PERMANENTLY);
+            setErrorResponse(r, HTTP_MOVED_PERMANENTLY);
             r->outInfo_.headers_.emplace_back("Location", uri + "/");
             return doResponse(r);
         }
 
-        r->outInfo_.resCode_ = ResponseCode::HTTP_OK;
+        r->outInfo_.resCode_ = HTTP_OK;
         r->outInfo_.statusLine_ = getStatusLineByCode(r->outInfo_.resCode_);
         r->outInfo_.resType_ = ResponseType::AUTO_INDEX;
         return PHASE_NEXT;
@@ -691,7 +691,7 @@ int autoIndexHandler(std::shared_ptr<Request> r)
     // can't open dir
     if (directory.dir_ == NULL)
     {
-        setErrorResponse(r, ResponseCode::HTTP_INTERNAL_SERVER_ERROR);
+        setErrorResponse(r, HTTP_INTERNAL_SERVER_ERROR);
         return doResponse(r);
     }
 

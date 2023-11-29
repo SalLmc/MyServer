@@ -1389,28 +1389,28 @@ HttpCode getByCode(ResponseCode code)
     HttpCode ans;
     switch (code)
     {
-    case ResponseCode::HTTP_OK:
-        ans = httpCodeMap[200];
+    case HTTP_OK:
+        ans = httpCodeMap[code];
         break;
-    case ResponseCode::HTTP_NOT_MODIFIED:
-        ans = httpCodeMap[304];
+    case HTTP_MOVED_PERMANENTLY:
+        ans = httpCodeMap[code];
         break;
-    case ResponseCode::HTTP_UNAUTHORIZED:
-        ans = httpCodeMap[401];
+    case HTTP_NOT_MODIFIED:
+        ans = httpCodeMap[code];
         break;
-    case ResponseCode::HTTP_FORBIDDEN:
-        ans = httpCodeMap[403];
+    case HTTP_UNAUTHORIZED:
+        ans = httpCodeMap[code];
         break;
-    case ResponseCode::HTTP_NOT_FOUND:
-        ans = httpCodeMap[404];
+    case HTTP_FORBIDDEN:
+        ans = httpCodeMap[code];
         break;
-    case ResponseCode::HTTP_MOVED_PERMANENTLY:
-        ans = httpCodeMap[301];
+    case HTTP_NOT_FOUND:
+        ans = httpCodeMap[code];
         break;
-    case ResponseCode::HTTP_INTERNAL_SERVER_ERROR:
+    case HTTP_INTERNAL_SERVER_ERROR:
         // fall through
     default:
-        ans = httpCodeMap[500];
+        ans = httpCodeMap[HTTP_INTERNAL_SERVER_ERROR];
         break;
     }
 

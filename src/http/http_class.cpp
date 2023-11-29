@@ -59,7 +59,7 @@ void Request::init()
     outInfo_.headerNameValueMap_.clear();
     outInfo_.contentLength_ = 0;
     outInfo_.isChunked_ = 0;
-    outInfo_.resCode_ = ResponseCode::HTTP_OK;
+    outInfo_.resCode_ = HTTP_OK;
     outInfo_.statusLine_.clear();
     outInfo_.strBody_.clear();
     outInfo_.fileBody_.filefd_.closeFd();
