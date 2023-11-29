@@ -202,6 +202,7 @@ void Server::eventLoop()
     nextTick = ((nextTick == (unsigned long long)-1) ? -1 : (nextTick - getTickMs()));
 
     int ret = multiplexer_->processEvents(flags, nextTick);
+
     if (ret == -1)
     {
         LOG_WARN << "process events errno: " << strerror(errno);

@@ -1348,7 +1348,7 @@ std::string getEtag(int fd)
     return etag;
 }
 
-bool matchEtag(int fd, std::string b_etag)
+bool etagMatched(int fd, std::string b_etag)
 {
     if (fd < 0)
         return 0;

@@ -184,6 +184,6 @@ void HeapTimer::printActiveTimer()
 {
     for (auto &x : heap_)
     {
-        printf("id: %d, name:%s\n", x.id_, x.name_.c_str());
+        printf("id:%d, name:%s\n", x.id_, x.name_.c_str());
     }
 }

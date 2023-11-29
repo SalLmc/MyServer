@@ -349,7 +349,7 @@ int finalizeConnection(Connection *c);
 
 // others
 std::string getEtag(int fd);
-bool matchEtag(int fd, std::string browserEtag);
+bool etagMatched(int fd, std::string browserEtag);
 int blockReading(Event *ev);
 int blockWriting(Event *ev);
 std::string getContentType(std::string exten, Charset charset);

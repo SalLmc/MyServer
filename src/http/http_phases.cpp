@@ -276,7 +276,7 @@ fileok:
         if (r->inInfo_.headerNameValueMap_.count("if-none-match"))
         {
             std::string browser_etag = r->inInfo_.headerNameValueMap_["if-none-match"].value_;
-            if (matchEtag(fd.getFd(), browser_etag))
+            if (etagMatched(fd.getFd(), browser_etag))
             {
                 r->outInfo_.resCode_ = HTTP_NOT_MODIFIED;
                 r->outInfo_.statusLine_ = getStatusLineByCode(r->outInfo_.resCode_);
