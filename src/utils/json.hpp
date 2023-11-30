@@ -7,11 +7,6 @@
 #include <unordered_map>
 #include <vector>
 
-#define JSON_OK 0
-#define JSON_ERROR -1
-#define JSON_INVALID -2
-#define JSON_INCOMPLETE -3
-
 enum class JsonType
 {
     UNDEFINED,
@@ -23,18 +18,25 @@ enum class JsonType
 
 struct Token
 {
-    std::string toString(const char *json)
+
+    Token(JsonType type, int start, int end, int size, int idx)
+        : type(type), start(start), end(end), size(size), idx(idx)
     {
-        return std::string(json + start, json + end);
     }
     JsonType type;
     int start;
     int end;
     int size;
-
     // used in extract value
     int idx;
+
+    std::string toString(const char *json);
 };
+
+std::string Token::toString(const char *json)
+{
+    return std::string(json + start, json + end);
+}
 
 class JsonResult
 {
@@ -78,19 +80,18 @@ class JsonParser
     JsonResult parse();
 
   private:
-    Token *allocToken();
-    void setToken(Token *token, const JsonType type, const int start, const int end);
-    int parsePrimitive();
-    int parseString();
+    Token *getToken();
+    void parsePrimitive();
+    void parseString();
     // @return real size of tokens
-    int doParse();
+    void parse0();
 
     const char *json_;
     int len_;
 
     int pos_;
 
-    std::stack<int> fatherIdx_;
+    std::stack<int> layerIdxStack_;
 
     std::vector<Token> tokens_;
 };
@@ -100,25 +101,15 @@ int JsonResult::size()
     return now_->size;
 }
 
-Token *JsonParser::allocToken()
+Token *JsonParser::getToken()
 {
-    tokens_.emplace_back();
+    tokens_.emplace_back(JsonType::UNDEFINED, -1, -1, 0, tokens_.size());
     Token *tok = &tokens_.back();
-    tok->idx = tokens_.size() - 1;
-    tok->start = tok->end = -1;
-    tok->size = 0;
     return tok;
 }
 
-void JsonParser::setToken(Token *token, const JsonType type, const int start, const int end)
-{
-    token->type = type;
-    token->start = start;
-    token->end = end;
-    token->size = 0;
-}
-
-int JsonParser::parsePrimitive()
+// pos_ points to the last char of this primitive object
+void JsonParser::parsePrimitive()
 {
     Token *token;
     int start = pos_;
@@ -134,35 +125,32 @@ int JsonParser::parsePrimitive()
         case ',':
         case ']':
         case '}':
-            goto found;
+            goto end;
         default:
             break;
         }
 
         if (json_[pos_] < 32 || json_[pos_] >= 127)
         {
-            pos_ = start;
-            return JSON_INVALID;
+            throw std::runtime_error("invalid char");
         }
     }
 
-found:
+end:
 
-    token = allocToken();
+    token = getToken();
 
-    if (token == NULL)
-    {
-        pos_ = start;
-        return JSON_ERROR;
-    }
+    token->type = JsonType::PRIMITIVE;
+    token->start = start;
+    token->end = pos_;
 
-    setToken(token, JsonType::PRIMITIVE, start, pos_);
     pos_--;
 
-    return JSON_OK;
+    return;
 }
 
-int JsonParser::parseString()
+// pos_ points to the second quote of this string
+void JsonParser::parseString()
 {
     Token *token;
 
@@ -176,17 +164,13 @@ int JsonParser::parseString()
 
         if (c == '\"')
         {
-            token = allocToken();
+            token = getToken();
 
-            if (token == NULL)
-            {
-                pos_ = start;
-                return JSON_ERROR;
-            }
+            token->type = JsonType::STRING;
+            token->start = start + 1;
+            token->end = pos_;
 
-            setToken(token, JsonType::STRING, start + 1, pos_);
-
-            return JSON_OK;
+            return;
         }
 
         // handle escape characters
@@ -204,36 +188,20 @@ int JsonParser::parseString()
             case 'n':
             case 't':
                 break;
-            // handle things like '\uXXXX'
+
             case 'u':
-                pos_++;
-                for (int i = 0; i < 4 && pos_ < len_ && json_[pos_] != '\0'; i++)
-                {
-                    if (!((json_[pos_] >= 48 && json_[pos_] <= 57) || (json_[pos_] >= 65 && json_[pos_] <= 70) ||
-                          (json_[pos_] >= 97 && json_[pos_] <= 102)))
-                    {
-                        pos_ = start;
-                        return JSON_INVALID;
-                    }
-                    pos_++;
-                }
-                pos_--;
-                break;
+                // fall through
             default:
-                pos_ = start;
-                return JSON_INVALID;
+                throw std::runtime_error("doesn't support");
             }
         }
     }
 
-    pos_ = start;
-
-    return JSON_INCOMPLETE;
+    throw std::runtime_error("incomplete string");
 }
 
-int JsonParser::doParse()
+void JsonParser::parse0()
 {
-    int i, rc;
     JsonType type;
     Token *token;
 
@@ -246,25 +214,20 @@ int JsonParser::doParse()
         case '{':
         case '[':
 
-            token = allocToken();
-
-            if (token == NULL)
-            {
-                return JSON_ERROR;
-            }
+            token = getToken();
 
             token->type = (c == '{' ? JsonType::OBJECT : JsonType::ARRAY);
             token->start = pos_;
 
             // belongs to an object
-            if (!fatherIdx_.empty())
+            if (!layerIdxStack_.empty())
             {
-                Token *tok = &tokens_[fatherIdx_.top()];
+                Token *tok = &tokens_[layerIdxStack_.top()];
                 tok->size++;
             }
 
             // push current token. Since we need to connect attributes of this object to this token
-            fatherIdx_.push(tokens_.size() - 1);
+            layerIdxStack_.push(tokens_.size() - 1);
 
             break;
 
@@ -273,9 +236,9 @@ int JsonParser::doParse()
 
             type = (c == '}' ? JsonType::OBJECT : JsonType::ARRAY);
 
-            if (fatherIdx_.empty())
+            if (layerIdxStack_.empty())
             {
-                return JSON_INVALID;
+                throw std::runtime_error("misses '[' or '{' ");
             }
 
             /**
@@ -286,22 +249,22 @@ int JsonParser::doParse()
              */
             // need to pop the token "b" when we meet '}', since we only pop them when we meet ','
             // so that we can obtain the right superior token later
-            if (tokens_[fatherIdx_.top()].type == JsonType::STRING)
+            if (tokens_[layerIdxStack_.top()].type == JsonType::STRING)
             {
-                fatherIdx_.pop();
-                if (fatherIdx_.empty())
+                layerIdxStack_.pop();
+                if (layerIdxStack_.empty())
                 {
-                    return JSON_INVALID;
+                    throw std::runtime_error("misses '[' or '{' ");
                 }
             }
 
             // get the superior token of current object
-            token = &tokens_[fatherIdx_.top()];
-            fatherIdx_.pop();
+            token = &tokens_[layerIdxStack_.top()];
+            layerIdxStack_.pop();
 
             if (token->type != type)
             {
-                return JSON_INVALID;
+                throw std::runtime_error("brackets missing or mismatched");
             }
 
             token->end = pos_ + 1;
@@ -310,15 +273,11 @@ int JsonParser::doParse()
 
         case '\"':
 
-            rc = parseString();
-            if (rc < 0)
-            {
-                return rc;
-            }
+            parseString();
 
-            if (!fatherIdx_.empty())
+            if (!layerIdxStack_.empty())
             {
-                Token *tok = &tokens_[fatherIdx_.top()];
+                Token *tok = &tokens_[layerIdxStack_.top()];
                 tok->size++;
             }
 
@@ -332,13 +291,13 @@ int JsonParser::doParse()
 
         case ':':
 
-            fatherIdx_.push(tokens_.size() - 1);
+            layerIdxStack_.push(tokens_.size() - 1);
             break;
 
         case ',':
 
             // fatherToken might be: ARRAY, STRING when meets ','
-            if (!fatherIdx_.empty() && tokens_[fatherIdx_.top()].type == JsonType::STRING)
+            if (!layerIdxStack_.empty() && tokens_[layerIdxStack_.top()].type == JsonType::STRING)
             {
                 // pop when father is a STRING like "a"(check below)
                 /**
@@ -347,21 +306,17 @@ int JsonParser::doParse()
                  *      "b": 1
                  * }
                  */
-                fatherIdx_.pop();
+                layerIdxStack_.pop();
             }
             break;
 
         default:
 
-            rc = parsePrimitive();
-            if (rc < 0)
-            {
-                return rc;
-            }
+            parsePrimitive();
 
-            if (!fatherIdx_.empty())
+            if (!layerIdxStack_.empty())
             {
-                Token *tok = &tokens_[fatherIdx_.top()];
+                Token *tok = &tokens_[layerIdxStack_.top()];
                 tok->size++;
             }
 
@@ -370,24 +325,20 @@ int JsonParser::doParse()
     }
 
     // check whether all tokens have been fully parsed
-    for (i = tokens_.size() - 1; i >= 0; i--)
+    for (int i = tokens_.size() - 1; i >= 0; i--)
     {
         if (tokens_[i].start != -1 && tokens_[i].end == -1)
         {
-            return JSON_INCOMPLETE;
+            throw std::runtime_error("incomplete json");
         }
     }
 
-    return JSON_OK;
+    return;
 }
 
 JsonResult JsonParser::parse()
 {
-    int rc = doParse();
-    if (rc < 0)
-    {
-        throw std::runtime_error("parse failed");
-    }
+    parse0();
 
     return JsonResult(json_, len_, &tokens_);
 }
