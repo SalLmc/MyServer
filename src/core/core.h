@@ -25,7 +25,7 @@ class Request;
 
 enum class TimeoutStatus
 {
-    NOT_TIMEOUT,
+    NOT_TIMED_OUT,
     TIMEOUT,
     IGNORE
 };
@@ -103,6 +103,7 @@ class ConnectionPool
     ~ConnectionPool();
     Connection *getNewConnection();
     void recoverConnection(Connection *c);
+    int activeCnt;
 
   private:
     std::list<Connection *> connectionList_;
@@ -208,6 +209,17 @@ class Dir
     dirent *de_;
     struct stat info_;
     std::vector<FileInfo> infos_;
+};
+
+class MemFile
+{
+  public:
+    MemFile() = delete;
+    MemFile(int fd);
+    ~MemFile();
+    int fd_;
+    const char *addr_;
+    size_t len_;
 };
 
 #endif

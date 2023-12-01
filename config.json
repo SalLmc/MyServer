@@ -1,10 +1,18 @@
 {
-    "logger_threshold": 1,
-    "enable_logger": 1,
-    "daemon": 0,
-    "only_worker": 0,
-    "use_epoll": 0,
-    "processes": 1,
+    "logger": {
+        "enable": 0,
+        "threshold": 1
+    },
+    "process": {
+        "daemon": 0,
+        "only_worker": 0,
+        "processes": 1
+    },
+    "event": {
+        "use_epoll": 0,
+        "connections": 1024,
+        "delay": 1
+    },
     "servers": [
         {
             "port": 8000,

@@ -88,16 +88,16 @@ class LinkedBuffer
     void init();
 
     std::list<LinkedBufferNode> nodes_;
-    LinkedBufferNode *now_;
-    std::unordered_map<uint64_t, LinkedBufferNode *> memoryMap;
+    LinkedBufferNode *pivot_;
+    std::unordered_map<uint64_t, LinkedBufferNode *> memoryMap_;
 
     void appendNewNode();
     std::list<LinkedBufferNode>::iterator insertNewNode(std::list<LinkedBufferNode>::iterator iter);
     LinkedBufferNode *getNodeByAddr(uint64_t addr);
     bool allRead();
-    ssize_t recvFdOnce(int fd, int flags);
-    ssize_t recvFd(int fd, int flags);
-    ssize_t sendFd(int fd, int flags);
+    ssize_t recvOnce(int fd, int flags);
+    ssize_t bufferRecv(int fd, int flags);
+    ssize_t bufferSend(int fd, int flags);
     void append(const u_char *data, size_t len);
     void append(const char *data, size_t len);
     void append(const std::string &str);

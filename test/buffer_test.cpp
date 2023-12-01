@@ -7,7 +7,7 @@ int main()
     LinkedBuffer buffer;
     buffer.append("123456789");
 
-    for (auto &x : buffer.memoryMap)
+    for (auto &x : buffer.memoryMap_)
     {
         printf("%ld, %ld\n", x.first, (uint64_t)x.second->start_);
     }
@@ -43,7 +43,7 @@ int main()
 
     auto iter = buffer.nodes_.begin();
     printf("%s\n", iter->toString().c_str());
-    auto thisIter = buffer.insertNewNode(iter);
+    buffer.insertNewNode(iter);
     printf("%s\n", iter->toString().c_str());
     iter++;
 

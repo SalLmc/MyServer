@@ -38,7 +38,7 @@ void Buffer::retrieveUntil(const char *end)
 }
 void Buffer::retrieveAll()
 {
-    bzero(&buffer_[0], buffer_.size());
+    memset(&buffer_[0], 0, buffer_.size());
     readPos_ = 0;
     writePos_ = 0;
 }
@@ -284,15 +284,15 @@ size_t LinkedBufferNode::append(const char *data, size_t len)
 LinkedBuffer::LinkedBuffer()
 {
     appendNewNode();
-    now_ = &nodes_.front();
+    pivot_ = &nodes_.front();
 }
 
 void LinkedBuffer::init()
 {
-    memoryMap.clear();
+    memoryMap_.clear();
     nodes_.clear();
     appendNewNode();
-    now_ = &nodes_.front();
+    pivot_ = &nodes_.front();
 }
 
 void LinkedBuffer::appendNewNode()
@@ -305,7 +305,7 @@ void LinkedBuffer::appendNewNode()
         nodes_.emplace_back();
         auto now = &nodes_.back();
         uint64_t start = (uint64_t)now->start_;
-        memoryMap.insert({start, now});
+        memoryMap_.insert({start, now});
 
         lastBack->next_ = now;
         now->prev_ = lastBack;
@@ -315,7 +315,7 @@ void LinkedBuffer::appendNewNode()
         nodes_.emplace_back();
         auto now = &nodes_.back();
         uint64_t start = (uint64_t)now->start_;
-        memoryMap.insert({start, now});
+        memoryMap_.insert({start, now});
     }
 }
 
@@ -329,7 +329,7 @@ std::list<LinkedBufferNode>::iterator LinkedBuffer::insertNewNode(std::list<Link
         newNode.next_ = &(*iter);
         iter->prev_ = &newNode;
 
-        memoryMap.insert({(uint64_t)newNode.start_, &newNode});
+        memoryMap_.insert({(uint64_t)newNode.start_, &newNode});
 
         return nodes_.begin();
     }
@@ -341,7 +341,7 @@ std::list<LinkedBufferNode>::iterator LinkedBuffer::insertNewNode(std::list<Link
         newNode.prev_ = &(*lastNode);
         lastNode->next_ = &newNode;
 
-        memoryMap.insert({(uint64_t)newNode.start_, &newNode});
+        memoryMap_.insert({(uint64_t)newNode.start_, &newNode});
 
         return std::prev(nodes_.end());
     }
@@ -354,7 +354,7 @@ std::list<LinkedBufferNode>::iterator LinkedBuffer::insertNewNode(std::list<Link
         prevNode->next_ = &(*newNode);
         iter->prev_ = &(*newNode);
 
-        memoryMap.insert({(uint64_t)newNode->start_, &(*newNode)});
+        memoryMap_.insert({(uint64_t)newNode->start_, &(*newNode)});
 
         return newNode;
     }
@@ -363,9 +363,9 @@ std::list<LinkedBufferNode>::iterator LinkedBuffer::insertNewNode(std::list<Link
 LinkedBufferNode *LinkedBuffer::getNodeByAddr(uint64_t addr)
 {
     uint64_t startAddr = addr & (~(LinkedBufferNode::NODE_SIZE - 1));
-    if (memoryMap.count(startAddr))
+    if (memoryMap_.count(startAddr))
     {
-        return memoryMap[startAddr];
+        return memoryMap_[startAddr];
     }
     return NULL;
 }
@@ -377,7 +377,7 @@ bool LinkedBuffer::allRead()
 }
 
 // only recv once
-ssize_t LinkedBuffer::recvFdOnce(int fd, int flags)
+ssize_t LinkedBuffer::recvOnce(int fd, int flags)
 {
     auto &nowr = nodes_.back();
 
@@ -396,7 +396,7 @@ ssize_t LinkedBuffer::recvFdOnce(int fd, int flags)
     return n;
 }
 
-ssize_t LinkedBuffer::recvFd(int fd, int flags)
+ssize_t LinkedBuffer::bufferRecv(int fd, int flags)
 {
     ssize_t len = 0;
     int n = 0;
@@ -405,7 +405,7 @@ ssize_t LinkedBuffer::recvFd(int fd, int flags)
         // auto &nowr = nodes.back();
         // n = recv(fd, nowr.start + nowr.len, nowr.writableBytes(), flags);
 
-        n = recvFdOnce(fd, flags);
+        n = recvOnce(fd, flags);
 
         if (n <= 0)
         {
@@ -421,23 +421,23 @@ ssize_t LinkedBuffer::recvFd(int fd, int flags)
 }
 
 // only send once. check allread to know whether data left
-ssize_t LinkedBuffer::sendFd(int fd, int flags)
+ssize_t LinkedBuffer::bufferSend(int fd, int flags)
 {
-    int n = send(fd, now_->start_ + now_->pos_, now_->len_ - now_->pos_, flags);
+    int n = send(fd, pivot_->start_ + pivot_->pos_, pivot_->len_ - pivot_->pos_, flags);
     if (n < 0)
     {
     }
     else if (n > 0)
     {
-        now_->pos_ += n;
-        if (now_->readableBytes() == 0)
+        pivot_->pos_ += n;
+        if (pivot_->readableBytes() == 0)
         {
-            if (now_->next_ == NULL)
+            if (pivot_->next_ == NULL)
             {
             }
             else
             {
-                now_ = now_->next_;
+                pivot_ = pivot_->next_;
             }
         }
     }
@@ -492,21 +492,21 @@ void LinkedBuffer::retrieve(size_t len)
 {
     while (len > 0 && allRead() != 1)
     {
-        if (len <= now_->readableBytes()) // last node
+        if (len <= pivot_->readableBytes()) // last node
         {
-            now_->pos_ += len;
+            pivot_->pos_ += len;
             len = 0;
         }
         else
         {
-            len -= now_->readableBytes();
-            now_->pos_ = now_->len_;
-            if (now_->next_ == NULL)
+            len -= pivot_->readableBytes();
+            pivot_->pos_ = pivot_->len_;
+            if (pivot_->next_ == NULL)
             {
             }
             else
             {
-                now_ = now_->next_;
+                pivot_ = pivot_->next_;
             }
         }
     }
@@ -517,10 +517,10 @@ void LinkedBuffer::retrieveAll()
 {
     while (allRead() != 1)
     {
-        now_->pos_ = now_->len_;
-        if (now_->next_)
+        pivot_->pos_ = pivot_->len_;
+        if (pivot_->next_)
         {
-            now_ = now_->next_;
+            pivot_ = pivot_->next_;
         }
     }
     return;

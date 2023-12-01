@@ -14,6 +14,7 @@ Poller::~Poller()
 {
 }
 
+// ctx is Connection*
 bool Poller::addFd(int fd, EVENTS events, void *ctx)
 {
     pollfd now = {fd, events2poll(events), 0};

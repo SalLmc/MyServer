@@ -184,7 +184,7 @@ void workerProcessCycle(Server *server)
     // timer
     if (enable_logger)
     {
-        server->timer_.add(-1, "logger timer", getTickMs() + 3000, logging, (void *)3000);
+        server->timer_.add(LOG, "logger timer", getTickMs() + 3000, logging, (void *)3000);
     }
 
     LOG_INFO << "Worker Looping";

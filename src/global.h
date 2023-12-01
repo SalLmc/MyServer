@@ -1,4 +1,3 @@
-
 #ifndef GLOBAL_H
 #define GLOBAL_H
 
@@ -15,10 +14,12 @@ extern bool is_daemon;
 extern bool only_worker;
 extern bool use_epoll;
 extern int processes;
+extern int delay;
+extern int connections;
 
 // runtime
 
-extern long cores;
+extern int cores;
 extern bool isChild;
 extern bool quit;
 extern int slot;

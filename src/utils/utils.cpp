@@ -34,12 +34,6 @@ int getOption(int argc, char *argv[], std::unordered_map<std::string, std::strin
         now++;
         switch (*now)
         {
-        case 'p':
-            i++;
-            if (!argv[i])
-                goto failed;
-            mp->insert(std::make_pair<std::string, std::string>("port", std::string(argv[i])));
-            break;
         case 's':
             i++;
             if (!argv[i])

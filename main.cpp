@@ -10,11 +10,11 @@
 
 #include "src/utils/json.hpp"
 
-extern ConnectionPool cPool;
+extern ConnectionPool pool;
 extern Server *serverPtr;
 extern SharedMemory shmForAMtx;
 extern ProcessMutex acceptMutex;
-extern long cores;
+extern int cores;
 
 std::unordered_map<std::string, std::string> mp;
 std::unordered_map<std::string, std::string> extenContentTypeMap;
@@ -28,20 +28,7 @@ int main(int argc, char *argv[])
 
     cores = std::max(1U, std::thread::hardware_concurrency());
 
-    // system("cat /proc/cpuinfo | grep cores | uniq | awk '{print $NF'} > cores");
-    // {
-    //     int num = readNumberFromFile<int>("cores");
-    //     if (num != -1)
-    //     {
-    //         cores = num;
-    //     }
-    //     else
-    //     {
-    //         cores = 1;
-    //     }
-    // }
-
-    std::unique_ptr<Server> server(new Server(&cPool, new Logger("log/", "startup")));
+    std::unique_ptr<Server> server(new Server(&pool, new Logger("log/", "startup")));
     serverPtr = server.get();
 
     if (getOption(argc, argv, &mp) == ERROR)
@@ -95,7 +82,7 @@ int main(int argc, char *argv[])
     }
 
     // server init
-    
+
     init();
 
     if (is_daemon)
@@ -135,19 +122,7 @@ int main(int argc, char *argv[])
     masterProcessCycle(serverPtr);
 }
 
-template <class T> T getValue(const nlohmann::json &json, const std::string &key, T defaultValue)
-{
-    if (json.contains(key))
-    {
-        return json[key];
-    }
-    else
-    {
-        return defaultValue;
-    }
-}
-
-ServerAttribute getServer(nlohmann::json config)
+ServerAttribute getServer(JsonResult config)
 {
     ServerAttribute server;
     server.port_ = getValue(config, "port", 80);
@@ -167,27 +142,35 @@ ServerAttribute getServer(nlohmann::json config)
 
 void init()
 {
-    std::ifstream typesStream("types.json");
-    nlohmann::json types = nlohmann::json::parse(typesStream);
-    extenContentTypeMap = types.get<std::unordered_map<std::string, std::string>>();
+    MemFile typesFile(open("types.json", O_RDONLY));
+    MemFile configFile(open("config.json", O_RDONLY));
 
-    std::ifstream configStream("config.json");
-    nlohmann::json config = nlohmann::json::parse(configStream);
+    JsonParser typesParser(typesFile.addr_, typesFile.len_);
+    JsonParser configParser(configFile.addr_, configFile.len_);
 
-    processes = getValue(config, "processes", cores);
-    logger_threshold = getValue(config, "logger_threshold", 1);
-    only_worker = getValue(config, "only_worker", 0);
-    enable_logger = getValue(config, "enable_logger", 1);
-    use_epoll = getValue(config, "use_epoll", 1);
+    JsonResult types = typesParser.parse();
+    JsonResult config = configParser.parse();
 
-    nlohmann::json servers = config["servers"];
+    // get values
+    extenContentTypeMap = types.value<std::unordered_map<std::string, std::string>>();
 
-    for (long unsigned i = 0; i < servers.size(); i++)
+    logger_threshold = getValue(config["logger"], "threshold", 1);
+    enable_logger = getValue(config["logger"], "enable", 1);
+
+    processes = getValue(config["process"], "processes", cores);
+    is_daemon = getValue(config["process"], "daemon", 0);
+    only_worker = getValue(config["process"], "only_worker", 0);
+
+    use_epoll = getValue(config["event"], "use_epoll", 1);
+    delay = getValue(config["event"], "delay", 1);
+    connections = getValue(config["event"], "connections", 1024);
+
+    JsonResult servers = config["servers"];
+
+    for (int i = 0; i < servers.size(); i++)
     {
         serverPtr->servers_.push_back(getServer(servers[i]));
     }
-
-    is_daemon = getValue(config, "daemon", 0);
 }
 
 void daemonize()

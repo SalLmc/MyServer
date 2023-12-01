@@ -32,7 +32,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
     auto &state = r->requestState_;
     auto &buffer = r->c_->readBuffer_;
 
-    for (p = buffer.now_->start_ + buffer.now_->pos_; p < buffer.now_->start_ + buffer.now_->len_; p++)
+    for (p = buffer.pivot_->start_ + buffer.pivot_->pos_; p < buffer.pivot_->start_ + buffer.pivot_->len_; p++)
     {
         ch = *p;
 
@@ -732,13 +732,13 @@ int parseRequestLine(std::shared_ptr<Request> r)
         }
     }
 
-    buffer.now_->pos_ = p - buffer.now_->start_;
+    buffer.pivot_->pos_ = p - buffer.pivot_->start_;
 
     return AGAIN;
 
 done:
 
-    buffer.now_->pos_ = p + 1 - buffer.now_->start_;
+    buffer.pivot_->pos_ = p + 1 - buffer.pivot_->start_;
 
     if (r->requestEnd_ == NULL)
     {
@@ -1144,7 +1144,7 @@ int parseHeaderLine(std::shared_ptr<Request> r, bool allowUnderscores)
     HeaderState &state = r->headerState_;
     auto &buffer = r->c_->readBuffer_;
 
-    for (p = buffer.now_->start_ + buffer.now_->pos_; p < buffer.now_->start_ + buffer.now_->len_; p++)
+    for (p = buffer.pivot_->start_ + buffer.pivot_->pos_; p < buffer.pivot_->start_ + buffer.pivot_->len_; p++)
     {
         ch = *p;
 
@@ -1356,20 +1356,20 @@ int parseHeaderLine(std::shared_ptr<Request> r, bool allowUnderscores)
         }
     }
 
-    buffer.now_->pos_ = p - buffer.now_->start_;
+    buffer.pivot_->pos_ = p - buffer.pivot_->start_;
 
     return AGAIN;
 
 done:
 
-    buffer.now_->pos_ = p + 1 - buffer.now_->start_;
+    buffer.pivot_->pos_ = p + 1 - buffer.pivot_->start_;
     r->headerState_ = HeaderState::START;
 
     return OK;
 
 header_done:
 
-    buffer.now_->pos_ = p + 1 - buffer.now_->start_;
+    buffer.pivot_->pos_ = p + 1 - buffer.pivot_->start_;
     r->headerState_ = HeaderState::START;
 
     return DONE;
@@ -1401,8 +1401,8 @@ int parseChunked(std::shared_ptr<Request> r)
     //     printf("value:%d\n",*tmp);
     // }
 
-    for (pos = buffer.now_->start_ + buffer.now_->pos_ + ctx->dataOffset_;
-         pos < buffer.now_->start_ + buffer.now_->len_; pos++)
+    for (pos = buffer.pivot_->start_ + buffer.pivot_->pos_ + ctx->dataOffset_;
+         pos < buffer.pivot_->start_ + buffer.pivot_->len_; pos++)
     {
         // printf("%d %d ", ctx->data_offset, *pos);
         once = 1;
@@ -1606,24 +1606,24 @@ data:
     if (rc == OK) // right after chunked size, we need to add the chunk size too!
     {
         // only add "SIZE\r\n", *pos supposed to be the first byte of data
-        left = pos - buffer.now_->start_ - buffer.now_->pos_;
-        r->requestBody_.listBody_.emplace_back(buffer.now_->start_ + buffer.now_->pos_, left);
-        buffer.now_->pos_ += left;
+        left = pos - buffer.pivot_->start_ - buffer.pivot_->pos_;
+        r->requestBody_.listBody_.emplace_back(buffer.pivot_->start_ + buffer.pivot_->pos_, left);
+        buffer.pivot_->pos_ += left;
     }
     else // add chunked data
     {
         if (once) // means this buffer contains all of this chunk, and the \r\n after
         {
-            left = pos - buffer.now_->start_ - buffer.now_->pos_;
+            left = pos - buffer.pivot_->start_ - buffer.pivot_->pos_;
             ctx->dataOffset_ = 0;
         }
         else // chunk is larger than this buffer, just add them all
         {
-            left = buffer.now_->len_ - buffer.now_->pos_;
+            left = buffer.pivot_->len_ - buffer.pivot_->pos_;
             ctx->dataOffset_ -= left;
         }
-        r->requestBody_.listBody_.emplace_back(buffer.now_->start_ + buffer.now_->pos_, left);
-        buffer.now_->pos_ += left;
+        r->requestBody_.listBody_.emplace_back(buffer.pivot_->start_ + buffer.pivot_->pos_, left);
+        buffer.pivot_->pos_ += left;
     }
 
     if (ctx->size_ > __LONG_LONG_MAX__ - 5)
@@ -1638,8 +1638,8 @@ data:
 done:
 
     // *pos is the last \n
-    left = pos + 1 - buffer.now_->start_ - buffer.now_->pos_;
-    r->requestBody_.listBody_.emplace_back(buffer.now_->start_ + buffer.now_->pos_, left);
+    left = pos + 1 - buffer.pivot_->start_ - buffer.pivot_->pos_;
+    r->requestBody_.listBody_.emplace_back(buffer.pivot_->start_ + buffer.pivot_->pos_, left);
 
     // prepare for the next time
     ctx->state_ = ChunkedState::START;
@@ -1664,7 +1664,7 @@ int parseStatusLine(std::shared_ptr<Request> r, Status *status)
     auto &state = r->responseState_;
     auto &buffer = r->c_->readBuffer_;
 
-    for (p = buffer.now_->start_ + buffer.now_->pos_; p < buffer.now_->start_ + buffer.now_->len_; p++)
+    for (p = buffer.pivot_->start_ + buffer.pivot_->pos_; p < buffer.pivot_->start_ + buffer.pivot_->len_; p++)
     {
         ch = *p;
 
@@ -1851,13 +1851,13 @@ int parseStatusLine(std::shared_ptr<Request> r, Status *status)
         }
     }
 
-    buffer.now_->pos_ = p - buffer.now_->start_;
+    buffer.pivot_->pos_ = p - buffer.pivot_->start_;
 
     return AGAIN;
 
 done:
 
-    buffer.now_->pos_ = p + 1 - buffer.now_->start_;
+    buffer.pivot_->pos_ = p + 1 - buffer.pivot_->start_;
 
     if (status->end_ == NULL)
     {

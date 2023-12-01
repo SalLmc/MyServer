@@ -6,7 +6,7 @@
 #include "../utils/utils_declaration.h"
 
 Server *serverPtr;
-ConnectionPool cPool;
+ConnectionPool pool;
 extern HeapMemory heap;
 
 Fd::Fd() : fd_(-1)
@@ -66,7 +66,7 @@ void Fd::reset(Fd &&fd)
     fd.fd_ = -1;
 }
 
-Event::Event(Connection *c) : c_(c), type_(EventType::NORMAL), timeout_(TimeoutStatus::NOT_TIMEOUT)
+Event::Event(Connection *c) : c_(c), type_(EventType::NORMAL), timeout_(TimeoutStatus::NOT_TIMED_OUT)
 {
 }
 
@@ -74,7 +74,7 @@ void Event::init(Connection *conn)
 {
     c_ = conn;
     type_ = EventType::NORMAL;
-    timeout_ = TimeoutStatus::NOT_TIMEOUT;
+    timeout_ = TimeoutStatus::NOT_TIMED_OUT;
     handler_ = std::function<int(Event *)>();
 }
 
@@ -107,7 +107,7 @@ void Connection::init(ResourceType type)
     type_ = type;
 }
 
-ConnectionPool::ConnectionPool(int size)
+ConnectionPool::ConnectionPool(int size) : activeCnt(0)
 {
     for (int i = 0; i < size; i++)
     {
@@ -127,16 +127,24 @@ ConnectionPool::~ConnectionPool()
 
 Connection *ConnectionPool::getNewConnection()
 {
+    Connection *c;
+
     if (!connectionList_.empty())
     {
-        auto c = connectionList_.front();
+        c = connectionList_.front();
         connectionList_.pop_front();
-        return c;
     }
     else
     {
-        return heap.hNew<Connection>(ResourceType::MALLOC);
+        c = heap.hNew<Connection>(ResourceType::MALLOC);
     }
+
+    if (c != NULL)
+    {
+        activeCnt++;
+    }
+
+    return c;
 }
 
 void ConnectionPool::recoverConnection(Connection *c)
@@ -145,6 +153,8 @@ void ConnectionPool::recoverConnection(Connection *c)
     {
         return;
     }
+
+    activeCnt--;
 
     if (c->type_ == ResourceType::POOL)
     {
@@ -192,6 +202,7 @@ void Server::eventLoop()
     nextTick = ((nextTick == (unsigned long long)-1) ? -1 : (nextTick - getTickMs()));
 
     int ret = multiplexer_->processEvents(flags, nextTick);
+
     if (ret == -1)
     {
         LOG_WARN << "process events errno: " << strerror(errno);
@@ -320,4 +331,37 @@ c_str::c_str(u_char *data, size_t len) : data_(data), len_(len)
 std::string c_str::toString()
 {
     return std::string(data_, data_ + len_);
+}
+
+MemFile::MemFile(int fd) : fd_(fd), addr_(NULL), len_(0)
+{
+    struct stat st;
+    if (fstat(fd_, &st) == -1)
+    {
+        return;
+    }
+
+    len_ = st.st_size;
+
+    void *rc = mmap(NULL, len_, PROT_READ, MAP_PRIVATE, fd_, 0);
+
+    if (rc == MAP_FAILED)
+    {
+        return;
+    }
+
+    addr_ = (const char *)rc;
+}
+
+MemFile::~MemFile()
+{
+    if (addr_ != NULL)
+    {
+        munmap((void *)addr_, len_);
+    }
+
+    if (fd_ >= 0)
+    {
+        close(fd_);
+    }
 }

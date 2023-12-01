@@ -9,7 +9,7 @@ class Request;
 
 enum class HeaderState
 {
-    START = 0,
+    START,
     NAME,
     SPACE0,
     VALUE,
@@ -21,7 +21,7 @@ enum class HeaderState
 
 enum class RequestState
 {
-    START = 0,
+    START,
     METHOD,
     SPACE_BEFORE_URI,
     SCHEMA,
@@ -50,7 +50,7 @@ enum class RequestState
 
 enum class ChunkedState
 {
-    START = 0,
+    START,
     SIZE,
     EXTENSION,
     EXTENSION_DONE,
@@ -67,7 +67,7 @@ enum class ChunkedState
 
 enum class ResponseState
 {
-    START = 0,
+    START,
     H,
     HT,
     HTT,
@@ -102,15 +102,26 @@ enum class Method
     PROPPATCH
 };
 
-enum class ResponseCode
+// enum class ResponseCode
+// {
+//     HTTP_OK,
+//     HTTP_NOT_MODIFIED,
+//     HTTP_UNAUTHORIZED,
+//     HTTP_FORBIDDEN,
+//     HTTP_NOT_FOUND,
+//     HTTP_INTERNAL_SERVER_ERROR,
+//     HTTP_MOVED_PERMANENTLY
+// };
+
+enum ResponseCode
 {
-    HTTP_OK,
-    HTTP_NOT_MODIFIED,
-    HTTP_UNAUTHORIZED,
-    HTTP_FORBIDDEN,
-    HTTP_NOT_FOUND,
-    HTTP_INTERNAL_SERVER_ERROR,
-    HTTP_MOVED_PERMANENTLY
+    HTTP_OK = 200,
+    HTTP_MOVED_PERMANENTLY = 301,
+    HTTP_NOT_MODIFIED = 304,
+    HTTP_UNAUTHORIZED = 401,
+    HTTP_FORBIDDEN = 403,
+    HTTP_NOT_FOUND = 404,
+    HTTP_INTERNAL_SERVER_ERROR = 500,
 };
 
 enum class Charset
@@ -228,7 +239,7 @@ class Request
 
     int atPhase_;
 
-    // URI with "/." and on Win32 with "//"
+    // URI with "/."
     bool complexUri_;
     // URI with "%"
     bool quotedUri_;
@@ -244,7 +255,6 @@ class Request
     u_char *headerNameEnd_;
     u_char *headerValueStart_;
     u_char *headerValueEnd_;
-
     u_char *uriStart_;
     u_char *uriEnd_;
     u_char *uriExt_;
@@ -339,7 +349,7 @@ int finalizeConnection(Connection *c);
 
 // others
 std::string getEtag(int fd);
-bool matchEtag(int fd, std::string browserEtag);
+bool etagMatched(int fd, std::string browserEtag);
 int blockReading(Event *ev);
 int blockWriting(Event *ev);
 std::string getContentType(std::string exten, Charset charset);

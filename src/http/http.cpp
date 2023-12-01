@@ -11,11 +11,12 @@
 
 #include "../memory/memory_manage.hpp"
 
-extern ConnectionPool cPool;
+extern ConnectionPool pool;
 extern Server *serverPtr;
 extern HeapMemory heap;
 extern std::vector<PhaseHandler> phases;
 extern std::unordered_map<std::string, std::string> extenContentTypeMap;
+extern int connections;
 
 // std::unordered_map<std::string, std::string> extenContentTypeMap = {
 //     {"html", "text/html"},
@@ -201,13 +202,42 @@ bad:
     return NULL;
 }
 
+int acceptDelay(void *ev)
+{
+    Event *event = (Event *)ev;
+    event->timeout_ = TimeoutStatus::NOT_TIMED_OUT;
+    // use LT on listenfd
+    if (serverPtr->multiplexer_->addFd(event->c_->fd_.getFd(), EVENTS(IN), event->c_) == 0)
+    {
+        LOG_CRIT << "Listenfd add failed, errno:" << strerror(errno);
+    }
+
+    return 0;
+}
+
 int newConnection(Event *ev)
 {
 #ifdef LOOP_ACCEPT
     while (1)
     {
 #endif
-        Connection *newc = cPool.getNewConnection();
+        if (ev->timeout_ == TimeoutStatus::TIMEOUT)
+        {
+            return 1;
+        }
+
+        if (pool.activeCnt >= connections)
+        {
+            ev->timeout_ = TimeoutStatus::TIMEOUT;
+            serverPtr->timer_.add(ACCEPT_DELAY, "Accept delay", getTickMs() + delay * 1000, acceptDelay, (void *)ev);
+            if (serverPtr->multiplexer_->delFd(ev->c_->fd_.getFd()) != 1)
+            {
+                LOG_CRIT << "Del accept event failed";
+            }
+            return 1;
+        }
+
+        Connection *newc = pool.getNewConnection();
         if (newc == NULL)
         {
             LOG_WARN << "Get new connection failed, listenfd:" << ev->c_->fd_.getFd();
@@ -217,17 +247,15 @@ int newConnection(Event *ev)
         sockaddr_in *addr = &newc->addr_;
         socklen_t len = sizeof(*addr);
 
-        newc->fd_ = accept(ev->c_->fd_.getFd(), (sockaddr *)addr, &len);
+        newc->fd_ = accept4(ev->c_->fd_.getFd(), (sockaddr *)addr, &len, SOCK_NONBLOCK);
         if (newc->fd_.getFd() < 0)
         {
             LOG_WARN << "Accept from FD:" << ev->c_->fd_.getFd() << " failed, errno: " << strerror(errno);
-            cPool.recoverConnection(newc);
+            pool.recoverConnection(newc);
             return 1;
         }
 
         newc->serverIdx_ = ev->c_->serverIdx_;
-
-        setNonblocking(newc->fd_.getFd());
 
         newc->read_.handler_ = waitRequest;
 
@@ -240,6 +268,7 @@ int newConnection(Event *ev)
                               (void *)&newc->read_);
 
         LOG_INFO << "NEW CONNECTION FROM FD:" << ev->c_->fd_.getFd() << ", WITH FD:" << newc->fd_.getFd();
+
 #ifdef LOOP_ACCEPT
     }
 #endif
@@ -262,7 +291,7 @@ int waitRequest(Event *ev)
 
     LOG_INFO << "waitRequest recv from FD:" << c->fd_.getFd();
 
-    int len = c->readBuffer_.recvFd(c->fd_.getFd(), 0);
+    int len = c->readBuffer_.bufferRecv(c->fd_.getFd(), 0);
 
     if (len == 0)
     {
@@ -309,7 +338,7 @@ int waitRequestAgain(Event *ev)
 
     LOG_INFO << "keepAlive recv from FD:" << c->fd_.getFd();
 
-    int len = c->readBuffer_.recvFd(c->fd_.getFd(), 0);
+    int len = c->readBuffer_.bufferRecv(c->fd_.getFd(), 0);
 
     if (len == 0)
     {
@@ -361,7 +390,7 @@ int processRequestLine(Event *ev)
         {
             // the request line has been parsed successfully
             if (r->requestEnd_ < r->requestStart_ ||
-                r->requestEnd_ > r->requestStart_ + r->c_->readBuffer_.now_->getSize())
+                r->requestEnd_ > r->requestStart_ + r->c_->readBuffer_.pivot_->getSize())
             {
                 LOG_WARN << "request line too long";
                 finalizeRequest(r);
@@ -412,11 +441,11 @@ int processRequestLine(Event *ev)
             break;
         }
 
-        if (r->c_->readBuffer_.now_->pos_ == r->c_->readBuffer_.now_->len_)
+        if (r->c_->readBuffer_.pivot_->pos_ == r->c_->readBuffer_.pivot_->len_)
         {
-            if (r->c_->readBuffer_.now_->next_)
+            if (r->c_->readBuffer_.pivot_->next_)
             {
-                r->c_->readBuffer_.now_ = r->c_->readBuffer_.now_->next_;
+                r->c_->readBuffer_.pivot_ = r->c_->readBuffer_.pivot_->next_;
             }
         }
     }
@@ -507,11 +536,11 @@ int processRequestHeaders(Event *ev)
     {
         if (rc == AGAIN)
         {
-            if (r->c_->readBuffer_.now_->pos_ == r->c_->readBuffer_.now_->len_)
+            if (r->c_->readBuffer_.pivot_->pos_ == r->c_->readBuffer_.pivot_->len_)
             {
-                if (r->c_->readBuffer_.now_->next_)
+                if (r->c_->readBuffer_.pivot_->next_)
                 {
-                    r->c_->readBuffer_.now_ = r->c_->readBuffer_.now_->next_;
+                    r->c_->readBuffer_.pivot_ = r->c_->readBuffer_.pivot_->next_;
                 }
             }
 
@@ -617,7 +646,7 @@ int readRequest(std::shared_ptr<Request> r)
         return 1;
     }
 
-    n = c->readBuffer_.recvFd(c->fd_.getFd(), 0);
+    n = c->readBuffer_.bufferRecv(c->fd_.getFd(), 0);
 
     if (n < 0)
     {
@@ -894,7 +923,7 @@ int writeResponse(Event *ev)
 
     if (buffer.allRead() != 1)
     {
-        int len = buffer.sendFd(ev->c_->fd_.getFd(), 0);
+        int len = buffer.bufferSend(ev->c_->fd_.getFd(), 0);
 
         if (len < 0 && errno != EAGAIN)
         {
@@ -977,11 +1006,11 @@ int processBodyLength(std::shared_ptr<Request> r)
 
     while (buffer.allRead() != 1)
     {
-        int rlen = buffer.now_->len_ - buffer.now_->pos_;
+        int rlen = buffer.pivot_->len_ - buffer.pivot_->pos_;
         if (rlen <= rb.left_)
         {
             rb.left_ -= rlen;
-            rb.listBody_.emplace_back(buffer.now_->start_ + buffer.now_->pos_, rlen);
+            rb.listBody_.emplace_back(buffer.pivot_->start_ + buffer.pivot_->pos_, rlen);
             buffer.retrieve(rlen);
         }
         else
@@ -990,11 +1019,11 @@ int processBodyLength(std::shared_ptr<Request> r)
             return ERROR;
         }
 
-        if (buffer.now_->pos_ == buffer.now_->len_)
+        if (buffer.pivot_->pos_ == buffer.pivot_->len_)
         {
-            if (buffer.now_->next_ != NULL)
+            if (buffer.pivot_->next_ != NULL)
             {
-                buffer.now_ = buffer.now_->next_;
+                buffer.pivot_ = buffer.pivot_->next_;
             }
         }
     }
@@ -1040,11 +1069,11 @@ int processBodyChunked(std::shared_ptr<Request> r)
 
         if (ret == AGAIN)
         {
-            if (buffer.now_->pos_ == buffer.now_->len_)
+            if (buffer.pivot_->pos_ == buffer.pivot_->len_)
             {
-                if (buffer.now_->next_ != NULL)
+                if (buffer.pivot_->next_ != NULL)
                 {
-                    buffer.now_ = buffer.now_->next_;
+                    buffer.pivot_ = buffer.pivot_->next_;
                     // since there are still data left, keep parsing
                     continue;
                 }
@@ -1119,7 +1148,7 @@ int readRequestBodyInner(Event *ev)
             break;
         }
 
-        int ret = buffer.recvFd(c->fd_.getFd(), 0);
+        int ret = buffer.bufferRecv(c->fd_.getFd(), 0);
 
         if (ret == 0)
         {
@@ -1319,7 +1348,7 @@ std::string getEtag(int fd)
     return etag;
 }
 
-bool matchEtag(int fd, std::string b_etag)
+bool etagMatched(int fd, std::string b_etag)
 {
     if (fd < 0)
         return 0;
@@ -1360,28 +1389,28 @@ HttpCode getByCode(ResponseCode code)
     HttpCode ans;
     switch (code)
     {
-    case ResponseCode::HTTP_OK:
-        ans = httpCodeMap[200];
+    case HTTP_OK:
+        ans = httpCodeMap[code];
         break;
-    case ResponseCode::HTTP_NOT_MODIFIED:
-        ans = httpCodeMap[304];
+    case HTTP_MOVED_PERMANENTLY:
+        ans = httpCodeMap[code];
         break;
-    case ResponseCode::HTTP_UNAUTHORIZED:
-        ans = httpCodeMap[401];
+    case HTTP_NOT_MODIFIED:
+        ans = httpCodeMap[code];
         break;
-    case ResponseCode::HTTP_FORBIDDEN:
-        ans = httpCodeMap[403];
+    case HTTP_UNAUTHORIZED:
+        ans = httpCodeMap[code];
         break;
-    case ResponseCode::HTTP_NOT_FOUND:
-        ans = httpCodeMap[404];
+    case HTTP_FORBIDDEN:
+        ans = httpCodeMap[code];
         break;
-    case ResponseCode::HTTP_MOVED_PERMANENTLY:
-        ans = httpCodeMap[301];
+    case HTTP_NOT_FOUND:
+        ans = httpCodeMap[code];
         break;
-    case ResponseCode::HTTP_INTERNAL_SERVER_ERROR:
+    case HTTP_INTERNAL_SERVER_ERROR:
         // fall through
     default:
-        ans = httpCodeMap[500];
+        ans = httpCodeMap[HTTP_INTERNAL_SERVER_ERROR];
         break;
     }
 
