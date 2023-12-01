@@ -28,19 +28,6 @@ int main(int argc, char *argv[])
 
     cores = std::max(1U, std::thread::hardware_concurrency());
 
-    // system("cat /proc/cpuinfo | grep cores | uniq | awk '{print $NF'} > cores");
-    // {
-    //     int num = readNumberFromFile<int>("cores");
-    //     if (num != -1)
-    //     {
-    //         cores = num;
-    //     }
-    //     else
-    //     {
-    //         cores = 1;
-    //     }
-    // }
-
     std::unique_ptr<Server> server(new Server(&pool, new Logger("log/", "startup")));
     serverPtr = server.get();
 

@@ -12,28 +12,7 @@ BUILDEXEWITHLIB = $(CXX) $(CXXFLAGS) $^ ../libmy.so -o $@ $(LINK)
 
 all: $(EXES)
 	
-log_test: log_test.o
-	$(BUILDEXEWITHLIB)
-
-memory_test: memory_test.o
-	$(BUILDEXEWITHLIB)
-
-proxy_pass_test: proxy_pass_test.o
-	$(BUILDEXEWITHLIB)
-
-signal_test: signal_test.o
-	$(BUILDEXEWITHLIB)
-
-timer_test: timer_test.o
-	$(BUILDEXEWITHLIB)
-
-buffer_test: buffer_test.o
-	$(BUILDEXEWITHLIB)
-	
-json_test: json_test.o
-	$(BUILDEXEWITHLIB)
-
-test: test.o
+$(EXES): %: %.o
 	$(BUILDEXEWITHLIB)
 
 -include $(INCLUDE_FILES)
