@@ -1,9 +1,11 @@
 #include "../headers.h"
 
 #include "../core/core.h"
-#include "../event/epoller.h"
 #include "../global.h"
+#include "../log/logger.h"
 #include "../utils/utils_declaration.h"
+
+#include "event.h"
 
 SharedMemory shmForAMtx;
 ProcessMutex acceptMutex;

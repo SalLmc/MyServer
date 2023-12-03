@@ -1,6 +1,7 @@
 #include "../headers.h"
 
 #include "../core/core.h"
+#include "../log/logger.h"
 
 #include "epoller.h"
 

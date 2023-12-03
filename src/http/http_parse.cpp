@@ -1,5 +1,6 @@
 #include "../headers.h"
 
+#include "../core/core.h"
 #include "http.h"
 #include "http_parse.h"
 

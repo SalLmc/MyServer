@@ -3,8 +3,11 @@
 
 #include "../headers.h"
 
-#include "../core/core.h"
+#include "../core/basic.h"
 
+class Server;
+class Connection;
+class Event;
 class Request;
 
 enum class HeaderState

@@ -9,11 +9,8 @@
 #include "../utils/utils_declaration.h"
 #include "process.h"
 
-#include "../memory/memory_manage.hpp"
-
 extern Server *serverPtr;
 extern ProcessMutex acceptMutex;
-extern HeapMemory heap;
 extern int processes;
 
 Process procs[MAX_PROCESS_N];

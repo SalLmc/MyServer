@@ -1,14 +1,13 @@
 #include "../headers.h"
 
-#include "../event/epoller.h"
+#include "../core/core.h"
+#include "../event/event.h"
+#include "../log/logger.h"
 #include "../utils/utils_declaration.h"
 #include "http.h"
 #include "http_phases.h"
 
-#include "../memory/memory_manage.hpp"
-
 extern std::unordered_map<std::string, std::string> extenContentTypeMap;
-extern HeapMemory heap;
 extern Server *serverPtr;
 
 u_char extenSave[16];

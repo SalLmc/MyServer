@@ -1,6 +1,6 @@
 #include "../headers.h"
 
-#include "../core/core.h"
+#include "../core/basic.h"
 #include "utils_declaration.h"
 
 int setNonblocking(int fd)

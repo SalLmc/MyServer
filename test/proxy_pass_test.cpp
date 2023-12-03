@@ -1,5 +1,6 @@
 #include "../src/core/core.h"
 #include "../src/headers.h"
+#include "../src/log/logger.h"
 #include "../src/utils/utils_declaration.h"
 int main()
 {

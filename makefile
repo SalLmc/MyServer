@@ -2,7 +2,7 @@ PROGS = libmy.so main
 
 PRE_HEADER = src/headers.h.gch
 
-SRCDIRS = src/buffer src/core src/event src/http src/log src/memory src/timer src/utils \
+SRCDIRS = src/buffer src/core src/event src/http src/log src/timer src/utils \
           src ./
 
 CPP_SOURCES = $(foreach dir, $(SRCDIRS), $(wildcard $(dir)/*.cpp))
@@ -13,7 +13,8 @@ CPPSHARELIB = $(CXX) -fPIC -shared $^ -o $@
 
 LINK = -pthread
 CXXFLAGS = -Wall -fPIC -g -MD
-CXX = $(shell command -v ccache >/dev/null 2>&1 && echo "ccache g++" || echo "g++")
+# CXX = $(shell command -v ccache >/dev/null 2>&1 && echo "ccache g++" || echo "g++")
+CXX = g++
 
 BUILDEXEWITHLIB = $(CXX) $(CXXFLAGS) $^ ./libmy.so -o $@ $(LINK)
 BUILDEXE = $(CXX) $(CXXFLAGS) $^ -o $@ $(LINK)

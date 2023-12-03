@@ -2,10 +2,6 @@
 
 #include "http.h"
 
-#include "../memory/memory_manage.hpp"
-
-extern HeapMemory heap;
-
 Header::Header(std::string &&name, std::string &&value) : name_(name), value_(value)
 {
 }
@@ -27,7 +23,7 @@ Request::~Request()
 {
     if (complexUri_ || quotedUri_ || emptyPathInUri_)
     {
-        heap.hFree(uri_.data_);
+        free(uri_.data_);
     }
 }
 
@@ -75,7 +71,7 @@ void Request::init()
     args_.data_ = NULL;
     if (complexUri_ || quotedUri_ || emptyPathInUri_)
     {
-        heap.hFree(uri_.data_);
+        free(uri_.data_);
     }
     uri_.data_ = NULL;
     exten_.data_ = NULL;

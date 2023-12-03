@@ -4,16 +4,14 @@
 #include "http_parse.h"
 #include "http_phases.h"
 
-#include "../event/epoller.h"
+#include "../core/core.h"
 #include "../event/event.h"
 #include "../global.h"
+#include "../log/logger.h"
 #include "../utils/utils_declaration.h"
-
-#include "../memory/memory_manage.hpp"
 
 extern ConnectionPool pool;
 extern Server *serverPtr;
-extern HeapMemory heap;
 extern std::vector<PhaseHandler> phases;
 extern std::unordered_map<std::string, std::string> extenContentTypeMap;
 extern int connections;
@@ -226,7 +224,7 @@ int newConnection(Event *ev)
             return 1;
         }
 
-        if (pool.activeCnt >= connections)
+        if (pool.activeCnt >= connections && delay > 0)
         {
             ev->timeout_ = TimeoutStatus::TIMEOUT;
             serverPtr->timer_.add(ACCEPT_DELAY, "Accept delay", getTickMs() + delay * 1000, acceptDelay, (void *)ev);
@@ -690,7 +688,7 @@ int handleRequestUri(std::shared_ptr<Request> r)
         }
 
         // free in Request::init()
-        r->uri_.data_ = (u_char *)heap.hMalloc(r->uri_.len_);
+        r->uri_.data_ = (u_char *)malloc(r->uri_.len_);
 
         if (parseComplexUri(r, 1) != OK)
         {

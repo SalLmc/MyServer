@@ -6,7 +6,8 @@ INCLUDE_FILES = $(wildcard *.d)
 
 LINK = -pthread
 CXXFLAGS = -Wall -fPIC -g -MD
-CXX = $(shell command -v ccache >/dev/null 2>&1 && echo "ccache g++" || echo "g++")
+# CXX = $(shell command -v ccache >/dev/null 2>&1 && echo "ccache g++" || echo "g++")
+CXX = g++
 
 BUILDEXEWITHLIB = $(CXX) $(CXXFLAGS) $^ ../libmy.so -o $@ $(LINK)
 

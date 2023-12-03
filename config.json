@@ -6,12 +6,12 @@
     "process": {
         "daemon": 0,
         "only_worker": 0,
-        "processes": 1
+        "processes": 8
     },
     "event": {
         "use_epoll": 0,
         "connections": 1024,
-        "delay": 1
+        "delay": 0
     },
     "servers": [
         {
