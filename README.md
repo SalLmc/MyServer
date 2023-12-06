@@ -41,37 +41,41 @@ Upstream uri = to + (Request - from)
 
 ```json
 {
-    "logger_threshold": 1,
-    "enable_logger": 0,
-    "daemon": 1,
-    "only_worker": 0,
-    "use_epoll": 1,
+    "logger": {
+        "enable": 0,
+        "threshold": 1
+    },
+    "process": {
+        "daemon": 0,
+        "only_worker": 0,
+        "processes": 8
+    },
+    "event": {
+        "use_epoll": 0,
+        "connections": 1024,
+        "delay": 0
+    },
     "servers": [
         {
-            "port": 80,
+            "port": 8000,
             "root": "static",
-            "index": "index.html"
+            "index": "index.html",
+            "from": "/bing/",
+            "to": "http://cn.bing.com/"
         },
         {
-            "port": 1480,
-            "root": "/home/sallmc/blog/public",
-            "index": "index.html",
+            "port": 8001,
+            "root": "./",
+            "index": "xxxx",
+            "auto_index": 1,
             "auth_path": [
-                "/Notes/*"
+                "*README*"
             ]
         },
         {
-            "port": 8081,
-            "root": "/mnt/d/A_File",
-            "from":"/api/",
-            "to":"http://localhost/",
-            "index": "sdfsdf",
-            "auto_index": 1
-        },
-        {
             "port": 8082,
-            "root": "/mnt/d",
-            "index": "sdfxcv",
+            "root": "/mnt/d/A_File",
+            "index": "sdfsdf",
             "auto_index": 1
         }
     ]
