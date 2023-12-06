@@ -500,6 +500,10 @@ int tryMoveHeader(std::shared_ptr<Request> r, bool isName)
         iter->append(left, a->start_ + a->len_ - left);
         iter->append(b->start_, right - b->start_);
 
+        // modify node a and b
+        a->len_ = left - a->start_;
+        b->pre_ = right - b->start_;
+
         if (isName)
         {
             r->headerNameStart_ = iter->start_ + iter->pos_;

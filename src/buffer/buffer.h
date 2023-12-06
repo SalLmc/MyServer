@@ -49,6 +49,9 @@ class Buffer
     std::atomic<std::size_t> writePos_;
 };
 
+/// - content <=> [ start_+pre_ , start_+len_ )
+/// - readable <=> [ start_+pos_ , start_+len_ )
+/// - writable <=> [ start_+len_ , end_ )
 class LinkedBufferNode
 {
   public:
@@ -61,19 +64,21 @@ class LinkedBufferNode
     bool operator==(const LinkedBufferNode &other);
     bool operator!=(const LinkedBufferNode &other);
 
-    void init(size_t size = LinkedBufferNode::NODE_SIZE);
     size_t getSize();
     size_t readableBytes();
     size_t writableBytes();
-    std::string toString();
     // @return max(0, len-leftSpace)
     size_t append(const u_char *data, size_t len);
     size_t append(const char *data, size_t len);
 
+    std::string toString();
+    std::string toStringAll();
+
+  public:
     u_char *start_;
     u_char *end_;
 
-    // content <=> [start_+pos_, start_+len_)
+    size_t pre_;
     size_t pos_;
     size_t len_;
 

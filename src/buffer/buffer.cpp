@@ -177,6 +177,7 @@ LinkedBufferNode::LinkedBufferNode(size_t size)
     start_ = (u_char *)aligned_alloc(LinkedBufferNode::NODE_SIZE, size);
     memset(start_, 0, sizeof(size));
     end_ = start_ + size;
+    pre_ = 0;
     pos_ = 0;
     len_ = 0;
     prev_ = NULL;
@@ -187,6 +188,7 @@ LinkedBufferNode::LinkedBufferNode(LinkedBufferNode &&other)
 {
     start_ = other.start_;
     end_ = other.end_;
+    pre_ = other.pre_;
     pos_ = other.pos_;
     len_ = other.len_;
     prev_ = other.prev_;
@@ -213,20 +215,6 @@ bool LinkedBufferNode::operator!=(const LinkedBufferNode &other)
     return (start_ != other.start_) || (end_ != other.end_);
 }
 
-void LinkedBufferNode::init(size_t size)
-{
-    if (start_ != NULL)
-    {
-        free(start_);
-    }
-    start_ = (u_char *)calloc(size, 1);
-    end_ = start_ + size;
-    pos_ = 0;
-    len_ = 0;
-    prev_ = NULL;
-    next_ = NULL;
-}
-
 size_t LinkedBufferNode::getSize()
 {
     return end_ - start_;
@@ -240,11 +228,6 @@ size_t LinkedBufferNode::readableBytes()
 size_t LinkedBufferNode::writableBytes()
 {
     return end_ - start_ - len_;
-}
-
-std::string LinkedBufferNode::toString()
-{
-    return std::string(start_ + pos_, start_ + len_);
 }
 
 size_t LinkedBufferNode::append(const u_char *data, size_t len)
@@ -279,6 +262,16 @@ size_t LinkedBufferNode::append(const char *data, size_t len)
         this->len_ += free;
         return len - free;
     }
+}
+
+std::string LinkedBufferNode::toString()
+{
+    return std::string(start_ + pos_, start_ + len_);
+}
+
+std::string LinkedBufferNode::toStringAll()
+{
+    return std::string(start_ + pre_, start_ + len_);
 }
 
 LinkedBuffer::LinkedBuffer()
