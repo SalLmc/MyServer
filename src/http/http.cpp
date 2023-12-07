@@ -494,14 +494,14 @@ int tryMoveHeader(std::shared_ptr<Request> r, bool isName)
             iter = std::next(iter);
         }
 
-        // insert a new node, since we only need to make sure [start, end) is valid
-        // we can also make it by "malloc"
+        // insert a new node
         iter = r->c_->readBuffer_.insertNewNode(iter);
         iter->append(left, a->start_ + a->len_ - left);
         iter->append(b->start_, right - b->start_);
 
         // modify node a and b
         a->len_ = left - a->start_;
+        a->pos_ = a->len_;
         b->pre_ = right - b->start_;
 
         if (isName)

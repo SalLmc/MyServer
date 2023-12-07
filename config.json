@@ -9,7 +9,7 @@
         "processes": 1
     },
     "event": {
-        "use_epoll": 0,
+        "use_epoll": 1,
         "connections": 1024,
         "delay": 0
     },
