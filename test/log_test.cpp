@@ -5,12 +5,10 @@
 #include "../src/log/logger.h"
 #include "../src/utils/utils_declaration.h"
 
-extern ConnectionPool pool;
-
 int main(int argc, char *argv[])
 {
 
-    Server server(&pool, new Logger("log/", "startup"));
+    Server server(new Logger("log/", "startup"));
 
     for (int i = 0; i < 10; i++)
         __LOG_CRIT_INNER(*server.logger_) << "start";

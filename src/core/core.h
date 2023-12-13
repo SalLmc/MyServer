@@ -69,7 +69,7 @@ class Connection
 class ConnectionPool
 {
   public:
-    const static int POOLSIZE = 2048;
+    const static int POOLSIZE = 1024;
     ConnectionPool(int size = ConnectionPool::POOLSIZE);
     ~ConnectionPool();
     Connection *getNewConnection();
@@ -107,12 +107,12 @@ class Server
 {
   public:
     Server() = delete;
-    Server(ConnectionPool *pool, Logger *logger);
+    Server(Logger *logger);
     ~Server();
 
     void eventLoop();
 
-    ConnectionPool *pool_;
+    ConnectionPool pool_;
     std::vector<Connection *> listening_;
     std::vector<ServerAttribute> servers_;
     Logger *logger_;

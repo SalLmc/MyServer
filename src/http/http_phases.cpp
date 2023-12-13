@@ -388,7 +388,7 @@ int initUpstream(std::shared_ptr<Request> r)
     LOG_INFO << "Upstream to " << server.to_ << " -> " << ip << ":" << port << newUri;
 
     // setup connection
-    Connection *upc = serverPtr->pool_->getNewConnection();
+    Connection *upc = serverPtr->pool_.getNewConnection();
 
     if (upc == NULL)
     {

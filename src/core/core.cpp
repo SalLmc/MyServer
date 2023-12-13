@@ -7,7 +7,6 @@
 #include "../utils/utils_declaration.h"
 
 Server *serverPtr;
-ConnectionPool pool;
 
 Event::Event(Connection *c) : c_(c), type_(EventType::NORMAL), timeout_(TimeoutStatus::NOT_TIMED_OUT)
 {
@@ -127,7 +126,7 @@ ServerAttribute::ServerAttribute(int port, std::string &&root, std::string &&ind
 {
 }
 
-Server::Server(ConnectionPool *pool, Logger *logger) : pool_(pool), logger_(logger), multiplexer_(NULL)
+Server::Server(Logger *logger) : logger_(logger), multiplexer_(NULL)
 {
 }
 

@@ -128,7 +128,7 @@ int Epoller::processEvents(int flags, int timeoutMs)
         {
             int fd = c->fd_.getFd();
             delFd(fd);
-            serverPtr->pool_->recoverConnection(c);
+            serverPtr->pool_.recoverConnection(c);
             LOG_INFO << "Connection recover, FD:" << fd;
         }
     }

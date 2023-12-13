@@ -10,7 +10,6 @@
 #include "../log/logger.h"
 #include "../utils/utils_declaration.h"
 
-extern ConnectionPool pool;
 extern Server *serverPtr;
 extern std::vector<PhaseHandler> phases;
 extern std::unordered_map<std::string, std::string> extenContentTypeMap;
@@ -155,8 +154,7 @@ int initListen(Server *server, int port)
 
 Connection *addListen(Server *server, int port)
 {
-    ConnectionPool *pool = server->pool_;
-    Connection *listenConn = pool->getNewConnection();
+    Connection *listenConn = server->pool_.getNewConnection();
     int reuse = 1;
 
     if (listenConn == NULL)
@@ -196,7 +194,7 @@ Connection *addListen(Server *server, int port)
     return listenConn;
 
 bad:
-    pool->recoverConnection(listenConn);
+    server->pool_.recoverConnection(listenConn);
     return NULL;
 }
 
@@ -224,7 +222,7 @@ int newConnection(Event *ev)
             return 1;
         }
 
-        if (pool.activeCnt >= connections && delay > 0)
+        if (serverPtr->pool_.activeCnt >= connections && delay > 0)
         {
             ev->timeout_ = TimeoutStatus::TIMEOUT;
             serverPtr->timer_.add(ACCEPT_DELAY, "Accept delay", getTickMs() + delay * 1000, acceptDelay, (void *)ev);
@@ -235,7 +233,7 @@ int newConnection(Event *ev)
             return 1;
         }
 
-        Connection *newc = pool.getNewConnection();
+        Connection *newc = serverPtr->pool_.getNewConnection();
         if (newc == NULL)
         {
             LOG_WARN << "Get new connection failed, listenfd:" << ev->c_->fd_.getFd();
@@ -249,7 +247,7 @@ int newConnection(Event *ev)
         if (newc->fd_.getFd() < 0)
         {
             LOG_WARN << "Accept from FD:" << ev->c_->fd_.getFd() << " failed, errno: " << strerror(errno);
-            pool.recoverConnection(newc);
+            serverPtr->pool_.recoverConnection(newc);
             return 1;
         }
 
