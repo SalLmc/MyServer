@@ -222,10 +222,10 @@ int newConnection(Event *ev)
             return 1;
         }
 
-        if (serverPtr->pool_.activeCnt >= connections && delay > 0)
+        if (serverPtr->pool_.activeCnt >= connections && event_delay > 0)
         {
             ev->timeout_ = TimeoutStatus::TIMEOUT;
-            serverPtr->timer_.add(ACCEPT_DELAY, "Accept delay", getTickMs() + delay * 1000, acceptDelay, (void *)ev);
+            serverPtr->timer_.add(ACCEPT_DELAY, "Accept delay", getTickMs() + event_delay * 1000, acceptDelay, (void *)ev);
             if (serverPtr->multiplexer_->delFd(ev->c_->fd_.getFd()) != 1)
             {
                 LOG_CRIT << "Del accept event failed";

@@ -1,7 +1,8 @@
 {
     "logger": {
         "enable": 1,
-        "threshold": 1
+        "threshold": 1000,
+        "interval": 5
     },
     "process": {
         "daemon": 0,

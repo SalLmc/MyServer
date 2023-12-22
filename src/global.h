@@ -10,11 +10,12 @@
 
 extern bool enable_logger;
 extern unsigned long logger_threshold;
+extern int logger_interval;
 extern bool is_daemon;
 extern bool only_worker;
 extern bool use_epoll;
 extern int processes;
-extern int delay;
+extern int event_delay;
 extern int connections;
 
 // runtime
