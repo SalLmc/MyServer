@@ -453,6 +453,10 @@ void recursiveMkdir(const char *path, mode_t mode)
 std::string getIpByDomain(std::string &domain)
 {
     hostent *host_info = gethostbyname2(domain.c_str(), AF_INET);
+    if (host_info == NULL)
+    {
+        throw std::runtime_error("Get host by name failed");
+    }
     struct in_addr ipv4;
     ipv4.s_addr = *(unsigned int *)host_info->h_addr_list[0];
     return std::string(inet_ntoa(ipv4));

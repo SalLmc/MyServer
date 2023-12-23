@@ -1,8 +1,8 @@
 {
     "logger": {
         "enable": 1,
-        "threshold": 1000,
-        "interval": 5
+        "threshold": 1,
+        "interval": 3
     },
     "process": {
         "daemon": 0,
@@ -19,8 +19,8 @@
             "port": 8000,
             "root": "static",
             "index": "index.html",
-            "from": "/bing/",
-            "to": "http://cn.bing.com/"
+            "from": "/api/",
+            "to": "http://www.lilinchang.com/"
         },
         {
             "port": 8001,
