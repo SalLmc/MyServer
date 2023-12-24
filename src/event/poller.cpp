@@ -85,6 +85,7 @@ int Poller::processEvents(int flags, int timeoutMs)
         {
             revents |= POLLIN | POLLOUT;
         }
+        
         if (c->quit_ == 1)
         {
             goto recover;

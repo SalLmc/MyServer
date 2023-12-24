@@ -350,6 +350,7 @@ int initUpstream(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Initing upstream";
 
+    int val = 1;
     bool isDomain = 0;
 
     // setup upstream server
@@ -407,6 +408,14 @@ int initUpstream(std::shared_ptr<Request> r)
         return ERROR;
     }
 
+    if (setsockopt(upc->fd_.getFd(), SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) < 0)
+    {
+        LOG_WARN << "set keepalived failed";
+        finalizeConnection(upc);
+        finalizeRequest(r);
+        return ERROR;
+    }
+
     upc->addr_.sin_family = AF_INET;
     inet_pton(AF_INET, ip.c_str(), &upc->addr_.sin_addr);
     upc->addr_.sin_port = htons(port);
@@ -419,7 +428,13 @@ int initUpstream(std::shared_ptr<Request> r)
         return ERROR;
     }
 
-    setNonblocking(upc->fd_.getFd());
+    if (setnonblocking(upc->fd_.getFd()) < 0)
+    {
+        LOG_WARN << "set nonblocking failed";
+        finalizeConnection(upc);
+        finalizeRequest(r);
+        return ERROR;
+    }
 
     LOG_INFO << "Upstream connected";
 

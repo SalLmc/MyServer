@@ -26,7 +26,7 @@ template <class T> T readNumberFromFile(const char *file_name)
 
 // utils.cpp
 
-int setNonblocking(int fd);
+int setnonblocking(int fd);
 unsigned long long getTickMs();
 int getOption(int argc, char *argv[], std::unordered_map<std::string, std::string> *mp);
 int writePid2File();

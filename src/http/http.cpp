@@ -155,7 +155,7 @@ int initListen(Server *server, int port)
 Connection *addListen(Server *server, int port)
 {
     Connection *listenConn = server->pool_.getNewConnection();
-    int reuse = 1;
+    int val = 1;
 
     if (listenConn == NULL)
     {
@@ -168,14 +168,30 @@ Connection *addListen(Server *server, int port)
     listenConn->addr_.sin_port = htons(port);
 
     listenConn->fd_ = socket(AF_INET, SOCK_STREAM, 0);
+    
     if (listenConn->fd_.getFd() < 0)
     {
         LOG_CRIT << "open listenfd failed";
         goto bad;
     }
 
-    setsockopt(listenConn->fd_.getFd(), SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse, sizeof(reuse));
-    setNonblocking(listenConn->fd_.getFd());
+    if (setsockopt(listenConn->fd_.getFd(), SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) < 0)
+    {
+        LOG_WARN << "set keepalived failed";
+        goto bad;
+    }
+
+    if (setsockopt(listenConn->fd_.getFd(), SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val)) < 0)
+    {
+        LOG_CRIT << "set reuseport failed";
+        goto bad;
+    }
+
+    if (setnonblocking(listenConn->fd_.getFd()) < 0)
+    {
+        LOG_CRIT << "set nonblocking failed";
+        goto bad;
+    }
 
     if (bind(listenConn->fd_.getFd(), (sockaddr *)&listenConn->addr_, sizeof(listenConn->addr_)) != 0)
     {
@@ -225,7 +241,8 @@ int newConnection(Event *ev)
         if (serverPtr->pool_.activeCnt >= connections && event_delay > 0)
         {
             ev->timeout_ = TimeoutStatus::TIMEOUT;
-            serverPtr->timer_.add(ACCEPT_DELAY, "Accept delay", getTickMs() + event_delay * 1000, acceptDelay, (void *)ev);
+            serverPtr->timer_.add(ACCEPT_DELAY, "Accept delay", getTickMs() + event_delay * 1000, acceptDelay,
+                                  (void *)ev);
             if (serverPtr->multiplexer_->delFd(ev->c_->fd_.getFd()) != 1)
             {
                 LOG_CRIT << "Del accept event failed";

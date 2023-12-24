@@ -3,12 +3,11 @@
 #include "../core/basic.h"
 #include "utils_declaration.h"
 
-int setNonblocking(int fd)
+
+// return -1 on failure
+int setnonblocking(int fd)
 {
-    int oldOption = fcntl(fd, F_GETFL);
-    int newOption = oldOption | O_NONBLOCK;
-    fcntl(fd, F_SETFL, newOption);
-    return oldOption;
+    return fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK);
 }
 
 unsigned long long getTickMs()
