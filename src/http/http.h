@@ -156,9 +156,11 @@ class Header
     std::string value_;
 };
 
-class InfoRecv
+class CtxIn
 {
   public:
+    void init();
+    
     std::list<Header> headers_;
     std::unordered_map<std::string, Header> headerNameValueMap_;
     unsigned long contentLength_;
@@ -166,9 +168,11 @@ class InfoRecv
     ConnectionType connectionType_;
 };
 
-class InfoSend
+class CtxOut
 {
   public:
+    void init();
+
     std::list<Header> headers_;
     std::unordered_map<std::string, Header> headerNameValueMap_;
     unsigned long contentLength_;
@@ -192,6 +196,7 @@ class ChunkedInfo
 {
   public:
     ChunkedInfo();
+    void init();
     ChunkedState state_;
     size_t size_;
     size_t dataOffset_;
@@ -201,6 +206,7 @@ class RequestBody
 {
   public:
     RequestBody();
+    void init();
     off_t left_;
     ChunkedInfo chunkedInfo_;
     std::list<c_str> listBody_;
@@ -219,6 +225,7 @@ class Request
 
     RequestBody requestBody_;
 
+    // enums
     Method method_;
     HeaderState headerState_ = HeaderState::START;
     RequestState requestState_ = RequestState::START;
@@ -226,19 +233,22 @@ class Request
 
     unsigned int httpVersion_;
 
-    InfoRecv inInfo_;
-    InfoSend outInfo_;
+    CtxIn contextIn_;
+    CtxOut contextOut_;
 
+    // HTTP/1.1
     c_str protocol_;
+    // GET / POST
     c_str methodName_;
+    // http / https / ftp
     c_str schema_;
+    // www.bing.com / 121.12.12.12
     c_str host_;
 
     c_str requestLine_;
     c_str args_;
     c_str uri_;
     c_str exten_;
-    c_str unparsedUri_;
 
     int atPhase_;
 
@@ -250,28 +260,34 @@ class Request
     bool plusInUri_;
     // URI with empty path
     bool emptyPathInUri_;
+    
     bool invalidHeader_;
-    bool validUnparsedUri_;
 
     // all end pointers point to the place after the content, except methodEnd
     u_char *headerNameStart_;
     u_char *headerNameEnd_;
+
     u_char *headerValueStart_;
     u_char *headerValueEnd_;
+
     u_char *uriStart_;
     u_char *uriEnd_;
+
     u_char *uriExt_;
+
     u_char *argsStart_;
+
     u_char *requestStart_;
     u_char *requestEnd_;
+
     // methodEnd points to the last character of method, not the place after it
     u_char *methodEnd_;
+
     u_char *schemaStart_;
     u_char *schemaEnd_;
+
     u_char *hostStart_;
     u_char *hostEnd_;
-    u_char *portStart_;
-    u_char *portEnd_;
 
     unsigned int httpMinor_;
     unsigned int httpMajor_;

@@ -597,11 +597,11 @@ int processRequestHeaders(Event *ev)
             }
 
             // a header line has been parsed successfully
-            r->inInfo_.headers_.emplace_back(std::string(r->headerNameStart_, r->headerNameEnd_),
+            r->contextIn_.headers_.emplace_back(std::string(r->headerNameStart_, r->headerNameEnd_),
                                              std::string(r->headerValueStart_, r->headerValueEnd_));
 
-            Header &now = r->inInfo_.headers_.back();
-            r->inInfo_.headerNameValueMap_[toLower(now.name_)] = now;
+            Header &now = r->contextIn_.headers_.back();
+            r->contextIn_.headerNameValueMap_[toLower(now.name_)] = now;
 
 #ifdef LOG_HEADER
             LOG_INFO << now.name_ << ": " << now.value_;
@@ -623,7 +623,7 @@ int processRequestHeaders(Event *ev)
                 break;
             }
 
-            LOG_INFO << "Host: " << r->inInfo_.headerNameValueMap_["host"].value_;
+            LOG_INFO << "Host: " << r->contextIn_.headerNameValueMap_["host"].value_;
 
             LOG_INFO << "Port: " << serverPtr->servers_[r->c_->serverIdx_].port_;
 
@@ -725,11 +725,6 @@ int handleRequestUri(std::shared_ptr<Request> r)
         r->uri_.data_ = r->uriStart_;
     }
 
-    r->unparsedUri_.len_ = r->uriEnd_ - r->uriStart_;
-    r->unparsedUri_.data_ = r->uriStart_;
-
-    r->validUnparsedUri_ = r->emptyPathInUri_ ? 0 : 1;
-
     if (r->uriExt_)
     {
         if (r->argsStart_)
@@ -759,7 +754,7 @@ int handleRequestUri(std::shared_ptr<Request> r)
 
 int handleRequestHeader(std::shared_ptr<Request> r, int needHost)
 {
-    auto &mp = r->inInfo_.headerNameValueMap_;
+    auto &mp = r->contextIn_.headerNameValueMap_;
 
     if (mp.count("host"))
     {
@@ -773,35 +768,35 @@ int handleRequestHeader(std::shared_ptr<Request> r, int needHost)
 
     if (mp.count("content-length"))
     {
-        r->inInfo_.contentLength_ = atoi(mp["content-length"].value_.c_str());
+        r->contextIn_.contentLength_ = atoi(mp["content-length"].value_.c_str());
     }
     else
     {
-        r->inInfo_.contentLength_ = 0;
+        r->contextIn_.contentLength_ = 0;
     }
 
     if (mp.count("transfer-encoding"))
     {
-        r->inInfo_.isChunked_ = (0 == strcmp("chunked", mp["transfer-encoding"].value_.c_str()));
+        r->contextIn_.isChunked_ = (0 == strcmp("chunked", mp["transfer-encoding"].value_.c_str()));
     }
     else
     {
-        r->inInfo_.isChunked_ = 0;
+        r->contextIn_.isChunked_ = 0;
     }
 
     if (mp.count("connection"))
     {
         auto &type = mp["connection"].value_;
         bool alive = (!strcmp("keep-alive", type.c_str())) || (!strcmp("Keep-Alive", type.c_str()));
-        r->inInfo_.connectionType_ = alive ? ConnectionType::KEEP_ALIVE : ConnectionType::CLOSED;
+        r->contextIn_.connectionType_ = alive ? ConnectionType::KEEP_ALIVE : ConnectionType::CLOSED;
     }
     else if (r->httpVersion_ > 1000)
     {
-        r->inInfo_.connectionType_ = ConnectionType::KEEP_ALIVE;
+        r->contextIn_.connectionType_ = ConnectionType::KEEP_ALIVE;
     }
     else
     {
-        r->inInfo_.connectionType_ = ConnectionType::CLOSED;
+        r->contextIn_.connectionType_ = ConnectionType::CLOSED;
     }
 
     return OK;
@@ -845,10 +840,10 @@ int processUpsHeaders(std::shared_ptr<Request> upsr)
         ret = parseHeaderLine(upsr, 1);
         if (ret == OK)
         {
-            upsr->inInfo_.headers_.emplace_back(std::string(upsr->headerNameStart_, upsr->headerNameEnd_),
+            upsr->contextIn_.headers_.emplace_back(std::string(upsr->headerNameStart_, upsr->headerNameEnd_),
                                                 std::string(upsr->headerValueStart_, upsr->headerValueEnd_));
-            Header &now = upsr->inInfo_.headers_.back();
-            upsr->inInfo_.headerNameValueMap_[toLower(now.name_)] = now;
+            Header &now = upsr->contextIn_.headers_.back();
+            upsr->contextIn_.headerNameValueMap_[toLower(now.name_)] = now;
             continue;
         }
 
@@ -874,7 +869,7 @@ int processUpsBody(std::shared_ptr<Request> upsr)
     int ret = 0;
 
     // no content-length && not chunked
-    if (upsr->inInfo_.contentLength_ == 0 && !upsr->inInfo_.isChunked_)
+    if (upsr->contextIn_.contentLength_ == 0 && !upsr->contextIn_.isChunked_)
     {
         LOG_INFO << "Upstream process body done";
         return OK;
@@ -963,11 +958,11 @@ int writeResponse(Event *ev)
     r->c_->write_.handler_ = blockWriting;
     serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), EVENTS(IN | ET), r->c_);
 
-    if (r->outInfo_.resType_ == ResponseType::FILE)
+    if (r->contextOut_.resType_ == ResponseType::FILE)
     {
         sendfileEvent(&r->c_->write_);
     }
-    else if (r->outInfo_.resType_ == ResponseType::STRING)
+    else if (r->contextOut_.resType_ == ResponseType::STRING)
     {
         sendStrEvent(&r->c_->write_);
     }
@@ -975,7 +970,7 @@ int writeResponse(Event *ev)
     {
         LOG_INFO << "RESPONSED";
 
-        if (r->inInfo_.connectionType_ == ConnectionType::KEEP_ALIVE)
+        if (r->contextIn_.connectionType_ == ConnectionType::KEEP_ALIVE)
         {
             keepAliveRequest(r);
         }
@@ -1003,7 +998,7 @@ int blockWriting(Event *ev)
 // @return OK AGAIN ERROR
 int processRequestBody(std::shared_ptr<Request> r)
 {
-    if (r->inInfo_.isChunked_)
+    if (r->contextIn_.isChunked_)
     {
         return processBodyChunked(r);
     }
@@ -1021,7 +1016,7 @@ int processBodyLength(std::shared_ptr<Request> r)
 
     if (rb.left_ == -1)
     {
-        rb.left_ = r->inInfo_.contentLength_;
+        rb.left_ = r->contextIn_.contentLength_;
     }
 
     while (buffer.allRead() != 1)
@@ -1120,7 +1115,7 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
     int ret = 0;
 
     // no content-length && not chunked
-    if (r->inInfo_.contentLength_ == 0 && !r->inInfo_.isChunked_)
+    if (r->contextIn_.contentLength_ == 0 && !r->contextIn_.isChunked_)
     {
         r->c_->read_.handler_ = blockReading;
         if (postHandler)
@@ -1216,7 +1211,7 @@ int readRequestBodyInner(Event *ev)
 int sendfileEvent(Event *ev)
 {
     std::shared_ptr<Request> r = ev->c_->request_;
-    auto &filebody = r->outInfo_.fileBody_;
+    auto &filebody = r->contextOut_.fileBody_;
 
     ssize_t len = sendfile(r->c_->fd_.getFd(), filebody.filefd_.getFd(), &filebody.offset_,
                            filebody.fileSize_ - filebody.offset_);
@@ -1247,7 +1242,7 @@ int sendfileEvent(Event *ev)
 
     LOG_INFO << "SENDFILE RESPONSED";
 
-    if (r->inInfo_.connectionType_ == ConnectionType::KEEP_ALIVE)
+    if (r->contextIn_.connectionType_ == ConnectionType::KEEP_ALIVE)
     {
         keepAliveRequest(r);
     }
@@ -1262,7 +1257,7 @@ int sendfileEvent(Event *ev)
 int sendStrEvent(Event *ev)
 {
     std::shared_ptr<Request> r = ev->c_->request_;
-    auto &strbody = r->outInfo_.strBody_;
+    auto &strbody = r->contextOut_.strBody_;
 
     static int offset = 0;
     int bodysize = strbody.size();
@@ -1296,7 +1291,7 @@ int sendStrEvent(Event *ev)
 
     LOG_INFO << "SENDSTR RESPONSED";
 
-    if (r->inInfo_.connectionType_ == ConnectionType::KEEP_ALIVE)
+    if (r->contextIn_.connectionType_ == ConnectionType::KEEP_ALIVE)
     {
         keepAliveRequest(r);
     }
@@ -1390,18 +1385,18 @@ bool etagMatched(int fd, std::string b_etag)
 void setErrorResponse(std::shared_ptr<Request> r, ResponseCode code)
 {
     HttpCode hc = getByCode(code);
-    r->outInfo_.resCode_ = code;
-    r->outInfo_.statusLine_ = getStatusLineByCode(code);
-    r->outInfo_.resType_ = ResponseType::STRING;
-    auto &str = r->outInfo_.strBody_;
+    r->contextOut_.resCode_ = code;
+    r->contextOut_.statusLine_ = getStatusLineByCode(code);
+    r->contextOut_.resType_ = ResponseType::STRING;
+    auto &str = r->contextOut_.strBody_;
     str.append("<html>\n<head>\n\t<title>").append(hc.str_).append("</title>\n</head>\n");
     str.append("<body>\n\t<center>\n\t\t<h1>")
         .append(hc.str_)
         .append("</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
 
-    r->outInfo_.headers_.emplace_back("Content-Type", getContentType("html", Charset::UTF_8));
-    r->outInfo_.headers_.emplace_back("Content-Length", std::to_string(str.length()));
-    r->outInfo_.headers_.emplace_back("Connection", "Keep-Alive");
+    r->contextOut_.headers_.emplace_back("Content-Type", getContentType("html", Charset::UTF_8));
+    r->contextOut_.headers_.emplace_back("Content-Length", std::to_string(str.length()));
+    r->contextOut_.headers_.emplace_back("Connection", "Keep-Alive");
 }
 
 HttpCode getByCode(ResponseCode code)
