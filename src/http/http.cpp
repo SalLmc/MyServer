@@ -168,7 +168,7 @@ Connection *addListen(Server *server, int port)
     listenConn->addr_.sin_port = htons(port);
 
     listenConn->fd_ = socket(AF_INET, SOCK_STREAM, 0);
-    
+
     if (listenConn->fd_.getFd() < 0)
     {
         LOG_CRIT << "open listenfd failed";
@@ -238,14 +238,17 @@ int newConnection(Event *ev)
             return 1;
         }
 
-        if (serverPtr->pool_.activeCnt >= connections && event_delay > 0)
+        if (serverPtr->pool_.activeCnt >= connections)
         {
-            ev->timeout_ = TimeoutStatus::TIMEOUT;
-            serverPtr->timer_.add(ACCEPT_DELAY, "Accept delay", getTickMs() + event_delay * 1000, acceptDelay,
-                                  (void *)ev);
-            if (serverPtr->multiplexer_->delFd(ev->c_->fd_.getFd()) != 1)
+            if (event_delay > 0)
             {
-                LOG_CRIT << "Del accept event failed";
+                ev->timeout_ = TimeoutStatus::TIMEOUT;
+                serverPtr->timer_.add(ACCEPT_DELAY, "Accept delay", getTickMs() + event_delay * 1000, acceptDelay,
+                                      (void *)ev);
+                if (serverPtr->multiplexer_->delFd(ev->c_->fd_.getFd()) != 1)
+                {
+                    LOG_CRIT << "Del accept event failed";
+                }
             }
             return 1;
         }
