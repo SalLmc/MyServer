@@ -10,15 +10,12 @@
 
 #include "src/utils/json.hpp"
 
-extern Server *serverPtr;
-extern SharedMemory shmForAMtx;
-extern ProcessMutex acceptMutex;
 extern int cores;
+Server *serverPtr;
 
-std::unordered_map<std::string, std::string> mp;
 std::unordered_map<std::string, std::string> extenContentTypeMap;
 
-void init();
+std::vector<ServerAttribute> init();
 void daemonize();
 
 int main(int argc, char *argv[])
@@ -29,6 +26,8 @@ int main(int argc, char *argv[])
 
     std::unique_ptr<Server> server(new Server(new Logger("log/", "startup")));
     serverPtr = server.get();
+
+    std::unordered_map<std::string, std::string> mp;
 
     if (getOption(argc, argv, &mp) == ERROR)
     {
@@ -81,10 +80,9 @@ int main(int argc, char *argv[])
     }
 
     // server init
+    server->setServers(init());
 
-    init();
-
-    if (is_daemon)
+    if (serverConfig.daemon)
     {
         if (server->logger_ != NULL)
         {
@@ -104,18 +102,6 @@ int main(int argc, char *argv[])
     {
         LOG_CRIT << "write pid failed";
         return 1;
-    }
-
-    // set event
-    if (use_epoll)
-    {
-        LOG_INFO << "Use epoll";
-        server->multiplexer_ = new Epoller();
-    }
-    else
-    {
-        LOG_INFO << "Use poll";
-        server->multiplexer_ = new Poller();
     }
 
     masterProcessCycle(serverPtr);
@@ -139,7 +125,7 @@ ServerAttribute getServer(JsonResult config)
     return server;
 }
 
-void init()
+std::vector<ServerAttribute> init()
 {
     MemFile typesFile(open("types.json", O_RDONLY));
     MemFile configFile(open("config.json", O_RDONLY));
@@ -153,24 +139,27 @@ void init()
     // get values
     extenContentTypeMap = types.value<std::unordered_map<std::string, std::string>>();
 
-    logger_threshold = getValue(config["logger"], "threshold", 1);
-    enable_logger = getValue(config["logger"], "enable", 1);
-    logger_interval = getValue(config["logger"], "interval", 3);
+    serverConfig.loggerThreshold = getValue(config["logger"], "threshold", 1);
+    enable_logger = serverConfig.loggerEnable = getValue(config["logger"], "enable", 1);
+    serverConfig.loggerInterval = getValue(config["logger"], "interval", 3);
 
-    processes = getValue(config["process"], "processes", cores);
-    is_daemon = getValue(config["process"], "daemon", 0);
-    only_worker = getValue(config["process"], "only_worker", 0);
+    serverConfig.processes = getValue(config["process"], "processes", cores);
+    serverConfig.daemon = getValue(config["process"], "daemon", 0);
+    serverConfig.onlyWorker = getValue(config["process"], "only_worker", 0);
 
-    use_epoll = getValue(config["event"], "use_epoll", 1);
-    event_delay = getValue(config["event"], "delay", 1);
-    connections = getValue(config["event"], "connections", 1024);
+    serverConfig.useEpoll = getValue(config["event"], "use_epoll", 1);
+    serverConfig.eventDelay = getValue(config["event"], "delay", 1);
+    serverConfig.connections = getValue(config["event"], "connections", 1024);
 
     JsonResult servers = config["servers"];
 
+    std::vector<ServerAttribute> ans;
     for (int i = 0; i < servers.size(); i++)
     {
-        serverPtr->servers_.push_back(getServer(servers[i]));
+        ans.push_back(getServer(servers[i]));
     }
+
+    return ans;
 }
 
 void daemonize()

@@ -4,7 +4,7 @@
 int main()
 {
     std::string ip = "127.0.0.1";
-    int port = 80;
+    int port = 8000;
     int val = 1;
     Connection c;
 
@@ -26,6 +26,7 @@ int main()
 
     if (connect(c.fd_.getFd(), (struct sockaddr *)&c.addr_, sizeof(c.addr_)) < 0)
     {
+        printf("%s\n", strerror(errno));
         return 1;
     }
 
@@ -34,20 +35,10 @@ int main()
         return 1;
     }
 
-    std::string request = "GET http://cn.bing.com/s HTTP/1.1\r\n"
-                          "Host: www.example.com\r\n"
-                          "Connection: close\r\n"
-                          "\r\n";
-
-    c.writeBuffer_.append(request);
-    c.writeBuffer_.bufferSend(c.fd_.getFd(), 0);
-
-    sleep(1);
-
-    c.readBuffer_.bufferRecv(c.fd_.getFd(), 0);
-
-    for (auto &x : c.readBuffer_.nodes_)
+    if (send(c.fd_.getFd(), "123", 3, 0) < 0)
     {
-        printf("%s", x.toStringAll().c_str());
+        printf("%s\n", strerror(errno));
     }
+
+    printf("HERE\n");
 }

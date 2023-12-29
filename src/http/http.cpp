@@ -13,7 +13,6 @@
 extern Server *serverPtr;
 extern std::vector<PhaseHandler> phases;
 extern std::unordered_map<std::string, std::string> extenContentTypeMap;
-extern int connections;
 
 // std::unordered_map<std::string, std::string> extenContentTypeMap = {
 //     {"html", "text/html"},
@@ -139,81 +138,6 @@ std::unordered_map<int, HttpCode> httpCodeMap = {
     {500, {500, "500 Internal Server Error"}},
 };
 
-int initListen(Server *server, int port)
-{
-    Connection *listen = addListen(server, port);
-    listen->serverIdx_ = server->listening_.size();
-
-    server->listening_.push_back(listen);
-
-    listen->read_.type_ = EventType::ACCEPT;
-    listen->read_.handler_ = newConnection;
-
-    return OK;
-}
-
-Connection *addListen(Server *server, int port)
-{
-    Connection *listenConn = server->pool_.getNewConnection();
-    int val = 1;
-
-    if (listenConn == NULL)
-    {
-        LOG_CRIT << "get listen failed";
-        return NULL;
-    }
-
-    listenConn->addr_.sin_addr.s_addr = INADDR_ANY;
-    listenConn->addr_.sin_family = AF_INET;
-    listenConn->addr_.sin_port = htons(port);
-
-    listenConn->fd_ = socket(AF_INET, SOCK_STREAM, 0);
-
-    if (listenConn->fd_.getFd() < 0)
-    {
-        LOG_CRIT << "open listenfd failed";
-        goto bad;
-    }
-
-    if (setsockopt(listenConn->fd_.getFd(), SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) < 0)
-    {
-        LOG_WARN << "set keepalived failed";
-        goto bad;
-    }
-
-    if (setsockopt(listenConn->fd_.getFd(), SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val)) < 0)
-    {
-        LOG_CRIT << "set reuseport failed";
-        goto bad;
-    }
-
-    if (setnonblocking(listenConn->fd_.getFd()) < 0)
-    {
-        LOG_CRIT << "set nonblocking failed";
-        goto bad;
-    }
-
-    if (bind(listenConn->fd_.getFd(), (sockaddr *)&listenConn->addr_, sizeof(listenConn->addr_)) != 0)
-    {
-        LOG_CRIT << "bind failed";
-        goto bad;
-    }
-
-    if (listen(listenConn->fd_.getFd(), 4096) != 0)
-    {
-        LOG_CRIT << "listen failed";
-        goto bad;
-    }
-
-    LOG_INFO << "listen to " << port;
-
-    return listenConn;
-
-bad:
-    server->pool_.recoverConnection(listenConn);
-    return NULL;
-}
-
 int acceptDelay(void *ev)
 {
     Event *event = (Event *)ev;
@@ -238,13 +162,13 @@ int newConnection(Event *ev)
             return 1;
         }
 
-        if (serverPtr->pool_.activeCnt >= connections)
+        if (serverPtr->pool_.activeCnt >= serverConfig.connections)
         {
-            if (event_delay > 0)
+            if (serverConfig.eventDelay > 0)
             {
                 ev->timeout_ = TimeoutStatus::TIMEOUT;
-                serverPtr->timer_.add(ACCEPT_DELAY, "Accept delay", getTickMs() + event_delay * 1000, acceptDelay,
-                                      (void *)ev);
+                serverPtr->timer_.add(ACCEPT_DELAY, "Accept delay", getTickMs() + serverConfig.eventDelay * 1000,
+                                      acceptDelay, (void *)ev);
                 if (serverPtr->multiplexer_->delFd(ev->c_->fd_.getFd()) != 1)
                 {
                     LOG_CRIT << "Del accept event failed";
@@ -598,7 +522,7 @@ int processRequestHeaders(Event *ev)
 
             // a header line has been parsed successfully
             r->contextIn_.headers_.emplace_back(std::string(r->headerNameStart_, r->headerNameEnd_),
-                                             std::string(r->headerValueStart_, r->headerValueEnd_));
+                                                std::string(r->headerValueStart_, r->headerValueEnd_));
 
             Header &now = r->contextIn_.headers_.back();
             r->contextIn_.headerNameValueMap_[toLower(now.name_)] = now;
@@ -841,7 +765,7 @@ int processUpsHeaders(std::shared_ptr<Request> upsr)
         if (ret == OK)
         {
             upsr->contextIn_.headers_.emplace_back(std::string(upsr->headerNameStart_, upsr->headerNameEnd_),
-                                                std::string(upsr->headerValueStart_, upsr->headerValueEnd_));
+                                                   std::string(upsr->headerValueStart_, upsr->headerValueEnd_));
             Header &now = upsr->contextIn_.headers_.back();
             upsr->contextIn_.headerNameValueMap_[toLower(now.name_)] = now;
             continue;

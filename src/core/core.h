@@ -110,6 +110,10 @@ class Server
     Server(Logger *logger);
     ~Server();
 
+    void setServers(const std::vector<ServerAttribute> &servers);
+    int initListen(std::function<int(Event *)> handler);
+    void initEvent(bool useEpoll);
+    int regisListen();
     void eventLoop();
 
     ConnectionPool pool_;
@@ -133,5 +137,8 @@ class Process
     pid_t pid_;
     ProcessStatus status_ = ProcessStatus::NOT_USED;
 };
+
+// @return NULL on failed
+Connection *setupListen(Server *server, int port);
 
 #endif

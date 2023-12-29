@@ -99,13 +99,6 @@ class Multiplexer
 uint32_t events2epoll(EVENTS events);
 short events2poll(EVENTS events);
 
-int shmtxCreate(ProcessMutex *mtx, ProcessMutexShare *addr);
-// 1 for success, 0 for failure
-int shmtxTryLock(ProcessMutex *mtx);
-void shmtxLock(ProcessMutex *mtx);
-void shmtxUnlock(ProcessMutex *mtx);
-// 1 for success, 0 for failure, -1 for error
-int acceptexTryLock(Server *server);
 // @param ev Event *
 int setEventTimeout(void *ev);
 

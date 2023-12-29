@@ -10,8 +10,6 @@
 #include "process.h"
 
 extern Server *serverPtr;
-extern ProcessMutex acceptMutex;
-extern int processes;
 
 Process procs[MAX_PROCESS_N];
 
@@ -38,7 +36,7 @@ void masterProcessCycle(Server *server)
     }
 
     // start processes
-    if (only_worker)
+    if (serverConfig.onlyWorker)
     {
         workerProcessCycle(server);
         return;
@@ -46,7 +44,7 @@ void masterProcessCycle(Server *server)
 
     isChild = 0;
 
-    startWorkerProcesses(server, processes);
+    startWorkerProcesses(server, serverConfig.processes);
 
     if (isChild)
     {
@@ -135,7 +133,7 @@ void workerProcessCycle(Server *server)
     char name[20];
     sprintf(name, "worker_%d", slot);
     server->logger_ = new Logger("log/", name);
-    server->logger_->threshold_ = logger_threshold;
+    server->logger_->threshold_ = serverConfig.loggerThreshold;
 
     // sig
     sigset_t set;
@@ -154,34 +152,22 @@ void workerProcessCycle(Server *server)
     }
 
     // listen
-    for (auto &x : server->servers_)
+    if (server->initListen(newConnection) == ERROR)
     {
-        if (initListen(server, x.port_) == ERROR)
-        {
-            LOG_CRIT << "init listen failed";
-        }
+        LOG_CRIT << "init listen failed";
     }
 
-    // epoll
-    Epoller *epoller = dynamic_cast<Epoller *>(server->multiplexer_);
-    if (epoller)
-    {
-        epoller->setEpollFd(epoll_create1(0));
-    }
+    server->initEvent(serverConfig.useEpoll);
 
-    for (auto &listen : server->listening_)
+    if (server->regisListen() == ERROR)
     {
-        // use LT on listenfd
-        if (server->multiplexer_->addFd(listen->fd_.getFd(), EVENTS(IN), listen) == 0)
-        {
-            LOG_CRIT << "Listenfd add failed, errno:" << strerror(errno);
-        }
+        LOG_CRIT << "Listenfd add failed, errno:" << strerror(errno);
     }
 
     // timer
     if (enable_logger)
     {
-        unsigned long long interval = logger_interval * 1000;
+        unsigned long long interval = serverConfig.loggerInterval * 1000;
         server->timer_.add(LOG, "logger timer", getTickMs() + interval, logging, (void *)interval);
     }
 

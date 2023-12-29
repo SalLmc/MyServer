@@ -2,11 +2,12 @@
 
 #include "core.h"
 
-#include "../event/event.h"
+#include "../event/epoller.h"
+#include "../event/poller.h"
 #include "../log/logger.h"
 #include "../utils/utils_declaration.h"
 
-Server *serverPtr;
+extern Server *serverPtr;
 
 Event::Event(Connection *c) : c_(c), type_(EventType::NORMAL), timeout_(TimeoutStatus::NOT_TIMED_OUT)
 {
@@ -143,6 +144,58 @@ Server::~Server()
     }
 }
 
+void Server::setServers(const std::vector<ServerAttribute> &servers)
+{
+    servers_ = servers;
+}
+
+int Server::initListen(std::function<int(Event *)> handler)
+{
+    for (auto &x : servers_)
+    {
+        Connection *c = setupListen(this, x.port_);
+        if (c == NULL)
+        {
+            return ERROR;
+        }
+        c->serverIdx_ = listening_.size();
+
+        listening_.push_back(c);
+
+        c->read_.type_ = EventType::ACCEPT;
+        c->read_.handler_ = handler;
+    }
+    return OK;
+}
+
+void Server::initEvent(bool useEpoll)
+{
+    if (useEpoll)
+    {
+        multiplexer_ = new Epoller();
+        Epoller *epoller = dynamic_cast<Epoller *>(multiplexer_);
+        epoller->setEpollFd(epoll_create1(0));
+    }
+    else
+    {
+        multiplexer_ = new Poller();
+    }
+}
+
+int Server::regisListen()
+{
+    bool ok = 1;
+    for (auto &listen : listening_)
+    {
+        // use LT on listenfd
+        if (multiplexer_->addFd(listen->fd_.getFd(), EVENTS(IN), listen) == 0)
+        {
+            ok = 0;
+        }
+    }
+    return ok ? OK : ERROR;
+}
+
 void Server::eventLoop()
 {
     int flags = NORMAL;
@@ -162,4 +215,66 @@ void Server::eventLoop()
     timer_.tick();
 
     multiplexer_->processPostedEvents();
+}
+
+Connection *setupListen(Server *server, int port)
+{
+    Connection *listenConn = server->pool_.getNewConnection();
+    int val = 1;
+
+    if (listenConn == NULL)
+    {
+        LOG_CRIT << "get listen failed";
+        return NULL;
+    }
+
+    listenConn->addr_.sin_addr.s_addr = INADDR_ANY;
+    listenConn->addr_.sin_family = AF_INET;
+    listenConn->addr_.sin_port = htons(port);
+
+    listenConn->fd_ = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (listenConn->fd_.getFd() < 0)
+    {
+        LOG_CRIT << "open listenfd failed";
+        goto bad;
+    }
+
+    if (setsockopt(listenConn->fd_.getFd(), SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) < 0)
+    {
+        LOG_WARN << "set keepalived failed";
+        goto bad;
+    }
+
+    if (setsockopt(listenConn->fd_.getFd(), SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val)) < 0)
+    {
+        LOG_CRIT << "set reuseport failed";
+        goto bad;
+    }
+
+    if (setnonblocking(listenConn->fd_.getFd()) < 0)
+    {
+        LOG_CRIT << "set nonblocking failed";
+        goto bad;
+    }
+
+    if (bind(listenConn->fd_.getFd(), (sockaddr *)&listenConn->addr_, sizeof(listenConn->addr_)) != 0)
+    {
+        LOG_CRIT << "bind failed";
+        goto bad;
+    }
+
+    if (listen(listenConn->fd_.getFd(), 4096) != 0)
+    {
+        LOG_CRIT << "listen failed";
+        goto bad;
+    }
+
+    LOG_INFO << "listen to " << port;
+
+    return listenConn;
+
+bad:
+    server->pool_.recoverConnection(listenConn);
+    return NULL;
 }
