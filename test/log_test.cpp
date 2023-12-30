@@ -3,7 +3,11 @@
 #include "../src/core/core.h"
 #include "../src/global.h"
 #include "../src/log/logger.h"
-#include "../src/utils/utils_declaration.h"
+#include "../src/utils/utils.h"
+
+class Server;
+bool enable_logger;
+Server *serverPtr;
 
 int main(int argc, char *argv[])
 {

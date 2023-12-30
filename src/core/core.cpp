@@ -5,7 +5,7 @@
 #include "../event/epoller.h"
 #include "../event/poller.h"
 #include "../log/logger.h"
-#include "../utils/utils_declaration.h"
+#include "../utils/utils.h"
 
 extern Server *serverPtr;
 
@@ -127,7 +127,8 @@ ServerAttribute::ServerAttribute(int port, std::string &&root, std::string &&ind
 {
 }
 
-Server::Server(Logger *logger) : logger_(logger), multiplexer_(NULL)
+Server::Server(Logger *logger)
+    : logger_(logger), multiplexer_(NULL), extenContentTypeMap_({{"default_content_type", "application/octet-stream"}})
 {
 }
 
@@ -147,6 +148,14 @@ Server::~Server()
 void Server::setServers(const std::vector<ServerAttribute> &servers)
 {
     servers_ = servers;
+}
+
+void Server::setTypes(const std::unordered_map<std::string, std::string> &typeMap)
+{
+    for (auto &x : typeMap)
+    {
+        extenContentTypeMap_.insert(x);
+    }
 }
 
 int Server::initListen(std::function<int(Event *)> handler)

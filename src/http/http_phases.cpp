@@ -3,11 +3,10 @@
 #include "../core/core.h"
 #include "../event/event.h"
 #include "../log/logger.h"
-#include "../utils/utils_declaration.h"
+#include "../utils/utils.h"
 #include "http.h"
 #include "http_phases.h"
 
-extern std::unordered_map<std::string, std::string> extenContentTypeMap;
 extern Server *serverPtr;
 
 u_char extenSave[16];

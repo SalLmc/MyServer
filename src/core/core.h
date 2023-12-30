@@ -111,6 +111,7 @@ class Server
     ~Server();
 
     void setServers(const std::vector<ServerAttribute> &servers);
+    void setTypes(const std::unordered_map<std::string, std::string> &typeMap);
     int initListen(std::function<int(Event *)> handler);
     void initEvent(bool useEpoll);
     int regisListen();
@@ -122,6 +123,8 @@ class Server
     Logger *logger_;
     Multiplexer *multiplexer_;
     HeapTimer timer_;
+
+    std::unordered_map<std::string, std::string> extenContentTypeMap_;
 };
 
 enum class ProcessStatus

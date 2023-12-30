@@ -2,6 +2,7 @@
 #include "../src/log/logger.h"
 
 Server *serverPtr;
+bool enable_logger = 1;
 
 int callback(Event *ev)
 {
@@ -11,12 +12,14 @@ int callback(Event *ev)
 
 int main()
 {
-    Server server(new Logger("log", "test"));
+    printf("enable_logger:%d\n", enable_logger);
+    Server server(new Logger("../log", "test"));
     serverPtr = &server;
 
     ServerAttribute attr;
-    attr.root_ = "./";
+    attr.root_ = "./static";
     attr.port_ = 8000;
+    attr.index_ = "index.html";
 
     server.setServers({attr});
     server.initListen(callback);

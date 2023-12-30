@@ -1,7 +1,7 @@
 #include "../headers.h"
 
 #include "../global.h"
-#include "utils_declaration.h"
+#include "utils.h"
 
 std::vector<SignalWrapper> signals{{SIGINT, signalHandler, "stop"}, {SIGPIPE, SIG_IGN, ""}};
 

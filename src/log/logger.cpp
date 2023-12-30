@@ -1,9 +1,7 @@
 #include "../headers.h"
 
-#include "../utils/utils_declaration.h"
+#include "../utils/utils.h"
 #include "logger.h"
-
-bool enable_logger = 1;
 
 LogLine::LogLine()
 {

@@ -331,9 +331,6 @@ class HttpCode
     std::string str_;
 };
 
-int initListen(Server *server, int port);
-Connection *addListen(Server *server, int port);
-
 int newConnection(Event *ev);
 int waitRequest(Event *ev);
 int waitRequestAgain(Event *ev);

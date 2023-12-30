@@ -6,16 +6,18 @@
 #include "src/event/poller.h"
 #include "src/global.h"
 #include "src/log/logger.h"
-#include "src/utils/utils_declaration.h"
+#include "src/utils/utils.h"
 
 #include "src/utils/json.hpp"
 
 extern int cores;
+
+// need to define these global variables
 Server *serverPtr;
+bool enable_logger = 0;
 
-std::unordered_map<std::string, std::string> extenContentTypeMap;
-
-std::vector<ServerAttribute> init();
+std::vector<ServerAttribute> readServerConfig();
+std::unordered_map<std::string, std::string> readTypesConfig();
 void daemonize();
 
 int main(int argc, char *argv[])
@@ -80,7 +82,8 @@ int main(int argc, char *argv[])
     }
 
     // server init
-    server->setServers(init());
+    server->setServers(readServerConfig());
+    server->setTypes(readTypesConfig());
 
     if (serverConfig.daemon)
     {
@@ -125,20 +128,15 @@ ServerAttribute getServer(JsonResult config)
     return server;
 }
 
-std::vector<ServerAttribute> init()
+std::vector<ServerAttribute> readServerConfig()
 {
-    MemFile typesFile(open("types.json", O_RDONLY));
     MemFile configFile(open("config.json", O_RDONLY));
 
-    JsonParser typesParser(typesFile.addr_, typesFile.len_);
     JsonParser configParser(configFile.addr_, configFile.len_);
 
-    JsonResult types = typesParser.parse();
     JsonResult config = configParser.parse();
 
     // get values
-    extenContentTypeMap = types.value<std::unordered_map<std::string, std::string>>();
-
     serverConfig.loggerThreshold = getValue(config["logger"], "threshold", 1);
     enable_logger = serverConfig.loggerEnable = getValue(config["logger"], "enable", 1);
     serverConfig.loggerInterval = getValue(config["logger"], "interval", 3);
@@ -160,6 +158,16 @@ std::vector<ServerAttribute> init()
     }
 
     return ans;
+}
+
+std::unordered_map<std::string, std::string> readTypesConfig()
+{
+    MemFile types(open("types.json", O_RDONLY));
+
+    JsonParser parser(types.addr_, types.len_);
+    JsonResult res = parser.parse();
+
+    return res.value<std::unordered_map<std::string, std::string>>();
 }
 
 void daemonize()

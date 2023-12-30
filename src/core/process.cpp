@@ -6,7 +6,7 @@
 #include "../global.h"
 #include "../http/http.h"
 #include "../log/logger.h"
-#include "../utils/utils_declaration.h"
+#include "../utils/utils.h"
 #include "process.h"
 
 extern Server *serverPtr;

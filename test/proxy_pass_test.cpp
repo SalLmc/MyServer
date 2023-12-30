@@ -1,7 +1,12 @@
 #include "../src/core/core.h"
 #include "../src/headers.h"
 #include "../src/log/logger.h"
-#include "../src/utils/utils_declaration.h"
+#include "../src/utils/utils.h"
+
+class Server;
+bool enable_logger;
+Server *serverPtr;
+
 int main()
 {
     Logger logger("log/", "test");

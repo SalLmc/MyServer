@@ -1,44 +1,18 @@
-#include "../src/core/core.h"
-#include "../src/utils/utils_declaration.h"
+#include "../src/headers.h"
 
 int main()
 {
-    std::string ip = "127.0.0.1";
-    int port = 8000;
-    int val = 1;
-    Connection c;
+    std::unordered_map<std::string, std::string> a, b;
+    a = {{"1", "2"}};
+    b = {{"1", "3"}, {"3", "4"}};
 
-    c.fd_ = socket(AF_INET, SOCK_STREAM, 0);
-
-    if (c.fd_.getFd() < 0)
+    for (auto &x : b)
     {
-        return 1;
+        a.insert(x);
     }
 
-    if (setsockopt(c.fd_.getFd(), SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) < 0)
+    for (auto &x : a)
     {
-        return 1;
+        std::cout << x.first << " " << x.second;
     }
-
-    c.addr_.sin_family = AF_INET;
-    inet_pton(AF_INET, ip.c_str(), &c.addr_.sin_addr);
-    c.addr_.sin_port = htons(port);
-
-    if (connect(c.fd_.getFd(), (struct sockaddr *)&c.addr_, sizeof(c.addr_)) < 0)
-    {
-        printf("%s\n", strerror(errno));
-        return 1;
-    }
-
-    if (setnonblocking(c.fd_.getFd()) < 0)
-    {
-        return 1;
-    }
-
-    if (send(c.fd_.getFd(), "123", 3, 0) < 0)
-    {
-        printf("%s\n", strerror(errno));
-    }
-
-    printf("HERE\n");
 }
