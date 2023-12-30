@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
     std::unique_ptr<Server> server(new Server(new Logger("log/", "startup")));
     serverPtr = server.get();
 
-    std::unordered_map<std::string, std::string> mp;
+    std::unordered_map<Arg, std::string> mp;
 
     if (getOption(argc, argv, &mp) == ERROR)
     {
@@ -43,9 +43,9 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    if (mp.count("signal"))
+    if (mp.count(Arg::SIGNAL))
     {
-        std::string signal = mp["signal"];
+        std::string signal = mp[Arg::SIGNAL];
         pid_t pid = readNumberFromFile<pid_t>("pid_file");
         if (pid != -1)
         {

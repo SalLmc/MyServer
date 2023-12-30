@@ -2,17 +2,19 @@
 
 int main()
 {
-    std::unordered_map<std::string, std::string> a, b;
-    a = {{"1", "2"}};
-    b = {{"1", "3"}, {"3", "4"}};
-
-    for (auto &x : b)
+    switch (fork())
     {
-        a.insert(x);
-    }
+    case 0:
+        while (1)
+        {
+            printf("i am child");
+            sleep(1);
+        }
+        break;
 
-    for (auto &x : a)
-    {
-        std::cout << x.first << " " << x.second;
+    default:
+        while (1)
+            ;
+        break;
     }
 }

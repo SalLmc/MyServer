@@ -18,7 +18,7 @@ void masterProcessCycle(Server *server)
     // signal
     sigset_t set;
     sigemptyset(&set);
-    sigaddset(&set, SIGINT);
+    sigaddset(&set, SERVER_STOP);
 
     if (sigprocmask(SIG_BLOCK, &set, NULL) == -1)
     {
@@ -60,7 +60,7 @@ void masterProcessCycle(Server *server)
 
         if (quit)
         {
-            signalWorkerProcesses(SIGINT);
+            signalWorkerProcesses(SERVER_STOP);
             break;
         }
     }
@@ -102,15 +102,6 @@ pid_t spawnProcesses(Server *server, std::function<void(Server *)> proc)
         break;
     }
     return pid;
-}
-
-int recvFromMaster(Event *rev)
-{
-    char buffer[64];
-    memset(buffer, 0, sizeof(buffer));
-    recv(rev->c_->fd_.getFd(), buffer, 63, 0);
-    printf("slot:%d, recv from worker:%s\n", slot, buffer);
-    return 0;
 }
 
 void signalWorkerProcesses(int sig)

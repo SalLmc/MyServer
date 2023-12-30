@@ -3,7 +3,6 @@
 #include "../core/basic.h"
 #include "utils.h"
 
-
 // return -1 on failure
 int setnonblocking(int fd)
 {
@@ -20,7 +19,7 @@ unsigned long long getTickMs()
     return u;
 }
 
-int getOption(int argc, char *argv[], std::unordered_map<std::string, std::string> *mp)
+int getOption(int argc, char *argv[], std::unordered_map<Arg, std::string> *mp)
 {
     char *now;
     for (int i = 1; i < argc; i++)
@@ -37,7 +36,7 @@ int getOption(int argc, char *argv[], std::unordered_map<std::string, std::strin
             i++;
             if (!argv[i])
                 goto failed;
-            mp->insert(std::make_pair<std::string, std::string>("signal", std::string(argv[i])));
+            mp->insert({Arg::SIGNAL, std::string(argv[i])});
             break;
         }
     }
