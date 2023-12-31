@@ -85,7 +85,7 @@ int Poller::processEvents(int flags, int timeoutMs)
         {
             revents |= POLLIN | POLLOUT;
         }
-        
+
         if (c->quit_ == 1)
         {
             goto recover;
@@ -93,7 +93,7 @@ int Poller::processEvents(int flags, int timeoutMs)
 
         if ((revents & POLLIN) && c->read_.handler_)
         {
-            if (flags & POSTED)
+            if (flags == POSTED)
             {
                 if (c->read_.type_ == EventType::ACCEPT)
                 {
@@ -117,7 +117,7 @@ int Poller::processEvents(int flags, int timeoutMs)
 
         if ((revents & POLLOUT) && c->write_.handler_)
         {
-            if (flags & POSTED)
+            if (flags == POSTED)
             {
                 postedEvents_.push_back(&c->write_);
             }

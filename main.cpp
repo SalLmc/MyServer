@@ -19,66 +19,27 @@ bool enable_logger = 0;
 std::vector<ServerAttribute> readServerConfig();
 std::unordered_map<std::string, std::string> readTypesConfig();
 void daemonize();
+int preWork(int argc, char *argv[]);
 
 int main(int argc, char *argv[])
 {
     umask(0);
-
     cores = std::max(1U, std::thread::hardware_concurrency());
 
     std::unique_ptr<Server> server(new Server(new Logger("log/", "startup")));
     serverPtr = server.get();
 
-    std::unordered_map<Arg, std::string> mp;
-
-    if (getOption(argc, argv, &mp) == ERROR)
+    switch (preWork(argc, argv))
     {
-        LOG_CRIT << "get option failed";
+    case DONE:
+        return 0;
+        break;
+    case OK:
+        break;
+    default:
+        printf("Server starts failed\n");
         return 1;
-    }
-
-    if (initSignals() == -1)
-    {
-        LOG_CRIT << "init signals failed";
-        return 1;
-    }
-
-    if (mp.count(Arg::SIGNAL))
-    {
-        std::string signal = mp[Arg::SIGNAL];
-        pid_t pid = readNumberFromFile<pid_t>("pid_file");
-        if (pid != -1)
-        {
-            int ret = sendSignal(pid, signal);
-            if (ret == 0)
-            {
-                return 0;
-            }
-            else if (ret == -1)
-            {
-                LOG_WARN << "Process has been stopped or send signal failed";
-            }
-            else if (ret == -2)
-            {
-                LOG_WARN << "invalid signal command";
-            }
-            return 0;
-        }
-        else
-        {
-            LOG_CRIT << "open pid file failed";
-            return 1;
-        }
-    }
-
-    {
-        pid_t pid = readNumberFromFile<pid_t>("pid_file");
-        if (pid != ERROR && kill(pid, 0) == 0)
-        {
-            LOG_CRIT << "server is running!";
-            printf("Server is running!\n");
-            return 1;
-        }
+        break;
     }
 
     // server init
@@ -107,7 +68,60 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    masterProcessCycle(serverPtr);
+    master(serverPtr);
+}
+
+int preWork(int argc, char *argv[])
+{
+    std::unordered_map<Arg, std::string> mp;
+
+    if (getOption(argc, argv, &mp) == ERROR)
+    {
+        LOG_CRIT << "get option failed";
+        return ERROR;
+    }
+
+    if (initSignals() == -1)
+    {
+        LOG_CRIT << "init signals failed";
+        return ERROR;
+    }
+
+    if (mp.count(Arg::SIGNAL))
+    {
+        std::string signal = mp[Arg::SIGNAL];
+        pid_t pid = readNumberFromFile<pid_t>("pid_file");
+        if (pid != -1)
+        {
+            int ret = sendSignal(pid, signal);
+            if (ret == -1)
+            {
+                LOG_WARN << "Process has been stopped or send signal failed";
+            }
+            else if (ret == -2)
+            {
+                LOG_WARN << "invalid signal command";
+            }
+            return DONE;
+        }
+        else
+        {
+            LOG_CRIT << "open pid file failed";
+            return ERROR;
+        }
+    }
+
+    {
+        pid_t pid = readNumberFromFile<pid_t>("pid_file");
+        if (pid != ERROR && kill(pid, 0) == 0)
+        {
+            LOG_CRIT << "server is running!";
+            printf("Server is running!\n");
+            return ERROR;
+        }
+    }
+
+    return OK;
 }
 
 ServerAttribute getServer(JsonResult config)

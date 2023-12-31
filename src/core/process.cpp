@@ -13,7 +13,7 @@ extern Server *serverPtr;
 
 Process procs[MAX_PROCESS_N];
 
-void masterProcessCycle(Server *server)
+void master(Server *server)
 {
     // signal
     sigset_t set;
@@ -38,7 +38,7 @@ void masterProcessCycle(Server *server)
     // start processes
     if (serverConfig.onlyWorker)
     {
-        workerProcessCycle(server);
+        worker(server);
         return;
     }
 
@@ -72,7 +72,7 @@ void startWorkerProcesses(Server *server, int n)
     int num = std::min(n, MAX_PROCESS_N);
     for (int i = 0; i < num && !isChild; i++)
     {
-        spawnProcesses(server, workerProcessCycle);
+        spawnProcesses(server, worker);
     }
 }
 
@@ -118,7 +118,7 @@ void signalWorkerProcesses(int sig)
     }
 }
 
-void workerProcessCycle(Server *server)
+void worker(Server *server)
 {
     // log
     char name[20];
