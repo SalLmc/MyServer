@@ -138,11 +138,11 @@ void Request::init()
     httpMajor_ = 0;
 }
 
-Status::Status() : httpVersion_(0), code_(0), count_(0), start_(NULL), end_(NULL)
+ResponseStatus::ResponseStatus() : httpVersion_(0), code_(0), count_(0), start_(NULL), end_(NULL)
 {
 }
 
-void Status::init()
+void ResponseStatus::init()
 {
     httpVersion_ = 0;
     code_ = 0;

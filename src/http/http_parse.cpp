@@ -1651,7 +1651,7 @@ invalid:
 }
 
 // HTTP/1.1 200 OK\r\n
-int parseStatusLine(std::shared_ptr<Request> r, Status *status)
+int parseStatusLine(std::shared_ptr<Request> r, ResponseStatus *status)
 {
     u_char ch;
     u_char *p;

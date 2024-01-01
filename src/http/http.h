@@ -160,7 +160,7 @@ class CtxIn
 {
   public:
     void init();
-    
+
     std::list<Header> headers_;
     std::unordered_map<std::string, Header> headerNameValueMap_;
     unsigned long contentLength_;
@@ -260,7 +260,7 @@ class Request
     bool plusInUri_;
     // URI with empty path
     bool emptyPathInUri_;
-    
+
     bool invalidHeader_;
 
     u_char *headerNameStart_;
@@ -291,10 +291,10 @@ class Request
     unsigned int httpMajor_;
 };
 
-class Status
+class ResponseStatus
 {
   public:
-    Status();
+    ResponseStatus();
     void init();
     int httpVersion_;
     int code_;
@@ -307,7 +307,8 @@ class UpstreamContext
 {
   public:
     void init();
-    Status status_;
+    ResponseStatus status_;
+    int upsIdx_;
 };
 
 class Upstream
@@ -360,6 +361,8 @@ int sendStrEvent(Event *ev);
 int keepAliveRequest(std::shared_ptr<Request> r);
 int finalizeRequest(std::shared_ptr<Request> r);
 int finalizeConnection(Connection *c);
+int finalizeRequestNow(std::shared_ptr<Request> r);
+int finalizeConnectionNow(Connection *c);
 
 // others
 std::string getEtag(int fd);
@@ -369,5 +372,6 @@ int blockWriting(Event *ev);
 std::string getContentType(std::string exten, Charset charset);
 HttpCode getByCode(ResponseCode code);
 std::string getStatusLineByCode(ResponseCode code);
+int selectServer(std::shared_ptr<Request> r);
 
 #endif

@@ -425,10 +425,9 @@ int processRequestHeaders(Event *ev)
 
             LOG_INFO << "http header done";
 
-            rc = handleRequestHeader(r, 1);
-
-            if (rc != OK)
+            if (handleRequestHeader(r, 1) != OK)
             {
+                finalizeRequest(r);
                 break;
             }
 
@@ -571,7 +570,6 @@ int handleRequestHeader(std::shared_ptr<Request> r, int needHost)
     else if (needHost)
     {
         LOG_WARN << "Client headers error";
-        finalizeRequest(r);
         return ERROR;
     }
 
@@ -629,6 +627,7 @@ int processUpsStatusLine(std::shared_ptr<Request> upsr)
 {
     std::shared_ptr<Upstream> ups = upsr->c_->upstream_;
 
+    // OK AGAIN ERROR
     int ret = parseStatusLine(upsr, &ups->ctx_.status_);
     if (ret != OK)
     {
@@ -642,33 +641,49 @@ int processUpsStatusLine(std::shared_ptr<Request> upsr)
 int processUpsHeaders(std::shared_ptr<Request> upsr)
 {
     std::shared_ptr<Upstream> ups = upsr->c_->upstream_;
-    int ret;
 
     while (1)
     {
-        ret = parseHeaderLine(upsr, 1);
+        // OK AGAIN DONE ERROR
+        int ret = parseHeaderLine(upsr, 1);
         if (ret == OK)
         {
+            if (tryMoveHeader(upsr, 1) == ERROR)
+            {
+                return ERROR;
+            }
+
+            if (tryMoveHeader(upsr, 0) == ERROR)
+            {
+                return ERROR;
+            }
+
             upsr->contextIn_.headers_.emplace_back(std::string(upsr->headerNameStart_, upsr->headerNameEnd_),
                                                    std::string(upsr->headerValueStart_, upsr->headerValueEnd_));
             Header &now = upsr->contextIn_.headers_.back();
             upsr->contextIn_.headerNameValueMap_[toLower(now.name_)] = now;
+
             continue;
         }
-
-        if (ret == AGAIN)
+        else if (ret == AGAIN)
         {
-            LOG_INFO << "AGAIN";
             return AGAIN;
         }
-
-        if (ret == DONE)
+        else if (ret == DONE)
         {
             LOG_INFO << "Upstream header done";
-            handleRequestHeader(upsr, 0);
+
+            if (handleRequestHeader(upsr, 0) != OK)
+            {
+                return ERROR;
+            }
 
             ups->processHandler_ = processUpsBody;
             return processUpsBody(upsr);
+        }
+        else
+        {
+            return ERROR;
         }
     }
 }
@@ -685,14 +700,6 @@ int processUpsBody(std::shared_ptr<Request> upsr)
     }
 
     upsr->requestBody_.left_ = -1;
-
-    // for (auto &x : upsr->c->readBuffer_.nodes)
-    // {
-    //     if (x.len == 0)
-    //         break;
-    //     printf("%s", std::string(x.start, x.start + x.len).c_str());
-    // }
-    // printf("\n");
 
     ret = processRequestBody(upsr);
 
@@ -1136,6 +1143,22 @@ int keepAliveRequest(std::shared_ptr<Request> r)
     return 0;
 }
 
+int finalizeConnectionNow(Connection *c)
+{
+    int fd = c->fd_.getFd();
+    serverPtr->multiplexer_->delFd(fd);
+    serverPtr->pool_.recoverConnection(c);
+    LOG_INFO << "Connection recover, FD:" << fd;
+    return 0;
+}
+
+int finalizeRequestNow(std::shared_ptr<Request> r)
+{
+    r->quit_ = 1;
+    finalizeConnectionNow(r->c_);
+    return 0;
+}
+
 int finalizeConnection(Connection *c)
 {
     if (c == NULL)
@@ -1148,7 +1171,6 @@ int finalizeConnection(Connection *c)
     c->quit_ = 1;
 
     // delete c at the end of a eventloop
-    // cPool.recoverConnection(c);
 
     LOG_INFO << "set connection->quit, FD:" << fd;
     return 0;
@@ -1270,4 +1292,12 @@ std::string getContentType(std::string exten, Charset charset)
     }
 
     return type;
+}
+
+int selectServer(std::shared_ptr<Request> r)
+{
+    auto &server = serverPtr->servers_[r->c_->serverIdx_];
+    int save = server.idx_;
+    server.idx_ = (server.idx_ + 1) % server.to_.size();
+    return save;
 }

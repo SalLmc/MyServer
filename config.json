@@ -6,7 +6,7 @@
     },
     "process": {
         "daemon": 0,
-        "only_worker": 0,
+        "only_worker": 1,
         "processes": 1
     },
     "event": {
@@ -20,7 +20,10 @@
             "root": "static",
             "index": "index.html",
             "from": "/api/",
-            "to": "http://www.lilinchang.com/"
+            "to": [
+                "http://183.2.172.42:80/",
+                "http://202.89.233.100:80/"
+            ]
         },
         {
             "port": 8001,

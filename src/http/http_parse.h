@@ -4,7 +4,7 @@
 #include "../headers.h"
 
 class Request;
-class Status;
+class ResponseStatus;
 
 #define str4cmp(m, c0, c1, c2, c3) *(uint32_t *)m == ((c3 << 24) | (c2 << 16) | (c1 << 8) | c0)
 
@@ -25,6 +25,6 @@ int parseRequestLine(std::shared_ptr<Request> r);
 int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes);
 int parseHeaderLine(std::shared_ptr<Request> r, bool allowUnderscores);
 int parseChunked(std::shared_ptr<Request> r);
-int parseStatusLine(std::shared_ptr<Request> r, Status *status);
+int parseStatusLine(std::shared_ptr<Request> r, ResponseStatus *status);
 
 #endif

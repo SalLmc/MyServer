@@ -132,7 +132,7 @@ ServerAttribute getServer(JsonResult config)
     server.index_ = getValue(config, "index", std::string("index.html"));
 
     server.from_ = getValue(config, "from", std::string());
-    server.to_ = getValue(config, "to", std::string());
+    server.to_ = getValue(config, "to", std::vector<std::string>());
 
     server.auto_index_ = getValue(config, "auto_index", 0);
     server.tryFiles_ = getValue(config, "try_files", std::vector<std::string>());

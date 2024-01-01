@@ -105,8 +105,9 @@ class ConnectionPool
 class ServerAttribute
 {
   public:
-    ServerAttribute(int port, std::string &&root, std::string &&index, std::string &&from, std::string &&to,
-                    bool auto_index, std::vector<std::string> &&tryfiles, std::vector<std::string> &&auth_path);
+    ServerAttribute(int port, std::string &&root, std::string &&index, std::string &&from,
+                    std::vector<std::string> &&to, bool auto_index, std::vector<std::string> &&tryfiles,
+                    std::vector<std::string> &&auth_path);
     ServerAttribute() = default;
 
     int port_;
@@ -114,7 +115,8 @@ class ServerAttribute
     std::string index_;
 
     std::string from_;
-    std::string to_;
+    std::vector<std::string> to_;
+    int idx_ = 0;
 
     bool auto_index_;
     std::vector<std::string> tryFiles_;
