@@ -16,7 +16,7 @@ Poller::~Poller()
 }
 
 // ctx is Connection*
-bool Poller::addFd(int fd, EVENTS events, void *ctx)
+bool Poller::addFd(int fd, Events events, void *ctx)
 {
     pollfd now = {fd, events2poll(events), 0};
     PollCtx pctx(now, ctx);
@@ -33,7 +33,7 @@ bool Poller::addFd(int fd, EVENTS events, void *ctx)
     return 1;
 }
 
-bool Poller::modFd(int fd, EVENTS events, void *ctx)
+bool Poller::modFd(int fd, Events events, void *ctx)
 {
     pollfd now = {fd, events2poll(events), 0};
     PollCtx pctx(now, ctx);

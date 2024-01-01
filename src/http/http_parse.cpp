@@ -59,7 +59,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
             // continue until we meet the space after method
             if (ch == ' ')
             {
-                r->methodEnd_ = p - 1;
+                r->methodEnd_ = p;
                 m = r->requestStart_;
 
                 // switch between method length, like GET, POST

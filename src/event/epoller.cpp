@@ -35,7 +35,7 @@ int Epoller::getFd()
 }
 
 // ctx is Connection*
-bool Epoller::addFd(int fd, EVENTS events, void *ctx)
+bool Epoller::addFd(int fd, Events events, void *ctx)
 {
     if (fd < 0)
         return 0;
@@ -47,7 +47,7 @@ bool Epoller::addFd(int fd, EVENTS events, void *ctx)
 }
 
 // ctx is Connection*
-bool Epoller::modFd(int fd, EVENTS events, void *ctx)
+bool Epoller::modFd(int fd, Events events, void *ctx)
 {
     if (fd < 0)
         return 0;

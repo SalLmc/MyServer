@@ -26,8 +26,8 @@ class Poller : public Multiplexer
     Poller();
     ~Poller();
 
-    bool addFd(int fd, EVENTS events, void *ctx);
-    bool modFd(int fd, EVENTS events, void *ctx);
+    bool addFd(int fd, Events events, void *ctx);
+    bool modFd(int fd, Events events, void *ctx);
     bool delFd(int fd);
     int processEvents(int flags = 0, int timeoutMs = -1);
     void processPostedAcceptEvents();

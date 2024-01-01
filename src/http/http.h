@@ -263,7 +263,6 @@ class Request
     
     bool invalidHeader_;
 
-    // all end pointers point to the place after the content, except methodEnd
     u_char *headerNameStart_;
     u_char *headerNameEnd_;
 
@@ -280,7 +279,6 @@ class Request
     u_char *requestStart_;
     u_char *requestEnd_;
 
-    // methodEnd points to the last character of method, not the place after it
     u_char *methodEnd_;
 
     u_char *schemaStart_;

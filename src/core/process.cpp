@@ -44,7 +44,11 @@ void master(Server *server)
 
     isChild = 0;
 
-    startWorkerProcesses(server, serverConfig.processes);
+    int num = std::min(serverConfig.processes, MAX_PROCESS_N);
+    for (int i = 0; i < num && !isChild; i++)
+    {
+        spawnProcesses(server, worker);
+    }
 
     if (isChild)
     {
@@ -65,15 +69,6 @@ void master(Server *server)
         }
     }
     LOG_INFO << "Quit";
-}
-
-void startWorkerProcesses(Server *server, int n)
-{
-    int num = std::min(n, MAX_PROCESS_N);
-    for (int i = 0; i < num && !isChild; i++)
-    {
-        spawnProcesses(server, worker);
-    }
 }
 
 pid_t spawnProcesses(Server *server, std::function<void(Server *)> proc)
@@ -150,7 +145,7 @@ void worker(Server *server)
 
     server->initEvent(serverConfig.useEpoll);
 
-    if (server->regisListen() == ERROR)
+    if (server->regisListen(IN) == ERROR)
     {
         LOG_CRIT << "Listenfd add failed, errno:" << strerror(errno);
     }

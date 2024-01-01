@@ -476,7 +476,7 @@ int initUpstream(std::shared_ptr<Request> r)
     }
 
     // send
-    if (serverPtr->multiplexer_->addFd(upc->fd_.getFd(), EVENTS(IN | OUT | ET), upc) != 1)
+    if (serverPtr->multiplexer_->addFd(upc->fd_.getFd(), Events(IN | OUT | ET), upc) != 1)
     {
         LOG_CRIT << "epoller addfd failed, error:" << strerror(errno);
     }
@@ -586,7 +586,7 @@ int send2Upstream(Event *upcEv)
         {
             if (errno == EAGAIN)
             {
-                if (serverPtr->multiplexer_->modFd(upc->fd_.getFd(), EVENTS(IN | OUT | ET), upc))
+                if (serverPtr->multiplexer_->modFd(upc->fd_.getFd(), Events(IN | OUT | ET), upc))
                 {
                     upc->write_.handler_ = send2Upstream;
                     return AGAIN;
@@ -616,7 +616,7 @@ int send2Upstream(Event *upcEv)
     }
 
     // remove EPOLLOUT events
-    if (serverPtr->multiplexer_->modFd(upc->fd_.getFd(), EVENTS(IN | ET), upc) != 1)
+    if (serverPtr->multiplexer_->modFd(upc->fd_.getFd(), Events(IN | ET), upc) != 1)
     {
         LOG_CRIT << "epoller modfd failed, error:" << strerror(errno);
     }
@@ -839,7 +839,7 @@ int send2Client(Event *upcEv)
         {
             if (errno == EAGAIN)
             {
-                if (serverPtr->multiplexer_->modFd(upc->fd_.getFd(), EVENTS(IN | OUT | ET), upc))
+                if (serverPtr->multiplexer_->modFd(upc->fd_.getFd(), Events(IN | OUT | ET), upc))
                 {
                     upc->write_.handler_ = send2Client;
                     return AGAIN;

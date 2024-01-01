@@ -28,7 +28,7 @@ int acceptDelay(void *ev)
     Event *event = (Event *)ev;
     event->timeout_ = TimeoutStatus::NOT_TIMED_OUT;
     // use LT on listenfd
-    if (serverPtr->multiplexer_->addFd(event->c_->fd_.getFd(), EVENTS(IN), event->c_) == 0)
+    if (serverPtr->multiplexer_->addFd(event->c_->fd_.getFd(), Events(IN), event->c_) == 0)
     {
         LOG_CRIT << "Listenfd add failed, errno:" << strerror(errno);
     }
@@ -84,7 +84,7 @@ int newConnection(Event *ev)
 
         newc->read_.handler_ = waitRequest;
 
-        if (serverPtr->multiplexer_->addFd(newc->fd_.getFd(), EVENTS(IN | ET), newc) == 0)
+        if (serverPtr->multiplexer_->addFd(newc->fd_.getFd(), Events(IN | ET), newc) == 0)
         {
             LOG_WARN << "Add client fd failed, FD:" << newc->fd_.getFd();
         }
@@ -228,7 +228,7 @@ int processRequestLine(Event *ev)
             LOG_INFO << "request line:"
                      << std::string(r->requestLine_.data_, r->requestLine_.data_ + r->requestLine_.len_);
 
-            r->methodName_.len_ = r->methodEnd_ - r->requestStart_ + 1;
+            r->methodName_.len_ = r->methodEnd_ - r->requestStart_;
             r->methodName_.data_ = r->requestLine_.data_;
 
             if (r->protocol_.data_)
@@ -759,13 +759,13 @@ int writeResponse(Event *ev)
         if (buffer.allRead() != 1)
         {
             r->c_->write_.handler_ = writeResponse;
-            serverPtr->multiplexer_->modFd(ev->c_->fd_.getFd(), EVENTS(IN | OUT | ET), ev->c_);
+            serverPtr->multiplexer_->modFd(ev->c_->fd_.getFd(), Events(IN | OUT | ET), ev->c_);
             return PHASE_QUIT;
         }
     }
 
     r->c_->write_.handler_ = blockWriting;
-    serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), EVENTS(IN | ET), r->c_);
+    serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), Events(IN | ET), r->c_);
 
     if (r->contextOut_.resType_ == ResponseType::FILE)
     {
@@ -947,7 +947,7 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
     }
 
     r->c_->read_.handler_ = readRequestBodyInner;
-    serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), EVENTS(IN | ET), r->c_);
+    serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), Events(IN | ET), r->c_);
 
     r->c_->write_.handler_ = blockWriting;
 
@@ -1041,11 +1041,11 @@ int sendfileEvent(Event *ev)
     if (filebody.fileSize_ - filebody.offset_ > 0)
     {
         r->c_->write_.handler_ = sendfileEvent;
-        serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), EVENTS(IN | OUT | ET), r->c_);
+        serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), Events(IN | OUT | ET), r->c_);
         return AGAIN;
     }
 
-    serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), EVENTS(IN | ET), r->c_);
+    serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), Events(IN | ET), r->c_);
     r->c_->write_.handler_ = blockWriting;
     filebody.filefd_.closeFd();
 
@@ -1090,12 +1090,12 @@ int sendStrEvent(Event *ev)
     if (bodysize - offset > 0)
     {
         r->c_->write_.handler_ = sendStrEvent;
-        serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), EVENTS(IN | OUT | ET), r->c_);
+        serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), Events(IN | OUT | ET), r->c_);
         return AGAIN;
     }
 
     offset = 0;
-    serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), EVENTS(IN | ET), r->c_);
+    serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), Events(IN | ET), r->c_);
     r->c_->write_.handler_ = blockWriting;
 
     LOG_INFO << "SENDSTR RESPONSED";

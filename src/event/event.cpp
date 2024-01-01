@@ -32,7 +32,7 @@ int setEventTimeout(void *ev)
     return 1;
 }
 
-uint32_t events2epoll(EVENTS events)
+uint32_t events2epoll(Events events)
 {
     uint32_t e = 0;
     if (events & IN)
@@ -52,7 +52,7 @@ uint32_t events2epoll(EVENTS events)
     return e;
 }
 
-short events2poll(EVENTS events)
+short events2poll(Events events)
 {
     short e = 0;
     if (events & IN)

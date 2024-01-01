@@ -181,7 +181,7 @@ std::unordered_map<std::string, std::string> readTypesConfig()
     JsonParser parser(types.addr_, types.len_);
     JsonResult res = parser.parse();
 
-    return res.value<std::unordered_map<std::string, std::string>>();
+    return res.value(std::unordered_map<std::string, std::string>());
 }
 
 void daemonize()

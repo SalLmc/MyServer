@@ -1,4 +1,5 @@
 #include "../src/core/core.h"
+#include "../src/http/http.h"
 #include "../src/log/logger.h"
 
 Server *serverPtr;
@@ -6,7 +7,7 @@ bool enable_logger = 1;
 
 int callback(Event *ev)
 {
-    printf("new connection");
+    LOG_INFO << "new connection";
     return 1;
 }
 
@@ -24,7 +25,7 @@ int main()
     server.setServers({attr});
     server.initListen(callback);
     server.initEvent(1);
-    server.regisListen();
+    server.regisListen(Events(IN | ET));
 
     LOG_INFO << "START";
     while (1)

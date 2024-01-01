@@ -191,13 +191,12 @@ void Server::initEvent(bool useEpoll)
     }
 }
 
-int Server::regisListen()
+int Server::regisListen(Events events)
 {
     bool ok = 1;
     for (auto &listen : listening_)
     {
-        // use LT on listenfd
-        if (multiplexer_->addFd(listen->fd_.getFd(), EVENTS(IN), listen) == 0)
+        if (multiplexer_->addFd(listen->fd_.getFd(), events, listen) == 0)
         {
             ok = 0;
         }
