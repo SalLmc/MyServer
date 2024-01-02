@@ -6,11 +6,9 @@
 class Server;
 class Event;
 
-void masterProcessCycle(Server *server);
-void workerProcessCycle(Server *server);
-void startWorkerProcesses(Server *server, int n);
+void master(Server *server);
+void worker(Server *server);
 pid_t spawnProcesses(Server *server, std::function<void(Server *)> proc);
-int recvFromMaster(Event *rev);
 void signalWorkerProcesses(int sig);
 
 int logging(void *arg);

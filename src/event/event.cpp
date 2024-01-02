@@ -25,14 +25,14 @@ int setEventTimeout(void *ev)
     {
         int fd = thisev->c_->fd_.getFd();
         serverPtr->multiplexer_->delFd(fd);
-        serverPtr->pool_->recoverConnection(thisev->c_);
+        serverPtr->pool_.recoverConnection(thisev->c_);
         LOG_INFO << "Connection recover, FD:" << fd;
     }
 
     return 1;
 }
 
-uint32_t events2epoll(EVENTS events)
+uint32_t events2epoll(Events events)
 {
     uint32_t e = 0;
     if (events & IN)
@@ -52,7 +52,7 @@ uint32_t events2epoll(EVENTS events)
     return e;
 }
 
-short events2poll(EVENTS events)
+short events2poll(Events events)
 {
     short e = 0;
     if (events & IN)

@@ -1,6 +1,6 @@
 #include "../headers.h"
 
-#include "../utils/utils_declaration.h"
+#include "../utils/utils.h"
 #include "timer.h"
 
 TimerNode::TimerNode(int id, std::string name, unsigned long long expires, unsigned long long newExpires,

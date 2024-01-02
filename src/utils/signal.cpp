@@ -1,15 +1,15 @@
 #include "../headers.h"
 
 #include "../global.h"
-#include "utils_declaration.h"
+#include "utils.h"
 
-std::vector<SignalWrapper> signals{{SIGINT, signalHandler, "stop"}, {SIGPIPE, SIG_IGN, ""}};
+std::vector<SignalWrapper> signals{{SERVER_STOP, signalHandler, "stop"}, {SIGPIPE, SIG_IGN, ""}};
 
 void signalHandler(int sig)
 {
     switch (sig)
     {
-    case SIGINT:
+    case SERVER_STOP:
         quit = 1;
         break;
     default:

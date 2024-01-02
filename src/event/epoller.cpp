@@ -35,7 +35,7 @@ int Epoller::getFd()
 }
 
 // ctx is Connection*
-bool Epoller::addFd(int fd, EVENTS events, void *ctx)
+bool Epoller::addFd(int fd, Events events, void *ctx)
 {
     if (fd < 0)
         return 0;
@@ -47,7 +47,7 @@ bool Epoller::addFd(int fd, EVENTS events, void *ctx)
 }
 
 // ctx is Connection*
-bool Epoller::modFd(int fd, EVENTS events, void *ctx)
+bool Epoller::modFd(int fd, Events events, void *ctx)
 {
     if (fd < 0)
         return 0;
@@ -89,7 +89,7 @@ int Epoller::processEvents(int flags, int timeoutMs)
 
         if ((revents & EPOLLIN) && c->read_.handler_)
         {
-            if (flags & POSTED)
+            if (flags == POSTED)
             {
                 if (c->read_.type_ == EventType::ACCEPT)
                 {
@@ -113,7 +113,7 @@ int Epoller::processEvents(int flags, int timeoutMs)
 
         if ((revents & EPOLLOUT) && c->write_.handler_)
         {
-            if (flags & POSTED)
+            if (flags == POSTED)
             {
                 postedEvents_.push_back(&c->write_);
             }
@@ -128,7 +128,7 @@ int Epoller::processEvents(int flags, int timeoutMs)
         {
             int fd = c->fd_.getFd();
             delFd(fd);
-            serverPtr->pool_->recoverConnection(c);
+            serverPtr->pool_.recoverConnection(c);
             LOG_INFO << "Connection recover, FD:" << fd;
         }
     }

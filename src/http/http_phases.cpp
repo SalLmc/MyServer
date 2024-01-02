@@ -3,26 +3,25 @@
 #include "../core/core.h"
 #include "../event/event.h"
 #include "../log/logger.h"
-#include "../utils/utils_declaration.h"
+#include "../utils/utils.h"
 #include "http.h"
 #include "http_phases.h"
 
-extern std::unordered_map<std::string, std::string> extenContentTypeMap;
 extern Server *serverPtr;
 
 u_char extenSave[16];
 
 int testPhaseHandler(std::shared_ptr<Request> r)
 {
-    r->outInfo_.resCode_ = HTTP_OK;
-    r->outInfo_.statusLine_ = getStatusLineByCode(r->outInfo_.resCode_);
-    r->outInfo_.resType_ = ResponseType::STRING;
+    r->contextOut_.resCode_ = HTTP_OK;
+    r->contextOut_.statusLine_ = getStatusLineByCode(r->contextOut_.resCode_);
+    r->contextOut_.resType_ = ResponseType::STRING;
 
-    r->outInfo_.strBody_.append("HELLO");
+    r->contextOut_.strBody_.append("HELLO");
 
-    r->outInfo_.headers_.emplace_back("Content-Type", getContentType("html", Charset::UTF_8));
-    r->outInfo_.headers_.emplace_back("Content-Length", std::to_string(r->outInfo_.strBody_.length()));
-    r->outInfo_.headers_.emplace_back("Connection", "Keep-Alive");
+    r->contextOut_.headers_.emplace_back("Content-Type", getContentType("html", Charset::UTF_8));
+    r->contextOut_.headers_.emplace_back("Content-Length", std::to_string(r->contextOut_.strBody_.length()));
+    r->contextOut_.headers_.emplace_back("Connection", "Keep-Alive");
 
     return doResponse(r);
 }
@@ -135,9 +134,9 @@ int authAccessHandler(std::shared_ptr<Request> r)
 
     if (!ok)
     {
-        if (r->inInfo_.headerNameValueMap_.count("code"))
+        if (r->contextIn_.headerNameValueMap_.count("code"))
         {
-            if (r->inInfo_.headerNameValueMap_["code"].value_ == auth)
+            if (r->contextIn_.headerNameValueMap_["code"].value_ == auth)
             {
                 ok = 1;
             }
@@ -272,29 +271,29 @@ int contentAccessHandler(std::shared_ptr<Request> r)
 fileok:
     if (fd.getFd() >= 0)
     {
-        if (r->inInfo_.headerNameValueMap_.count("if-none-match"))
+        if (r->contextIn_.headerNameValueMap_.count("if-none-match"))
         {
-            std::string browser_etag = r->inInfo_.headerNameValueMap_["if-none-match"].value_;
+            std::string browser_etag = r->contextIn_.headerNameValueMap_["if-none-match"].value_;
             if (etagMatched(fd.getFd(), browser_etag))
             {
-                r->outInfo_.resCode_ = HTTP_NOT_MODIFIED;
-                r->outInfo_.statusLine_ = getStatusLineByCode(r->outInfo_.resCode_);
-                r->outInfo_.resType_ = ResponseType::EMPTY;
-                r->outInfo_.headers_.emplace_back("Etag", std::move(browser_etag));
+                r->contextOut_.resCode_ = HTTP_NOT_MODIFIED;
+                r->contextOut_.statusLine_ = getStatusLineByCode(r->contextOut_.resCode_);
+                r->contextOut_.resType_ = ResponseType::EMPTY;
+                r->contextOut_.headers_.emplace_back("Etag", std::move(browser_etag));
                 return PHASE_NEXT;
             }
         }
 
-        r->outInfo_.resCode_ = HTTP_OK;
-        r->outInfo_.statusLine_ = getStatusLineByCode(r->outInfo_.resCode_);
-        r->outInfo_.resType_ = ResponseType::FILE;
+        r->contextOut_.resCode_ = HTTP_OK;
+        r->contextOut_.statusLine_ = getStatusLineByCode(r->contextOut_.resCode_);
+        r->contextOut_.resType_ = ResponseType::FILE;
 
         struct stat st;
         fstat(fd.getFd(), &st);
-        r->outInfo_.fileBody_.fileSize_ = st.st_size;
+        r->contextOut_.fileBody_.fileSize_ = st.st_size;
 
         // close fd after sendfile in writeResponse
-        r->outInfo_.fileBody_.filefd_.reset(std::move(fd));
+        r->contextOut_.fileBody_.filefd_.reset(std::move(fd));
 
         return PHASE_NEXT;
     }
@@ -312,13 +311,13 @@ autoindex:
         if (uri.back() != '/')
         {
             setErrorResponse(r, HTTP_MOVED_PERMANENTLY);
-            r->outInfo_.headers_.emplace_back("Location", uri + "/");
+            r->contextOut_.headers_.emplace_back("Location", uri + "/");
             return doResponse(r);
         }
 
-        r->outInfo_.resCode_ = HTTP_OK;
-        r->outInfo_.statusLine_ = getStatusLineByCode(r->outInfo_.resCode_);
-        r->outInfo_.resType_ = ResponseType::AUTO_INDEX;
+        r->contextOut_.resCode_ = HTTP_OK;
+        r->contextOut_.statusLine_ = getStatusLineByCode(r->contextOut_.resCode_);
+        r->contextOut_.resType_ = ResponseType::AUTO_INDEX;
         return PHASE_NEXT;
     }
 }
@@ -350,11 +349,13 @@ int initUpstream(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Initing upstream";
 
+    int val = 1;
     bool isDomain = 0;
 
     // setup upstream server
     auto &server = serverPtr->servers_[r->c_->serverIdx_];
-    std::string addr = server.to_;
+    int idx = selectServer(r);
+    std::string addr = server.to_[idx];
 
     std::string ip;
     std::string domain;
@@ -385,10 +386,10 @@ int initUpstream(std::shared_ptr<Request> r)
     std::string fullUri = std::string(r->uriStart_, r->uriEnd_);
     std::string newUri = getLeftUri(addr) + fullUri.replace(0, server.from_.length(), "");
 
-    LOG_INFO << "Upstream to " << server.to_ << " -> " << ip << ":" << port << newUri;
+    LOG_INFO << "Upstream to " << addr << " -> " << ip << ":" << port << newUri;
 
     // setup connection
-    Connection *upc = serverPtr->pool_->getNewConnection();
+    Connection *upc = serverPtr->pool_.getNewConnection();
 
     if (upc == NULL)
     {
@@ -402,7 +403,15 @@ int initUpstream(std::shared_ptr<Request> r)
     if (upc->fd_.getFd() < 0)
     {
         LOG_WARN << "open fd failed";
-        finalizeConnection(upc);
+        serverPtr->pool_.recoverConnection(upc);
+        finalizeRequest(r);
+        return ERROR;
+    }
+
+    if (setsockopt(upc->fd_.getFd(), SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) < 0)
+    {
+        LOG_WARN << "set keepalived failed";
+        serverPtr->pool_.recoverConnection(upc);
         finalizeRequest(r);
         return ERROR;
     }
@@ -414,12 +423,18 @@ int initUpstream(std::shared_ptr<Request> r)
     if (connect(upc->fd_.getFd(), (struct sockaddr *)&upc->addr_, sizeof(upc->addr_)) < 0)
     {
         LOG_WARN << "CONNECT ERR, FINALIZE CONNECTION, errro: " << strerror(errno);
-        finalizeConnection(upc);
+        serverPtr->pool_.recoverConnection(upc);
         finalizeRequest(r);
         return ERROR;
     }
 
-    setNonblocking(upc->fd_.getFd());
+    if (setnonblocking(upc->fd_.getFd()) < 0)
+    {
+        LOG_WARN << "set nonblocking failed";
+        serverPtr->pool_.recoverConnection(upc);
+        finalizeRequest(r);
+        return ERROR;
+    }
 
     LOG_INFO << "Upstream connected";
 
@@ -429,11 +444,12 @@ int initUpstream(std::shared_ptr<Request> r)
     upc->upstream_ = ups;
     ups->client_ = r->c_;
     ups->upstream_ = upc;
+    ups->ctx_.upsIdx_ = idx;
 
     // setup send content
     auto &wb = upc->writeBuffer_;
     wb.append(r->methodName_.toString() + " " + newUri + " HTTP/1.1\r\n");
-    auto &in = r->inInfo_;
+    auto &in = r->contextIn_;
 
     // headers
     bool needRewriteHost = 0;
@@ -461,95 +477,22 @@ int initUpstream(std::shared_ptr<Request> r)
         wb.append(x.toString());
     }
 
-    // send
-    if (serverPtr->multiplexer_->addFd(upc->fd_.getFd(), EVENTS(IN | OUT | ET), upc) != 1)
+    // read: empty; write: send2Upstream
+    upc->write_.handler_ = send2Upstream;
+
+    // read: clientAliveCheck; write: empty
+    r->c_->read_.handler_ = clientAliveCheck;
+
+    if (serverPtr->multiplexer_->addFd(upc->fd_.getFd(), Events(IN | OUT | ET), upc) != 1)
     {
         LOG_CRIT << "epoller addfd failed, error:" << strerror(errno);
-    }
-    return send2Upstream(&upc->write_);
-}
-
-int recvFromUpstream(Event *upcEv)
-{
-    int n;
-    int ret;
-    Connection *upc = upcEv->c_;
-    std::shared_ptr<Upstream> ups = upc->upstream_;
-    std::shared_ptr<Request> cr = ups->client_->request_;
-    std::shared_ptr<Request> upsr = ups->upstream_->request_;
-
-    while (1)
-    {
-        n = upc->readBuffer_.bufferRecv(upc->fd_.getFd(), 0);
-        if (n < 0 && errno == EAGAIN)
-        {
-            return AGAIN;
-        }
-        else if (n < 0 && errno != EAGAIN)
-        {
-            LOG_WARN << "Recv error";
-            finalizeRequest(upsr);
-            finalizeRequest(cr);
-            // heap.hDelete(upc->ups_);
-            return ERROR;
-        }
-        else if (n == 0)
-        {
-            LOG_WARN << "Upstream server close connection";
-            finalizeRequest(upsr);
-            finalizeRequest(cr);
-            // heap.hDelete(upc->ups_);
-            return ERROR;
-        }
-        else
-        {
-            // processStatusLine->processHeaders->processBody
-            ret = ups->processHandler_(upsr);
-            if (ret == AGAIN)
-            {
-                continue;
-            }
-            else if (ret == ERROR)
-            {
-                LOG_WARN << "Process error";
-                finalizeRequest(upsr);
-                finalizeRequest(cr);
-                // heap.hDelete(upc->ups_);
-                return ERROR;
-            }
-            break;
-        }
+        serverPtr->pool_.recoverConnection(upc);
+        finalizeRequest(r);
+        return ERROR;
     }
 
-    LOG_INFO << "Upstream recv done";
-
-    // for (auto &x : upsr->request_body.lbody)
-    // {
-    //     printf("%s", x.toString().c_str());
-    // }
-    // printf("\n");
-
-    upsr->c_->writeBuffer_.append("HTTP/1.1 " + std::string(ups->ctx_.status_.start_, ups->ctx_.status_.end_) + "\r\n");
-    for (auto &x : upsr->inInfo_.headers_)
-    {
-        upsr->c_->writeBuffer_.append(x.name_ + ": " + x.value_ + "\r\n");
-    }
-    upsr->c_->writeBuffer_.append("\r\n");
-    for (auto &x : upsr->requestBody_.listBody_)
-    {
-        upsr->c_->writeBuffer_.append(x.toString());
-    }
-
-    // auto now = upc->writeBuffer_.now;
-    // for (; now; now = now->next)
-    // {
-    //     if (now->len == 0)
-    //         break;
-    //     printf("%s", std::string(now->start + now->pos, now->start + now->len).c_str());
-    // }
-    // printf("\n");
-
-    return send2Client(&upc->write_);
+    // send && call send2Upstream at upc's loop
+    return OK;
 }
 
 int send2Upstream(Event *upcEv)
@@ -572,18 +515,13 @@ int send2Upstream(Event *upcEv)
         {
             if (errno == EAGAIN)
             {
-                if (serverPtr->multiplexer_->modFd(upc->fd_.getFd(), EVENTS(IN | OUT | ET), upc))
-                {
-                    upc->write_.handler_ = send2Upstream;
-                    return AGAIN;
-                }
+                return AGAIN;
             }
             else
             {
                 LOG_WARN << "SEND ERR, FINALIZE CONNECTION";
                 finalizeConnection(upc);
-                finalizeRequest(cr);
-                // heap.hDelete(upc->ups_);
+                finalizeRequestNow(cr);
                 return ERROR;
             }
         }
@@ -591,8 +529,7 @@ int send2Upstream(Event *upcEv)
         {
             LOG_WARN << "Upstream close connection, FINALIZE CONNECTION";
             finalizeConnection(upc);
-            finalizeRequest(cr);
-            // heap.hDelete(upc->ups_);
+            finalizeRequestNow(cr);
             return ERROR;
         }
         else
@@ -602,12 +539,15 @@ int send2Upstream(Event *upcEv)
     }
 
     // remove EPOLLOUT events
-    if (serverPtr->multiplexer_->modFd(upc->fd_.getFd(), EVENTS(IN | ET), upc) != 1)
+    if (serverPtr->multiplexer_->modFd(upc->fd_.getFd(), Events(IN | ET), upc) != 1)
     {
         LOG_CRIT << "epoller modfd failed, error:" << strerror(errno);
+        finalizeConnection(upc);
+        finalizeRequestNow(cr);
     }
 
-    upc->write_.handler_ = blockWriting;
+    // read: recvFromUpstream; write: empty
+    upc->write_.handler_ = std::function<int(Event *)>();
     upc->read_.handler_ = recvFromUpstream;
 
     ups->processHandler_ = processUpsStatusLine;
@@ -620,30 +560,117 @@ int send2Upstream(Event *upcEv)
     return recvFromUpstream(&upc->read_);
 }
 
+int recvFromUpstream(Event *upcEv)
+{
+    int n;
+    int ret;
+    Connection *upc = upcEv->c_;
+    std::shared_ptr<Upstream> ups = upc->upstream_;
+
+    std::shared_ptr<Request> cr = ups->client_->request_;
+    std::shared_ptr<Request> upsr = ups->upstream_->request_;
+
+    while (1)
+    {
+        n = upc->readBuffer_.bufferRecv(upc->fd_.getFd(), 0);
+        if (n < 0 && errno == EAGAIN)
+        {
+            LOG_INFO << "recv from upstream EAGAIN";
+            return AGAIN;
+        }
+        else if (n < 0 && errno != EAGAIN)
+        {
+            LOG_WARN << "Recv error, errno: " << strerror(errno);
+            finalizeRequest(upsr);
+            finalizeRequestNow(cr);
+            return ERROR;
+        }
+        else if (n == 0)
+        {
+            LOG_WARN << "Upstream server close connection";
+            finalizeRequest(upsr);
+            finalizeRequestNow(cr);
+            return ERROR;
+        }
+        else
+        {
+            // processUpsStatusLine->processHeaders->processBody
+            ret = ups->processHandler_(upsr);
+            if (ret == AGAIN)
+            {
+                continue;
+            }
+            else if (ret == ERROR)
+            {
+                LOG_WARN << "Process error";
+                finalizeRequest(upsr);
+                finalizeRequestNow(cr);
+                return ERROR;
+            }
+
+            // OK
+            break;
+        }
+    }
+
+    LOG_INFO << "Upstream recv done";
+
+    upsr->c_->writeBuffer_.append("HTTP/1.1 " + std::string(ups->ctx_.status_.start_, ups->ctx_.status_.end_) + "\r\n");
+    for (auto &x : upsr->contextIn_.headers_)
+    {
+        upsr->c_->writeBuffer_.append(x.name_ + ": " + x.value_ + "\r\n");
+    }
+    upsr->c_->writeBuffer_.append("\r\n");
+    for (auto &x : upsr->requestBody_.listBody_)
+    {
+        upsr->c_->writeBuffer_.append(x.toString());
+    }
+
+    // read: empty; write: empty
+    upc->read_.handler_ = std::function<int(Event *)>();
+    upc->write_.handler_ = std::function<int(Event *)>();
+
+    // read: block; write: send2Client
+    upc->upstream_->client_->read_.handler_ = blockReading;
+    upc->upstream_->client_->write_.handler_ = send2Client;
+
+    // call send2Client at client's loop
+    if (serverPtr->multiplexer_->modFd(upc->upstream_->client_->fd_.getFd(), Events(IN | OUT | ET),
+                                       upc->upstream_->client_) != 1)
+    {
+        LOG_CRIT << "epoller modfd failed, error:" << strerror(errno);
+        finalizeRequest(upsr);
+        finalizeRequestNow(cr);
+        return ERROR;
+    }
+
+    return OK;
+}
+
 int staticContentHandler(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Static content handler, FD:" << r->c_->fd_.getFd();
-    if (r->outInfo_.resType_ == ResponseType::FILE)
+    if (r->contextOut_.resType_ == ResponseType::FILE)
     {
         LOG_INFO << "RES_FILE";
-        r->outInfo_.contentLength_ = r->outInfo_.fileBody_.fileSize_;
-        std::string etag = getEtag(r->outInfo_.fileBody_.filefd_.getFd());
+        r->contextOut_.contentLength_ = r->contextOut_.fileBody_.fileSize_;
+        std::string etag = getEtag(r->contextOut_.fileBody_.filefd_.getFd());
         if (etag != "")
         {
-            r->outInfo_.headers_.emplace_back("Etag", std::move(etag));
+            r->contextOut_.headers_.emplace_back("Etag", std::move(etag));
         }
     }
-    else if (r->outInfo_.resType_ == ResponseType::STRING)
+    else if (r->contextOut_.resType_ == ResponseType::STRING)
     {
         LOG_INFO << "RES_STR";
-        r->outInfo_.contentLength_ = r->outInfo_.strBody_.length();
+        r->contextOut_.contentLength_ = r->contextOut_.strBody_.length();
     }
-    else if (r->outInfo_.resType_ == ResponseType::EMPTY)
+    else if (r->contextOut_.resType_ == ResponseType::EMPTY)
     {
         LOG_INFO << "RES_EMTPY";
-        r->outInfo_.contentLength_ = 0;
+        r->contextOut_.contentLength_ = 0;
     }
-    else if (r->outInfo_.resType_ == ResponseType::AUTO_INDEX)
+    else if (r->contextOut_.resType_ == ResponseType::AUTO_INDEX)
     {
         LOG_INFO << "RES_AUTO_INDEX";
         return PHASE_CONTINUE;
@@ -651,9 +678,9 @@ int staticContentHandler(std::shared_ptr<Request> r)
 
     std::string exten = std::string(r->exten_.data_, r->exten_.data_ + r->exten_.len_);
 
-    r->outInfo_.headers_.emplace_back("Content-Type", getContentType(exten, Charset::UTF_8));
-    r->outInfo_.headers_.emplace_back("Content-Length", std::to_string(r->outInfo_.contentLength_));
-    r->outInfo_.headers_.emplace_back("Connection", "Keep-Alive");
+    r->contextOut_.headers_.emplace_back("Content-Type", getContentType(exten, Charset::UTF_8));
+    r->contextOut_.headers_.emplace_back("Content-Length", std::to_string(r->contextOut_.contentLength_));
+    r->contextOut_.headers_.emplace_back("Connection", "Keep-Alive");
 
     return doResponse(r);
 }
@@ -661,21 +688,21 @@ int staticContentHandler(std::shared_ptr<Request> r)
 int autoIndexHandler(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Auto index handler, FD:" << r->c_->fd_.getFd();
-    if (r->outInfo_.resType_ != ResponseType::AUTO_INDEX)
+    if (r->contextOut_.resType_ != ResponseType::AUTO_INDEX)
     {
         LOG_WARN << "Pass auto index handler";
         return PHASE_NEXT;
     }
 
     // setup
-    r->outInfo_.resType_ = ResponseType::STRING;
+    r->contextOut_.resType_ = ResponseType::STRING;
 
     extenSave[0] = 'h', extenSave[1] = 't', extenSave[2] = 'm', extenSave[3] = 'l', extenSave[4] = '\0';
     r->exten_.data_ = extenSave;
     r->exten_.len_ = 4;
 
     // auto index
-    auto &out = r->outInfo_;
+    auto &out = r->contextOut_;
     auto &server = serverPtr->servers_[r->c_->serverIdx_];
 
     static char title[] = "<html>" CRLF "<head><title>Index of ";
@@ -725,9 +752,9 @@ int autoIndexHandler(std::shared_ptr<Request> r)
     out.strBody_.append(tail);
 
     // headers
-    r->outInfo_.headers_.emplace_back("Content-Type", getContentType("html", Charset::UTF_8));
-    r->outInfo_.headers_.emplace_back("Content-Length", std::to_string(out.strBody_.length()));
-    r->outInfo_.headers_.emplace_back("Connection", "Keep-Alive");
+    r->contextOut_.headers_.emplace_back("Content-Type", getContentType("html", Charset::UTF_8));
+    r->contextOut_.headers_.emplace_back("Content-Length", std::to_string(out.strBody_.length()));
+    r->contextOut_.headers_.emplace_back("Connection", "Keep-Alive");
 
     return doResponse(r);
 }
@@ -735,7 +762,7 @@ int autoIndexHandler(std::shared_ptr<Request> r)
 int appendResponseLine(std::shared_ptr<Request> r)
 {
     auto &writebuffer = r->c_->writeBuffer_;
-    auto &out = r->outInfo_;
+    auto &out = r->contextOut_;
 
     writebuffer.append(out.statusLine_);
 
@@ -744,7 +771,7 @@ int appendResponseLine(std::shared_ptr<Request> r)
 int appendResponseHeader(std::shared_ptr<Request> r)
 {
     auto &writebuffer = r->c_->writeBuffer_;
-    auto &out = r->outInfo_;
+    auto &out = r->contextOut_;
 
     for (auto &x : out.headers_)
     {
@@ -758,7 +785,7 @@ int appendResponseHeader(std::shared_ptr<Request> r)
 int appendResponseBody(std::shared_ptr<Request> r)
 {
     // auto &writebuffer = r->c->writeBuffer_;
-    auto &out = r->outInfo_;
+    auto &out = r->contextOut_;
 
     if (out.resType_ == ResponseType::EMPTY)
     {
@@ -801,13 +828,14 @@ int doResponse(std::shared_ptr<Request> r)
     return writeResponse(&r->c_->write_);
 }
 
-int send2Client(Event *upcEv)
+int send2Client(Event *ev)
 {
-    Connection *upc = upcEv->c_;
-    std::shared_ptr<Upstream> ups = upc->upstream_;
-    Connection *c = ups->client_;
+    Connection *c = ev->c_;
+    Connection *upc = c->upstream_->upstream_;
+    std::shared_ptr<Upstream> ups = c->upstream_;
     std::shared_ptr<Request> cr = c->request_;
     std::shared_ptr<Request> upsr = upc->request_;
+
     int ret = 0;
 
     LOG_INFO << "Write to client, FD:" << c->fd_.getFd();
@@ -825,29 +853,21 @@ int send2Client(Event *upcEv)
         {
             if (errno == EAGAIN)
             {
-                if (serverPtr->multiplexer_->modFd(upc->fd_.getFd(), EVENTS(IN | OUT | ET), upc))
-                {
-                    upc->write_.handler_ = send2Client;
-                    return AGAIN;
-                }
+                return AGAIN;
             }
             else
             {
-                // printf("%s\n", strerror(errno));
-                // printf("%d\n", c->fd_.getFd());
                 LOG_WARN << "SEND ERR, FINALIZE CONNECTION";
-                finalizeRequest(upsr);
+                finalizeRequestNow(upsr);
                 finalizeRequest(cr);
-                // heap.hDelete(upc->ups_);
                 return ERROR;
             }
         }
         else if (ret == 0)
         {
-            LOG_WARN << "Upstream close connection, FINALIZE CONNECTION";
-            finalizeRequest(upsr);
+            LOG_WARN << "Client close connection, FINALIZE CONNECTION";
+            finalizeRequestNow(upsr);
             finalizeRequest(cr);
-            // heap.hDelete(upc->ups_);
             return ERROR;
         }
         else
@@ -858,8 +878,8 @@ int send2Client(Event *upcEv)
 
     LOG_INFO << "PROXYPASS RESPONSED";
 
-    finalizeRequest(upsr);
-    if (cr->inInfo_.connectionType_ == ConnectionType::KEEP_ALIVE)
+    finalizeRequestNow(upsr);
+    if (cr->contextIn_.connectionType_ == ConnectionType::KEEP_ALIVE)
     {
         keepAliveRequest(cr);
     }
@@ -867,6 +887,5 @@ int send2Client(Event *upcEv)
     {
         finalizeRequest(cr);
     }
-    // heap.hDelete(ups);
     return OK;
 }

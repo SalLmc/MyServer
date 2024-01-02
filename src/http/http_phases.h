@@ -43,6 +43,6 @@ int doResponse(std::shared_ptr<Request> r);
 int initUpstream(std::shared_ptr<Request> r);
 int send2Upstream(Event *upcEv);
 int recvFromUpstream(Event *upcEv);
-int send2Client(Event *upcEv);
+int send2Client(Event *ev);
 
 #endif

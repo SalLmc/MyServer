@@ -3,10 +3,14 @@
 #include "../src/core/core.h"
 #include "../src/event/epoller.h"
 #include "../src/http/http.h"
-#include "../src/utils/utils_declaration.h"
+#include "../src/utils/utils.h"
 #include "../src/global.h"
 
-std::unordered_map<std::string, std::string> mp;
+class Server;
+bool enable_logger;
+Server *serverPtr;
+
+std::unordered_map<Arg, std::string> mp;
 
 int main(int argc, char *argv[])
 {
@@ -22,9 +26,9 @@ int main(int argc, char *argv[])
 
     assert(getOption(argc, argv, &mp) == 0);
 
-    if (mp.count("signal"))
+    if (mp.count(Arg::SIGNAL))
     {
-        std::string signal = mp["signal"];
+        std::string signal = mp[Arg::SIGNAL];
         pid_t pid = readNumberFromFile<pid_t>("pid_file");
         if (pid != -1)
         {

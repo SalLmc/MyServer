@@ -16,7 +16,7 @@ Poller::~Poller()
 }
 
 // ctx is Connection*
-bool Poller::addFd(int fd, EVENTS events, void *ctx)
+bool Poller::addFd(int fd, Events events, void *ctx)
 {
     pollfd now = {fd, events2poll(events), 0};
     PollCtx pctx(now, ctx);
@@ -33,7 +33,7 @@ bool Poller::addFd(int fd, EVENTS events, void *ctx)
     return 1;
 }
 
-bool Poller::modFd(int fd, EVENTS events, void *ctx)
+bool Poller::modFd(int fd, Events events, void *ctx)
 {
     pollfd now = {fd, events2poll(events), 0};
     PollCtx pctx(now, ctx);
@@ -85,6 +85,7 @@ int Poller::processEvents(int flags, int timeoutMs)
         {
             revents |= POLLIN | POLLOUT;
         }
+
         if (c->quit_ == 1)
         {
             goto recover;
@@ -92,7 +93,7 @@ int Poller::processEvents(int flags, int timeoutMs)
 
         if ((revents & POLLIN) && c->read_.handler_)
         {
-            if (flags & POSTED)
+            if (flags == POSTED)
             {
                 if (c->read_.type_ == EventType::ACCEPT)
                 {
@@ -116,7 +117,7 @@ int Poller::processEvents(int flags, int timeoutMs)
 
         if ((revents & POLLOUT) && c->write_.handler_)
         {
-            if (flags & POSTED)
+            if (flags == POSTED)
             {
                 postedEvents_.push_back(&c->write_);
             }
@@ -131,7 +132,7 @@ int Poller::processEvents(int flags, int timeoutMs)
         {
             int fd = c->fd_.getFd();
             delFd(fd);
-            serverPtr->pool_->recoverConnection(c);
+            serverPtr->pool_.recoverConnection(c);
             LOG_INFO << "Connection recover, FD:" << fd;
         }
     }

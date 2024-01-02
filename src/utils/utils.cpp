@@ -1,14 +1,12 @@
 #include "../headers.h"
 
 #include "../core/basic.h"
-#include "utils_declaration.h"
+#include "utils.h"
 
-int setNonblocking(int fd)
+// return -1 on failure
+int setnonblocking(int fd)
 {
-    int oldOption = fcntl(fd, F_GETFL);
-    int newOption = oldOption | O_NONBLOCK;
-    fcntl(fd, F_SETFL, newOption);
-    return oldOption;
+    return fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK);
 }
 
 unsigned long long getTickMs()
@@ -21,7 +19,7 @@ unsigned long long getTickMs()
     return u;
 }
 
-int getOption(int argc, char *argv[], std::unordered_map<std::string, std::string> *mp)
+int getOption(int argc, char *argv[], std::unordered_map<Arg, std::string> *mp)
 {
     char *now;
     for (int i = 1; i < argc; i++)
@@ -38,7 +36,7 @@ int getOption(int argc, char *argv[], std::unordered_map<std::string, std::strin
             i++;
             if (!argv[i])
                 goto failed;
-            mp->insert(std::make_pair<std::string, std::string>("signal", std::string(argv[i])));
+            mp->insert({Arg::SIGNAL, std::string(argv[i])});
             break;
         }
     }
@@ -453,6 +451,10 @@ void recursiveMkdir(const char *path, mode_t mode)
 std::string getIpByDomain(std::string &domain)
 {
     hostent *host_info = gethostbyname2(domain.c_str(), AF_INET);
+    if (host_info == NULL)
+    {
+        throw std::runtime_error("Get host by name failed");
+    }
     struct in_addr ipv4;
     ipv4.s_addr = *(unsigned int *)host_info->h_addr_list[0];
     return std::string(inet_ntoa(ipv4));

@@ -59,7 +59,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
             // continue until we meet the space after method
             if (ch == ' ')
             {
-                r->methodEnd_ = p - 1;
+                r->methodEnd_ = p;
                 m = r->requestStart_;
 
                 // switch between method length, like GET, POST
@@ -321,10 +321,8 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 state = RequestState::URI;
                 break;
             case ' ':
-                /*
-                 * use single "/" from request line to preserve pointers,
-                 * if request line will be copied to large client buffer
-                 */
+                // use single "/" from request line to preserve pointers, if request line will be copied to another
+                // buffer
                 r->uriStart_ = r->schemaEnd_ + 1;
                 r->uriEnd_ = r->schemaEnd_ + 2;
                 state = RequestState::HTTP_09;
@@ -387,23 +385,19 @@ int parseRequestLine(std::shared_ptr<Request> r)
             switch (ch)
             {
             case '/':
-                r->portEnd_ = p;
                 r->uriStart_ = p;
                 state = RequestState::AFTER_SLASH_URI;
                 break;
             case '?':
-                r->portEnd_ = p;
                 r->uriStart_ = p;
                 r->argsStart_ = p + 1;
                 r->emptyPathInUri_ = 1;
                 state = RequestState::URI;
                 break;
             case ' ':
-                r->portEnd_ = p;
-                /*
-                 * use single "/" from request line to preserve pointers,
-                 * if request line will be copied to large client buffer
-                 */
+
+                // use single "/" from request line to preserve pointers, if request line will be copied to another
+                // buffer
                 r->uriStart_ = r->schemaEnd_ + 1;
                 r->uriEnd_ = r->schemaEnd_ + 2;
                 state = RequestState::HTTP_09;
@@ -1657,7 +1651,7 @@ invalid:
 }
 
 // HTTP/1.1 200 OK\r\n
-int parseStatusLine(std::shared_ptr<Request> r, Status *status)
+int parseStatusLine(std::shared_ptr<Request> r, ResponseStatus *status)
 {
     u_char ch;
     u_char *p;

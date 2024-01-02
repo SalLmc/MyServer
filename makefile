@@ -1,13 +1,13 @@
 PROGS = libmy.so main 
 
+SRCDIR = src 
+
 PRE_HEADER = src/headers.h.gch
 
-SRCDIRS = src/buffer src/core src/event src/http src/log src/timer src/utils \
-          src ./
-
-CPP_SOURCES = $(foreach dir, $(SRCDIRS), $(wildcard $(dir)/*.cpp))
+CPP_SOURCES = $(shell find $(SRCDIR) -name '*.cpp')
 CPP_OBJECTS = $(patsubst %.cpp, %.o, $(CPP_SOURCES))
-INCLUDE_FILES = $(foreach dir, $(SRCDIRS), $(wildcard $(dir)/*.d)) *.d
+
+INCLUDE_FILES = $(shell find ./ -name '*.d')
 
 CPPSHARELIB = $(CXX) -fPIC -shared $^ -o $@
 
@@ -19,7 +19,7 @@ CXX = g++
 BUILDEXEWITHLIB = $(CXX) $(CXXFLAGS) $^ ./libmy.so -o $@ $(LINK)
 BUILDEXE = $(CXX) $(CXXFLAGS) $^ -o $@ $(LINK)
 
-CONFIG = config.json
+CONFIG = config.json types.json
 
 all: $(CONFIG) $(PRE_HEADER) $(PROGS) tests
 
@@ -41,5 +41,5 @@ tests:
 -include $(INCLUDE_FILES)
 
 clean:
-	rm -f $(PROGS) $(CPP_OBJECTS) $(INCLUDE_FILES)
+	rm -f $(PROGS) $(CPP_OBJECTS) $(INCLUDE_FILES) main.o
 	$(MAKE) clean -C test

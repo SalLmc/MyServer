@@ -3,6 +3,10 @@
 #include "../src/core/core.h"
 #include "../src/utils/json.hpp"
 
+class Server;
+bool enable_logger;
+Server *serverPtr;
+
 using std::cout;
 using std::endl;
 using std::string;

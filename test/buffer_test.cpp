@@ -2,6 +2,10 @@
 
 #include "../src/buffer/buffer.h"
 
+class Server;
+bool enable_logger;
+Server *serverPtr;
+
 int main()
 {
     LinkedBuffer buffer;

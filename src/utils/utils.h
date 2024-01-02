@@ -24,11 +24,16 @@ template <class T> T readNumberFromFile(const char *file_name)
     return num;
 }
 
+enum class Arg
+{
+    SIGNAL
+};
+
 // utils.cpp
 
-int setNonblocking(int fd);
+int setnonblocking(int fd);
 unsigned long long getTickMs();
-int getOption(int argc, char *argv[], std::unordered_map<std::string, std::string> *mp);
+int getOption(int argc, char *argv[], std::unordered_map<Arg, std::string> *mp);
 int writePid2File();
 std::string mtime2Str(timespec *mtime);
 std::string byte2ProperStr(off_t bytes);
@@ -49,6 +54,8 @@ bool isIPAddress(const std::string &str);
 std::string toLower(std::string &src);
 
 // signal.cpp
+
+#define SERVER_STOP SIGUSR1
 
 struct SignalWrapper
 {

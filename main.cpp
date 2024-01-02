@@ -6,86 +6,47 @@
 #include "src/event/poller.h"
 #include "src/global.h"
 #include "src/log/logger.h"
-#include "src/utils/utils_declaration.h"
+#include "src/utils/utils.h"
 
 #include "src/utils/json.hpp"
 
-extern ConnectionPool pool;
-extern Server *serverPtr;
-extern SharedMemory shmForAMtx;
-extern ProcessMutex acceptMutex;
 extern int cores;
 
-std::unordered_map<std::string, std::string> mp;
-std::unordered_map<std::string, std::string> extenContentTypeMap;
+// need to define these global variables
+Server *serverPtr;
+bool enable_logger = 0;
 
-void init();
+std::vector<ServerAttribute> readServerConfig();
+std::unordered_map<std::string, std::string> readTypesConfig();
 void daemonize();
+int preWork(int argc, char *argv[]);
 
 int main(int argc, char *argv[])
 {
     umask(0);
-
     cores = std::max(1U, std::thread::hardware_concurrency());
 
-    std::unique_ptr<Server> server(new Server(&pool, new Logger("log/", "startup")));
+    std::unique_ptr<Server> server(new Server(new Logger("log/", "startup")));
     serverPtr = server.get();
 
-    if (getOption(argc, argv, &mp) == ERROR)
+    switch (preWork(argc, argv))
     {
-        LOG_CRIT << "get option failed";
+    case DONE:
+        return 0;
+        break;
+    case OK:
+        break;
+    default:
+        printf("Server starts failed\n");
         return 1;
-    }
-
-    if (initSignals() == -1)
-    {
-        LOG_CRIT << "init signals failed";
-        return 1;
-    }
-
-    if (mp.count("signal"))
-    {
-        std::string signal = mp["signal"];
-        pid_t pid = readNumberFromFile<pid_t>("pid_file");
-        if (pid != -1)
-        {
-            int ret = sendSignal(pid, signal);
-            if (ret == 0)
-            {
-                return 0;
-            }
-            else if (ret == -1)
-            {
-                LOG_WARN << "Process has been stopped or send signal failed";
-            }
-            else if (ret == -2)
-            {
-                LOG_WARN << "invalid signal command";
-            }
-            return 0;
-        }
-        else
-        {
-            LOG_CRIT << "open pid file failed";
-            return 1;
-        }
-    }
-
-    {
-        pid_t pid = readNumberFromFile<pid_t>("pid_file");
-        if (pid != ERROR && kill(pid, 0) == 0)
-        {
-            LOG_CRIT << "server is running!";
-            printf("Server is running!\n");
-            return 1;
-        }
+        break;
     }
 
     // server init
+    server->setServers(readServerConfig());
+    server->setTypes(readTypesConfig());
 
-    init();
-
-    if (is_daemon)
+    if (serverConfig.daemon)
     {
         if (server->logger_ != NULL)
         {
@@ -107,19 +68,60 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    // set event
-    if (use_epoll)
+    master(serverPtr);
+}
+
+int preWork(int argc, char *argv[])
+{
+    std::unordered_map<Arg, std::string> mp;
+
+    if (getOption(argc, argv, &mp) == ERROR)
     {
-        LOG_INFO << "Use epoll";
-        server->multiplexer_ = new Epoller();
-    }
-    else
-    {
-        LOG_INFO << "Use poll";
-        server->multiplexer_ = new Poller();
+        LOG_CRIT << "get option failed";
+        return ERROR;
     }
 
-    masterProcessCycle(serverPtr);
+    if (initSignals() == -1)
+    {
+        LOG_CRIT << "init signals failed";
+        return ERROR;
+    }
+
+    if (mp.count(Arg::SIGNAL))
+    {
+        std::string signal = mp[Arg::SIGNAL];
+        pid_t pid = readNumberFromFile<pid_t>("pid_file");
+        if (pid != -1)
+        {
+            int ret = sendSignal(pid, signal);
+            if (ret == -1)
+            {
+                LOG_WARN << "Process has been stopped or send signal failed";
+            }
+            else if (ret == -2)
+            {
+                LOG_WARN << "invalid signal command";
+            }
+            return DONE;
+        }
+        else
+        {
+            LOG_CRIT << "open pid file failed";
+            return ERROR;
+        }
+    }
+
+    {
+        pid_t pid = readNumberFromFile<pid_t>("pid_file");
+        if (pid != ERROR && kill(pid, 0) == 0)
+        {
+            LOG_CRIT << "server is running!";
+            printf("Server is running!\n");
+            return ERROR;
+        }
+    }
+
+    return OK;
 }
 
 ServerAttribute getServer(JsonResult config)
@@ -130,7 +132,7 @@ ServerAttribute getServer(JsonResult config)
     server.index_ = getValue(config, "index", std::string("index.html"));
 
     server.from_ = getValue(config, "from", std::string());
-    server.to_ = getValue(config, "to", std::string());
+    server.to_ = getValue(config, "to", std::vector<std::string>());
 
     server.auto_index_ = getValue(config, "auto_index", 0);
     server.tryFiles_ = getValue(config, "try_files", std::vector<std::string>());
@@ -140,37 +142,46 @@ ServerAttribute getServer(JsonResult config)
     return server;
 }
 
-void init()
+std::vector<ServerAttribute> readServerConfig()
 {
-    MemFile typesFile(open("types.json", O_RDONLY));
     MemFile configFile(open("config.json", O_RDONLY));
 
-    JsonParser typesParser(typesFile.addr_, typesFile.len_);
     JsonParser configParser(configFile.addr_, configFile.len_);
 
-    JsonResult types = typesParser.parse();
     JsonResult config = configParser.parse();
 
     // get values
-    extenContentTypeMap = types.value<std::unordered_map<std::string, std::string>>();
+    serverConfig.loggerThreshold = getValue(config["logger"], "threshold", 1);
+    enable_logger = serverConfig.loggerEnable = getValue(config["logger"], "enable", 1);
+    serverConfig.loggerInterval = getValue(config["logger"], "interval", 3);
 
-    logger_threshold = getValue(config["logger"], "threshold", 1);
-    enable_logger = getValue(config["logger"], "enable", 1);
+    serverConfig.processes = getValue(config["process"], "processes", cores);
+    serverConfig.daemon = getValue(config["process"], "daemon", 0);
+    serverConfig.onlyWorker = getValue(config["process"], "only_worker", 0);
 
-    processes = getValue(config["process"], "processes", cores);
-    is_daemon = getValue(config["process"], "daemon", 0);
-    only_worker = getValue(config["process"], "only_worker", 0);
-
-    use_epoll = getValue(config["event"], "use_epoll", 1);
-    delay = getValue(config["event"], "delay", 1);
-    connections = getValue(config["event"], "connections", 1024);
+    serverConfig.useEpoll = getValue(config["event"], "use_epoll", 1);
+    serverConfig.eventDelay = getValue(config["event"], "delay", 1);
+    serverConfig.connections = getValue(config["event"], "connections", 1024);
 
     JsonResult servers = config["servers"];
 
+    std::vector<ServerAttribute> ans;
     for (int i = 0; i < servers.size(); i++)
     {
-        serverPtr->servers_.push_back(getServer(servers[i]));
+        ans.push_back(getServer(servers[i]));
     }
+
+    return ans;
+}
+
+std::unordered_map<std::string, std::string> readTypesConfig()
+{
+    MemFile types(open("types.json", O_RDONLY));
+
+    JsonParser parser(types.addr_, types.len_);
+    JsonResult res = parser.parse();
+
+    return res.value(std::unordered_map<std::string, std::string>());
 }
 
 void daemonize()

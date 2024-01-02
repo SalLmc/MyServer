@@ -2,6 +2,12 @@
 
 #include "http.h"
 
+void c_str::init()
+{
+    data_ = NULL;
+    len_ = 0;
+}
+
 Header::Header(std::string &&name, std::string &&value) : name_(name), value_(value)
 {
 }
@@ -13,10 +19,49 @@ ChunkedInfo::ChunkedInfo()
     dataOffset_ = 0;
 }
 
+void ChunkedInfo::init()
+{
+    state_ = ChunkedState::START;
+    size_ = 0;
+    dataOffset_ = 0;
+}
+
 RequestBody::RequestBody()
 {
     left_ = -1;
     postHandler_ = NULL;
+}
+
+void RequestBody::init()
+{
+    left_ = -1;
+    postHandler_ = NULL;
+    chunkedInfo_.init();
+    listBody_.clear();
+}
+
+void CtxIn::init()
+{
+    isChunked_ = 0;
+    connectionType_ = ConnectionType::CLOSED;
+    contentLength_ = 0;
+    headerNameValueMap_.clear();
+    headers_.clear();
+}
+
+void CtxOut::init()
+{
+    headers_.clear();
+    headerNameValueMap_.clear();
+    contentLength_ = 0;
+    isChunked_ = 0;
+    resCode_ = HTTP_OK;
+    statusLine_.clear();
+    strBody_.clear();
+    fileBody_.filefd_.closeFd();
+    fileBody_.fileSize_ = 0;
+    fileBody_.offset_ = 0;
+    resType_ = ResponseType::EMPTY;
 }
 
 Request::~Request()
@@ -34,57 +79,28 @@ void Request::init()
     c_ = NULL;
     httpVersion_ = 0;
 
-    requestBody_.left_ = -1;
-    requestBody_.postHandler_ = NULL;
-    requestBody_.listBody_.clear();
-    requestBody_.chunkedInfo_.state_ = ChunkedState::START;
-    requestBody_.chunkedInfo_.size_ = 0;
-    requestBody_.chunkedInfo_.dataOffset_ = 0;
+    requestBody_.init();
 
     headerState_ = HeaderState::START;
     requestState_ = RequestState::START;
     responseState_ = ResponseState::START;
 
-    inInfo_.isChunked_ = 0;
-    inInfo_.connectionType_ = ConnectionType::CLOSED;
-    inInfo_.contentLength_ = 0;
-    inInfo_.headerNameValueMap_.clear();
-    inInfo_.headers_.clear();
+    contextIn_.init();
+    contextOut_.init();
 
-    outInfo_.headers_.clear();
-    outInfo_.headerNameValueMap_.clear();
-    outInfo_.contentLength_ = 0;
-    outInfo_.isChunked_ = 0;
-    outInfo_.resCode_ = HTTP_OK;
-    outInfo_.statusLine_.clear();
-    outInfo_.strBody_.clear();
-    outInfo_.fileBody_.filefd_.closeFd();
-    outInfo_.fileBody_.fileSize_ = 0;
-    outInfo_.fileBody_.offset_ = 0;
-    outInfo_.resType_ = ResponseType::EMPTY;
-
-    protocol_.data_ = NULL;
-    methodName_.data_ = NULL;
-    schema_.data_ = NULL;
-    host_.data_ = NULL;
-    requestLine_.data_ = NULL;
-    args_.data_ = NULL;
     if (complexUri_ || quotedUri_ || emptyPathInUri_)
     {
         free(uri_.data_);
     }
-    uri_.data_ = NULL;
-    exten_.data_ = NULL;
-    unparsedUri_.data_ = NULL;
-    protocol_.len_ = 0;
-    methodName_.len_ = 0;
-    schema_.len_ = 0;
-    host_.len_ = 0;
-    requestLine_.len_ = 0;
-    args_.len_ = 0;
-    uri_.len_ = 0;
-    exten_.len_ = 0;
-    unparsedUri_.len_ = 0;
+
+    protocol_.init();
+    methodName_.init();
+    schema_.init();
+    host_.init();
+    requestLine_.init();
+    args_.init();
+    uri_.init();
+    exten_.init();
 
     atPhase_ = 0;
 
@@ -93,36 +109,40 @@ void Request::init()
     plusInUri_ = 0;
     emptyPathInUri_ = 0;
     invalidHeader_ = 0;
-    validUnparsedUri_ = 0;
 
     headerNameStart_ = NULL;
     headerNameEnd_ = NULL;
+
     headerValueStart_ = NULL;
     headerValueEnd_ = NULL;
 
     uriStart_ = NULL;
     uriEnd_ = NULL;
+
     uriExt_ = NULL;
+
     argsStart_ = NULL;
     requestStart_ = NULL;
+
     requestEnd_ = NULL;
+
     methodEnd_ = NULL;
+
     schemaStart_ = NULL;
     schemaEnd_ = NULL;
+    
     hostStart_ = NULL;
     hostEnd_ = NULL;
-    portStart_ = NULL;
-    portEnd_ = NULL;
 
     httpMinor_ = 0;
     httpMajor_ = 0;
 }
 
-Status::Status() : httpVersion_(0), code_(0), count_(0), start_(NULL), end_(NULL)
+ResponseStatus::ResponseStatus() : httpVersion_(0), code_(0), count_(0), start_(NULL), end_(NULL)
 {
 }
 
-void Status::init()
+void ResponseStatus::init()
 {
     httpVersion_ = 0;
     code_ = 0;

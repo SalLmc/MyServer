@@ -52,6 +52,7 @@ class c_str
   public:
     c_str() = default;
     c_str(u_char *data, size_t len);
+    void init();
     std::string toString();
     u_char *data_;
     size_t len_;

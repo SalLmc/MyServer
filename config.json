@@ -1,15 +1,16 @@
 {
     "logger": {
-        "enable": 0,
-        "threshold": 1
+        "enable": 1,
+        "threshold": 1,
+        "interval": 3
     },
     "process": {
         "daemon": 0,
         "only_worker": 0,
-        "processes": 8
+        "processes": 1
     },
     "event": {
-        "use_epoll": 0,
+        "use_epoll": 1,
         "connections": 1024,
         "delay": 0
     },
@@ -18,8 +19,11 @@
             "port": 8000,
             "root": "static",
             "index": "index.html",
-            "from": "/bing/",
-            "to": "http://cn.bing.com/"
+            "from": "/api/",
+            "to": [
+                "http://www.baidu.com/",
+                "http://cn.bing.com/"
+            ]
         },
         {
             "port": 8001,

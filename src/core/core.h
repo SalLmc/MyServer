@@ -14,6 +14,25 @@ class Connection;
 class Upstream;
 class Request;
 
+enum Events
+{
+    IN = 0x001,
+    PRI = 0x002,
+    OUT = 0x004,
+    RDNORM = 0x040,
+    RDBAND = 0x080,
+    WRNORM = 0x100,
+    WRBAND = 0x200,
+    MSG = 0x400,
+    ERR = 0x008,
+    HUP = 0x010,
+    RDHUP = 0x2000,
+    EXCLUSIVE = 1u << 28,
+    WAKEUP = 1u << 29,
+    ONESHOT = 1u << 30,
+    ET = 1u << 31
+};
+
 enum class TimeoutStatus
 {
     NOT_TIMED_OUT,
@@ -69,7 +88,7 @@ class Connection
 class ConnectionPool
 {
   public:
-    const static int POOLSIZE = 2048;
+    const static int POOLSIZE = 1024;
     ConnectionPool(int size = ConnectionPool::POOLSIZE);
     ~ConnectionPool();
     Connection *getNewConnection();
@@ -86,8 +105,9 @@ class ConnectionPool
 class ServerAttribute
 {
   public:
-    ServerAttribute(int port, std::string &&root, std::string &&index, std::string &&from, std::string &&to,
-                    bool auto_index, std::vector<std::string> &&tryfiles, std::vector<std::string> &&auth_path);
+    ServerAttribute(int port, std::string &&root, std::string &&index, std::string &&from,
+                    std::vector<std::string> &&to, bool auto_index, std::vector<std::string> &&tryfiles,
+                    std::vector<std::string> &&auth_path);
     ServerAttribute() = default;
 
     int port_;
@@ -95,7 +115,8 @@ class ServerAttribute
     std::string index_;
 
     std::string from_;
-    std::string to_;
+    std::vector<std::string> to_;
+    int idx_ = 0;
 
     bool auto_index_;
     std::vector<std::string> tryFiles_;
@@ -107,17 +128,24 @@ class Server
 {
   public:
     Server() = delete;
-    Server(ConnectionPool *pool, Logger *logger);
+    Server(Logger *logger);
     ~Server();
 
+    void setServers(const std::vector<ServerAttribute> &servers);
+    void setTypes(const std::unordered_map<std::string, std::string> &typeMap);
+    int initListen(std::function<int(Event *)> handler);
+    void initEvent(bool useEpoll);
+    int regisListen(Events events);
     void eventLoop();
 
-    ConnectionPool *pool_;
+    ConnectionPool pool_;
     std::vector<Connection *> listening_;
     std::vector<ServerAttribute> servers_;
     Logger *logger_;
     Multiplexer *multiplexer_;
     HeapTimer timer_;
+
+    std::unordered_map<std::string, std::string> extenContentTypeMap_;
 };
 
 enum class ProcessStatus
@@ -129,9 +157,11 @@ enum class ProcessStatus
 class Process
 {
   public:
-    Connection channel_[2];
     pid_t pid_;
     ProcessStatus status_ = ProcessStatus::NOT_USED;
 };
+
+// @return NULL on failed
+Connection *setupListen(Server *server, int port);
 
 #endif

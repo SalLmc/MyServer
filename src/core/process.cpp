@@ -6,21 +6,19 @@
 #include "../global.h"
 #include "../http/http.h"
 #include "../log/logger.h"
-#include "../utils/utils_declaration.h"
+#include "../utils/utils.h"
 #include "process.h"
 
 extern Server *serverPtr;
-extern ProcessMutex acceptMutex;
-extern int processes;
 
 Process procs[MAX_PROCESS_N];
 
-void masterProcessCycle(Server *server)
+void master(Server *server)
 {
     // signal
     sigset_t set;
     sigemptyset(&set);
-    sigaddset(&set, SIGINT);
+    sigaddset(&set, SERVER_STOP);
 
     if (sigprocmask(SIG_BLOCK, &set, NULL) == -1)
     {
@@ -38,15 +36,19 @@ void masterProcessCycle(Server *server)
     }
 
     // start processes
-    if (only_worker)
+    if (serverConfig.onlyWorker)
     {
-        workerProcessCycle(server);
+        worker(server);
         return;
     }
 
     isChild = 0;
 
-    startWorkerProcesses(server, processes);
+    int num = std::min(serverConfig.processes, MAX_PROCESS_N);
+    for (int i = 0; i < num && !isChild; i++)
+    {
+        spawnProcesses(server, worker);
+    }
 
     if (isChild)
     {
@@ -62,20 +64,11 @@ void masterProcessCycle(Server *server)
 
         if (quit)
         {
-            signalWorkerProcesses(SIGINT);
+            signalWorkerProcesses(SERVER_STOP);
             break;
         }
     }
     LOG_INFO << "Quit";
-}
-
-void startWorkerProcesses(Server *server, int n)
-{
-    int num = std::min(n, MAX_PROCESS_N);
-    for (int i = 0; i < num && !isChild; i++)
-    {
-        spawnProcesses(server, workerProcessCycle);
-    }
 }
 
 pid_t spawnProcesses(Server *server, std::function<void(Server *)> proc)
@@ -106,15 +99,6 @@ pid_t spawnProcesses(Server *server, std::function<void(Server *)> proc)
     return pid;
 }
 
-int recvFromMaster(Event *rev)
-{
-    char buffer[64];
-    memset(buffer, 0, sizeof(buffer));
-    recv(rev->c_->fd_.getFd(), buffer, 63, 0);
-    printf("slot:%d, recv from worker:%s\n", slot, buffer);
-    return 0;
-}
-
 void signalWorkerProcesses(int sig)
 {
     for (int i = 0; i < MAX_PROCESS_N; i++)
@@ -129,13 +113,13 @@ void signalWorkerProcesses(int sig)
     }
 }
 
-void workerProcessCycle(Server *server)
+void worker(Server *server)
 {
     // log
     char name[20];
     sprintf(name, "worker_%d", slot);
     server->logger_ = new Logger("log/", name);
-    server->logger_->threshold_ = logger_threshold;
+    server->logger_->threshold_ = serverConfig.loggerThreshold;
 
     // sig
     sigset_t set;
@@ -154,34 +138,23 @@ void workerProcessCycle(Server *server)
     }
 
     // listen
-    for (auto &x : server->servers_)
+    if (server->initListen(newConnection) == ERROR)
     {
-        if (initListen(server, x.port_) == ERROR)
-        {
-            LOG_CRIT << "init listen failed";
-        }
+        LOG_CRIT << "init listen failed";
     }
 
-    // epoll
-    Epoller *epoller = dynamic_cast<Epoller *>(server->multiplexer_);
-    if (epoller)
-    {
-        epoller->setEpollFd(epoll_create1(0));
-    }
+    server->initEvent(serverConfig.useEpoll);
 
-    for (auto &listen : server->listening_)
+    if (server->regisListen(IN) == ERROR)
     {
-        // use LT on listenfd
-        if (server->multiplexer_->addFd(listen->fd_.getFd(), EVENTS(IN), listen) == 0)
-        {
-            LOG_CRIT << "Listenfd add failed, errno:" << strerror(errno);
-        }
+        LOG_CRIT << "Listenfd add failed, errno:" << strerror(errno);
     }
 
     // timer
     if (enable_logger)
     {
-        server->timer_.add(LOG, "logger timer", getTickMs() + 3000, logging, (void *)3000);
+        unsigned long long interval = serverConfig.loggerInterval * 1000;
+        server->timer_.add(LOG, "logger timer", getTickMs() + interval, logging, (void *)interval);
     }
 
     LOG_INFO << "Worker Looping";
