@@ -612,6 +612,8 @@ int handleRequestHeader(std::shared_ptr<Request> r, int needHost)
 int processRequest(std::shared_ptr<Request> r)
 {
     Connection *c = r->c_;
+
+    // read: block; write: empty
     c->read_.handler_ = blockReading;
 
     // // register EPOLLOUT
@@ -678,6 +680,8 @@ int processUpsHeaders(std::shared_ptr<Request> upsr)
                 return ERROR;
             }
 
+            upsr->requestBody_.left_ = -1;
+
             ups->processHandler_ = processUpsBody;
             return processUpsBody(upsr);
         }
@@ -699,13 +703,10 @@ int processUpsBody(std::shared_ptr<Request> upsr)
         return OK;
     }
 
-    upsr->requestBody_.left_ = -1;
-
     ret = processRequestBody(upsr);
 
     if (ret == OK)
     {
-        upsr->c_->read_.handler_ = blockReading;
         LOG_INFO << "Upstream process body done";
         return OK;
     }
@@ -717,13 +718,6 @@ int processUpsBody(std::shared_ptr<Request> upsr)
 
 int runPhases(Event *ev)
 {
-    // auto &buffer = ev->c->readBuffer_;
-    // for (auto &x : buffer.nodes)
-    // {
-    //     if (x.len == 0)
-    //         break;
-    //     printf("%s", std::string(x.start, x.start + x.len).c_str());
-    // }
     LOG_INFO << "Phase running";
 
     int ret = OK;
@@ -811,6 +805,37 @@ int blockWriting(Event *ev)
     return OK;
 }
 
+int clientAliveCheck(Event *ev)
+{
+    Connection *c = (Connection *)ev->c_;
+    std::shared_ptr<Request> r = c->request_;
+    Connection *upc = c->upstream_->upstream_;
+    std::shared_ptr<Request> upsr = upc->request_;
+
+    int n = c->readBuffer_.bufferRecv(c->fd_.getFd(), 0);
+
+    if (n == 0)
+    {
+        LOG_INFO << "Client close connection";
+        finalizeRequest(r);
+        finalizeRequestNow(upsr);
+        return OK;
+    }
+
+    if (n < 0 && errno != EAGAIN)
+    {
+        LOG_WARN << "Read error: " << strerror(errno);
+        finalizeRequest(r);
+        finalizeRequestNow(upsr);
+        return ERROR;
+    }
+
+    LOG_WARN << "Unexpected result from client";
+    finalizeRequest(r);
+    finalizeRequestNow(upsr);
+    return ERROR;
+}
+
 // @return OK AGAIN ERROR
 int processRequestBody(std::shared_ptr<Request> r)
 {
@@ -837,12 +862,12 @@ int processBodyLength(std::shared_ptr<Request> r)
 
     while (buffer.allRead() != 1)
     {
-        int rlen = buffer.pivot_->len_ - buffer.pivot_->pos_;
-        if (rlen <= rb.left_)
+        int len = buffer.pivot_->readableBytes();
+        if (len <= rb.left_)
         {
-            rb.left_ -= rlen;
-            rb.listBody_.emplace_back(buffer.pivot_->start_ + buffer.pivot_->pos_, rlen);
-            buffer.retrieve(rlen);
+            rb.left_ -= len;
+            rb.listBody_.emplace_back(buffer.pivot_->start_ + buffer.pivot_->pos_, len);
+            buffer.pivot_->pos_ = buffer.pivot_->len_;
         }
         else
         {
@@ -850,7 +875,7 @@ int processBodyLength(std::shared_ptr<Request> r)
             return ERROR;
         }
 
-        if (buffer.pivot_->pos_ == buffer.pivot_->len_)
+        if (buffer.pivot_->writableBytes() == 0)
         {
             if (buffer.pivot_->next_ != NULL)
             {
@@ -933,6 +958,7 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
     // no content-length && not chunked
     if (r->contextIn_.contentLength_ == 0 && !r->contextIn_.isChunked_)
     {
+        // read: block; write: empty
         r->c_->read_.handler_ = blockReading;
         if (postHandler)
         {
@@ -942,25 +968,36 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
         return OK;
     }
 
-    r->requestBody_.left_ = -1;
-    r->requestBody_.postHandler_ = postHandler;
-
     ret = processRequestBody(r);
 
-    if (ret == ERROR)
+    if (ret == OK)
+    {
+        // read: block; write: empty
+        r->c_->read_.handler_ = blockReading;
+        if (postHandler)
+        {
+            LOG_INFO << "To post_handler";
+            postHandler(r);
+        }
+        return OK;
+    }
+    else if (ret == ERROR)
     {
         LOG_WARN << "ERROR";
+        finalizeRequest(r);
         return ret;
     }
 
+    // need recv again
+
+    r->requestBody_.left_ = -1;
+    r->requestBody_.postHandler_ = postHandler;
+
+    // read: readRequestBodyInner; write: empty
     r->c_->read_.handler_ = readRequestBodyInner;
     serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), Events(IN | ET), r->c_);
 
-    r->c_->write_.handler_ = blockWriting;
-
-    ret = readRequestBodyInner(&r->c_->read_);
-
-    return ret;
+    return readRequestBodyInner(&r->c_->read_);
 }
 
 // @return OK AGAIN ERROR
@@ -1009,11 +1046,19 @@ int readRequestBodyInner(Event *ev)
             {
                 break;
             }
+            else if (ret == ERROR)
+            {
+                finalizeRequest(r);
+                LOG_WARN << "error";
+                return ERROR;
+            }
 
+            // AGAIN
             return ret;
         }
     }
 
+    // read: block; write: empty
     r->c_->read_.handler_ = blockReading;
     if (rb.postHandler_)
     {

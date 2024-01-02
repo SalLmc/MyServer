@@ -367,6 +367,7 @@ int finalizeConnectionNow(Connection *c);
 // others
 std::string getEtag(int fd);
 bool etagMatched(int fd, std::string browserEtag);
+int clientAliveCheck(Event *ev);
 int blockReading(Event *ev);
 int blockWriting(Event *ev);
 std::string getContentType(std::string exten, Charset charset);

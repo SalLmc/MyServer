@@ -477,8 +477,11 @@ int initUpstream(std::shared_ptr<Request> r)
         wb.append(x.toString());
     }
 
-    // send && call send2Upstream at upc's loop
+    // read: empty; write: send2Upstream
     upc->write_.handler_ = send2Upstream;
+
+    // read: clientAliveCheck; write: empty
+    r->c_->read_.handler_ = clientAliveCheck;
 
     if (serverPtr->multiplexer_->addFd(upc->fd_.getFd(), Events(IN | OUT | ET), upc) != 1)
     {
@@ -488,6 +491,7 @@ int initUpstream(std::shared_ptr<Request> r)
         return ERROR;
     }
 
+    // send && call send2Upstream at upc's loop
     return OK;
 }
 
@@ -542,7 +546,8 @@ int send2Upstream(Event *upcEv)
         finalizeRequestNow(cr);
     }
 
-    upc->write_.handler_ = blockWriting;
+    // read: recvFromUpstream; write: empty
+    upc->write_.handler_ = std::function<int(Event *)>();
     upc->read_.handler_ = recvFromUpstream;
 
     ups->processHandler_ = processUpsStatusLine;
@@ -570,11 +575,12 @@ int recvFromUpstream(Event *upcEv)
         n = upc->readBuffer_.bufferRecv(upc->fd_.getFd(), 0);
         if (n < 0 && errno == EAGAIN)
         {
+            LOG_INFO << "recv from upstream EAGAIN";
             return AGAIN;
         }
         else if (n < 0 && errno != EAGAIN)
         {
-            LOG_WARN << "Recv error";
+            LOG_WARN << "Recv error, errno: " << strerror(errno);
             finalizeRequest(upsr);
             finalizeRequestNow(cr);
             return ERROR;
@@ -620,9 +626,11 @@ int recvFromUpstream(Event *upcEv)
         upsr->c_->writeBuffer_.append(x.toString());
     }
 
-    upc->read_.handler_ = blockReading;
-    upc->write_.handler_ = blockWriting;
+    // read: empty; write: empty
+    upc->read_.handler_ = std::function<int(Event *)>();
+    upc->write_.handler_ = std::function<int(Event *)>();
 
+    // read: block; write: send2Client
     upc->upstream_->client_->read_.handler_ = blockReading;
     upc->upstream_->client_->write_.handler_ = send2Client;
 

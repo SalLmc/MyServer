@@ -6,7 +6,7 @@
     },
     "process": {
         "daemon": 0,
-        "only_worker": 1,
+        "only_worker": 0,
         "processes": 1
     },
     "event": {
@@ -21,8 +21,8 @@
             "index": "index.html",
             "from": "/api/",
             "to": [
-                "http://183.2.172.42:80/",
-                "http://202.89.233.100:80/"
+                "http://www.baidu.com/",
+                "http://cn.bing.com/"
             ]
         },
         {

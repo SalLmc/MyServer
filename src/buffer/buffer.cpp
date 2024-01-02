@@ -225,9 +225,6 @@ ssize_t LinkedBuffer::bufferRecv(int fd, int flags)
     int n = 0;
     while (1)
     {
-        // auto &nowr = nodes.back();
-        // n = recv(fd, nowr.start + nowr.len, nowr.writableBytes(), flags);
-
         n = recvOnce(fd, flags);
 
         if (n <= 0)
