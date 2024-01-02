@@ -875,7 +875,7 @@ int processBodyLength(std::shared_ptr<Request> r)
             return ERROR;
         }
 
-        if (buffer.pivot_->writableBytes() == 0)
+        if (buffer.pivot_->writableBytes() == 0 && buffer.pivot_->readableBytes() == 0)
         {
             if (buffer.pivot_->next_ != NULL)
             {
@@ -900,11 +900,6 @@ int processBodyChunked(std::shared_ptr<Request> r)
     auto &buffer = r->c_->readBuffer_;
     auto &rb = r->requestBody_;
 
-    if (rb.left_ == -1)
-    {
-        // do nothing
-    }
-
     int ret;
 
     while (1)
@@ -925,13 +920,11 @@ int processBodyChunked(std::shared_ptr<Request> r)
 
         if (ret == AGAIN)
         {
-            if (buffer.pivot_->pos_ == buffer.pivot_->len_)
+            if (buffer.pivot_->writableBytes() == 0 && buffer.pivot_->readableBytes() == 0)
             {
                 if (buffer.pivot_->next_ != NULL)
                 {
                     buffer.pivot_ = buffer.pivot_->next_;
-                    // since there are still data left, keep parsing
-                    continue;
                 }
             }
             // need to recv more
@@ -968,6 +961,7 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
         return OK;
     }
 
+    r->requestBody_.left_ = -1;
     ret = processRequestBody(r);
 
     if (ret == OK)
@@ -989,8 +983,6 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
     }
 
     // need recv again
-
-    r->requestBody_.left_ = -1;
     r->requestBody_.postHandler_ = postHandler;
 
     // read: readRequestBodyInner; write: empty
@@ -1011,11 +1003,6 @@ int readRequestBodyInner(Event *ev)
 
     while (1)
     {
-        if (rb.left_ == 0)
-        {
-            break;
-        }
-
         int ret = buffer.bufferRecv(c->fd_.getFd(), 0);
 
         if (ret == 0)
