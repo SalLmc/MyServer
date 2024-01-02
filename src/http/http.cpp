@@ -875,7 +875,7 @@ int processBodyLength(std::shared_ptr<Request> r)
             return ERROR;
         }
 
-        if (buffer.pivot_->writableBytes() == 0 && buffer.pivot_->readableBytes() == 0)
+        if (buffer.pivot_->readableBytes() == 0)
         {
             if (buffer.pivot_->next_ != NULL)
             {
@@ -920,7 +920,7 @@ int processBodyChunked(std::shared_ptr<Request> r)
 
         if (ret == AGAIN)
         {
-            if (buffer.pivot_->writableBytes() == 0 && buffer.pivot_->readableBytes() == 0)
+            if (buffer.pivot_->readableBytes() == 0)
             {
                 if (buffer.pivot_->next_ != NULL)
                 {
