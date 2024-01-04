@@ -5,9 +5,11 @@
 Server *serverPtr;
 bool enable_logger = 1;
 
+extern ServerAttribute defaultAttr;
+
 int callback(Event *ev)
 {
-    LOG_INFO << "new connection";
+    std::cout << "new connection\n";
     return 1;
 }
 
@@ -17,10 +19,8 @@ int main()
     Server server(new Logger("../log", "test"));
     serverPtr = &server;
 
-    ServerAttribute attr;
-    attr.root_ = "./static";
+    auto attr = defaultAttr;
     attr.port_ = 8000;
-    attr.index_ = "index.html";
 
     server.setServers({attr});
     server.initListen(callback);

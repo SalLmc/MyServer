@@ -474,6 +474,21 @@ template <> int JsonResult::value()
     return ans;
 }
 
+template <> unsigned long JsonResult::value()
+{
+    Token *tok = now_;
+
+    if (tok->type != JsonType::PRIMITIVE)
+    {
+        throw std::runtime_error("wrong type");
+    }
+
+    std::string s(json_ + tok->start, json_ + tok->end);
+    unsigned long ans = std::stol(s);
+
+    return ans;
+}
+
 template <> std::string JsonResult::value()
 {
     Token *tok = now_;
@@ -584,6 +599,30 @@ template <typename T> T getValue(JsonResult &&json, const char *key, T defaultVa
     {
     }
     return defaultValue;
+}
+
+template <typename T> void setIfValid(JsonResult &json, const char *key, T *val)
+{
+    try
+    {
+        T js = json[key].value<T>();
+        *val = js;
+    }
+    catch (const std::exception &e)
+    {
+    }
+}
+
+template <typename T> void setIfValid(JsonResult &&json, const char *key, T *val)
+{
+    try
+    {
+        T js = json[key].value<T>();
+        *val = js;
+    }
+    catch (const std::exception &e)
+    {
+    }
 }
 
 #endif

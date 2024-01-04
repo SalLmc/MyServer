@@ -27,7 +27,6 @@ extern Config serverConfig;
 
 // runtime
 
-extern int cores;
 extern bool isChild;
 extern bool quit;
 extern int slot;

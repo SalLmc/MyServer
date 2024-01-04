@@ -119,13 +119,17 @@ void ConnectionPool::recoverConnection(Connection *c)
     return;
 }
 
-ServerAttribute::ServerAttribute(int port, std::string &&root, std::string &&index, std::string &&from,
-                                 std::vector<std::string> &&to, bool auto_index, std::vector<std::string> &&tryfiles,
-                                 std::vector<std::string> &&auth_path)
-    : port_(port), root_(root), index_(index), from_(from), to_(to), auto_index_(auto_index), tryFiles_(tryfiles),
-      authPaths_(auth_path)
-{
-}
+ServerAttribute defaultAttr = {
+    .port_ = 80,
+    .root_ = "./static",
+    .index_ = "index.html",
+    .from_ = std::string(),
+    .to_ = std::vector<std::string>(),
+    .idx_ = 0,
+    .autoIndex_ = 0,
+    .tryFiles_ = std::vector<std::string>(),
+    .authPaths_ = std::vector<std::string>(),
+};
 
 Server::Server(Logger *logger)
     : logger_(logger), multiplexer_(NULL), extenContentTypeMap_({{"default_content_type", "application/octet-stream"}})

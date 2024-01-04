@@ -102,14 +102,8 @@ class ConnectionPool
     std::unordered_set<uint64_t> savePtrs_;
 };
 
-class ServerAttribute
+struct ServerAttribute
 {
-  public:
-    ServerAttribute(int port, std::string &&root, std::string &&index, std::string &&from,
-                    std::vector<std::string> &&to, bool auto_index, std::vector<std::string> &&tryfiles,
-                    std::vector<std::string> &&auth_path);
-    ServerAttribute() = default;
-
     int port_;
     std::string root_;
     std::string index_;
@@ -118,7 +112,7 @@ class ServerAttribute
     std::vector<std::string> to_;
     int idx_ = 0;
 
-    bool auto_index_;
+    bool autoIndex_;
     std::vector<std::string> tryFiles_;
 
     std::vector<std::string> authPaths_;

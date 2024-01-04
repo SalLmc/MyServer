@@ -29,10 +29,7 @@
             "port": 8001,
             "root": "./",
             "index": "xxxx",
-            "auto_index": 1,
-            "auth_path": [
-                "*README*"
-            ]
+            "auto_index": 1
         },
         {
             "port": 8082,

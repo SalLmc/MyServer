@@ -10,7 +10,7 @@
 
 #include "src/utils/json.hpp"
 
-extern int cores;
+extern ServerAttribute defaultAttr;
 
 // need to define these global variables
 Server *serverPtr;
@@ -24,7 +24,6 @@ int preWork(int argc, char *argv[]);
 int main(int argc, char *argv[])
 {
     umask(0);
-    cores = std::max(1U, std::thread::hardware_concurrency());
 
     std::unique_ptr<Server> server(new Server(new Logger("log/", "startup")));
     serverPtr = server.get();
@@ -126,18 +125,30 @@ int preWork(int argc, char *argv[])
 
 ServerAttribute getServer(JsonResult config)
 {
-    ServerAttribute server;
-    server.port_ = getValue(config, "port", 80);
-    server.root_ = getValue(config, "root", std::string("static"));
-    server.index_ = getValue(config, "index", std::string("index.html"));
+    ServerAttribute server = defaultAttr;
 
-    server.from_ = getValue(config, "from", std::string());
-    server.to_ = getValue(config, "to", std::vector<std::string>());
+    setIfValid(config, "port", &server.port_);
+    setIfValid(config, "root", &server.root_);
+    setIfValid(config, "index", &server.index_);
 
-    server.auto_index_ = getValue(config, "auto_index", 0);
-    server.tryFiles_ = getValue(config, "try_files", std::vector<std::string>());
+    setIfValid(config, "from", &server.from_);
+    setIfValid(config, "to", &server.to_);
+    setIfValid(config, "auto_index", &server.autoIndex_);
 
-    server.authPaths_ = getValue(config, "auth_path", std::vector<std::string>());
+    setIfValid(config, "try_files", &server.tryFiles_);
+    setIfValid(config, "auth_path", &server.authPaths_);
+
+    // server.port_ = getValue(config, "port", 80);
+    // server.root_ = getValue(config, "root", std::string("static"));
+    // server.index_ = getValue(config, "index", std::string("index.html"));
+
+    // server.from_ = getValue(config, "from", std::string());
+    // server.to_ = getValue(config, "to", std::vector<std::string>());
+
+    // server.autoIndex_ = getValue(config, "auto_index", 0);
+    // server.tryFiles_ = getValue(config, "try_files", std::vector<std::string>());
+
+    // server.authPaths_ = getValue(config, "auth_path", std::vector<std::string>());
 
     return server;
 }
@@ -151,17 +162,29 @@ std::vector<ServerAttribute> readServerConfig()
     JsonResult config = configParser.parse();
 
     // get values
-    serverConfig.loggerThreshold = getValue(config["logger"], "threshold", 1);
-    enable_logger = serverConfig.loggerEnable = getValue(config["logger"], "enable", 1);
-    serverConfig.loggerInterval = getValue(config["logger"], "interval", 3);
+    setIfValid(config["logger"], "threshold", &serverConfig.loggerThreshold);
+    setIfValid(config["logger"], "enable", &serverConfig.loggerEnable);
+    setIfValid(config["logger"], "interval", &serverConfig.loggerInterval);
 
-    serverConfig.processes = getValue(config["process"], "processes", cores);
-    serverConfig.daemon = getValue(config["process"], "daemon", 0);
-    serverConfig.onlyWorker = getValue(config["process"], "only_worker", 0);
+    setIfValid(config["process"], "processes", &serverConfig.processes);
+    setIfValid(config["process"], "daemon", &serverConfig.daemon);
+    setIfValid(config["process"], "only_worker", &serverConfig.onlyWorker);
 
-    serverConfig.useEpoll = getValue(config["event"], "use_epoll", 1);
-    serverConfig.eventDelay = getValue(config["event"], "delay", 1);
-    serverConfig.connections = getValue(config["event"], "connections", 1024);
+    setIfValid(config["event"], "use_epoll", &serverConfig.useEpoll);
+    setIfValid(config["event"], "delay", &serverConfig.eventDelay);
+    setIfValid(config["event"], "connections", &serverConfig.connections);
+
+    // serverConfig.loggerThreshold = getValue(config["logger"], "threshold", 1);
+    // enable_logger = serverConfig.loggerEnable = getValue(config["logger"], "enable", 1);
+    // serverConfig.loggerInterval = getValue(config["logger"], "interval", 3);
+
+    // serverConfig.processes = getValue(config["process"], "processes", cores);
+    // serverConfig.daemon = getValue(config["process"], "daemon", 0);
+    // serverConfig.onlyWorker = getValue(config["process"], "only_worker", 0);
+
+    // serverConfig.useEpoll = getValue(config["event"], "use_epoll", 1);
+    // serverConfig.eventDelay = getValue(config["event"], "delay", 1);
+    // serverConfig.connections = getValue(config["event"], "connections", 1024);
 
     JsonResult servers = config["servers"];
 

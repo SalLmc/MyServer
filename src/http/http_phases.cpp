@@ -162,7 +162,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
     Fd fd;
 
     // proxy_pass
-    if (server.from_ != "")
+    if (!server.from_.empty() && !server.to_.empty())
     {
         if (uri.find(server.from_) != std::string::npos)
         {
@@ -299,7 +299,7 @@ fileok:
     }
 
 autoindex:
-    if (server.auto_index_ == 0)
+    if (server.autoIndex_ == 0)
     {
     send404:
         setErrorResponse(r, HTTP_NOT_FOUND);
