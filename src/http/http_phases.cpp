@@ -436,8 +436,6 @@ int initUpstream(std::shared_ptr<Request> r)
         return ERROR;
     }
 
-    LOG_INFO << "Upstream connected";
-
     // setup upstream
     std::shared_ptr<Upstream> ups(new Upstream());
     r->c_->upstream_ = ups;
@@ -445,6 +443,9 @@ int initUpstream(std::shared_ptr<Request> r)
     ups->client_ = r->c_;
     ups->upstream_ = upc;
     ups->ctx_.upsIdx_ = idx;
+    std::shared_ptr<Request> upsr(new Request());
+    upsr->c_ = ups->upstream_;
+    ups->upstream_->request_ = upsr;
 
     // setup send content
     auto &wb = upc->writeBuffer_;
@@ -491,6 +492,8 @@ int initUpstream(std::shared_ptr<Request> r)
         return ERROR;
     }
 
+    LOG_INFO << "init upstream OK";
+
     // send && call send2Upstream at upc's loop
     return OK;
 }
@@ -521,7 +524,7 @@ int send2Upstream(Event *upcEv)
             {
                 LOG_WARN << "SEND ERR, FINALIZE CONNECTION";
                 finalizeConnection(upc);
-                finalizeRequestNow(cr);
+                finalizeRequest(cr);
                 return ERROR;
             }
         }
@@ -529,7 +532,7 @@ int send2Upstream(Event *upcEv)
         {
             LOG_WARN << "Upstream close connection, FINALIZE CONNECTION";
             finalizeConnection(upc);
-            finalizeRequestNow(cr);
+            finalizeRequest(cr);
             return ERROR;
         }
         else
@@ -543,7 +546,7 @@ int send2Upstream(Event *upcEv)
     {
         LOG_CRIT << "epoller modfd failed, error:" << strerror(errno);
         finalizeConnection(upc);
-        finalizeRequestNow(cr);
+        finalizeRequest(cr);
     }
 
     // read: recvFromUpstream; write: empty
@@ -551,9 +554,6 @@ int send2Upstream(Event *upcEv)
     upc->read_.handler_ = recvFromUpstream;
 
     ups->processHandler_ = processUpsStatusLine;
-    std::shared_ptr<Request> upsr(new Request());
-    upsr->c_ = ups->upstream_;
-    ups->upstream_->request_ = upsr;
 
     LOG_INFO << "Send client data to upstream complete";
 
@@ -582,14 +582,14 @@ int recvFromUpstream(Event *upcEv)
         {
             LOG_WARN << "Recv error, errno: " << strerror(errno);
             finalizeRequest(upsr);
-            finalizeRequestNow(cr);
+            finalizeRequest(cr);
             return ERROR;
         }
         else if (n == 0)
         {
             LOG_WARN << "Upstream server close connection";
             finalizeRequest(upsr);
-            finalizeRequestNow(cr);
+            finalizeRequest(cr);
             return ERROR;
         }
         else
@@ -604,7 +604,7 @@ int recvFromUpstream(Event *upcEv)
             {
                 LOG_WARN << "Process error";
                 finalizeRequest(upsr);
-                finalizeRequestNow(cr);
+                finalizeRequest(cr);
                 return ERROR;
             }
 
@@ -640,7 +640,7 @@ int recvFromUpstream(Event *upcEv)
     {
         LOG_CRIT << "epoller modfd failed, error:" << strerror(errno);
         finalizeRequest(upsr);
-        finalizeRequestNow(cr);
+        finalizeRequest(cr);
         return ERROR;
     }
 
@@ -858,7 +858,7 @@ int send2Client(Event *ev)
             else
             {
                 LOG_WARN << "SEND ERR, FINALIZE CONNECTION";
-                finalizeRequestNow(upsr);
+                finalizeRequest(upsr);
                 finalizeRequest(cr);
                 return ERROR;
             }
@@ -866,7 +866,7 @@ int send2Client(Event *ev)
         else if (ret == 0)
         {
             LOG_WARN << "Client close connection, FINALIZE CONNECTION";
-            finalizeRequestNow(upsr);
+            finalizeRequest(upsr);
             finalizeRequest(cr);
             return ERROR;
         }
@@ -878,7 +878,7 @@ int send2Client(Event *ev)
 
     LOG_INFO << "PROXYPASS RESPONSED";
 
-    finalizeRequestNow(upsr);
+    finalizeRequest(upsr);
     if (cr->contextIn_.connectionType_ == ConnectionType::KEEP_ALIVE)
     {
         keepAliveRequest(cr);

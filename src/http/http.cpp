@@ -818,7 +818,7 @@ int clientAliveCheck(Event *ev)
     {
         LOG_INFO << "Client close connection";
         finalizeRequest(r);
-        finalizeRequestNow(upsr);
+        finalizeRequest(upsr);
         return OK;
     }
 
@@ -826,13 +826,13 @@ int clientAliveCheck(Event *ev)
     {
         LOG_WARN << "Read error: " << strerror(errno);
         finalizeRequest(r);
-        finalizeRequestNow(upsr);
+        finalizeRequest(upsr);
         return ERROR;
     }
 
     LOG_WARN << "Unexpected result from client";
     finalizeRequest(r);
-    finalizeRequestNow(upsr);
+    finalizeRequest(upsr);
     return ERROR;
 }
 

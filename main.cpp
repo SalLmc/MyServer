@@ -164,6 +164,7 @@ std::vector<ServerAttribute> readServerConfig()
     // get values
     setIfValid(config["logger"], "threshold", &serverConfig.loggerThreshold);
     setIfValid(config["logger"], "enable", &serverConfig.loggerEnable);
+    enable_logger = serverConfig.loggerEnable;
     setIfValid(config["logger"], "interval", &serverConfig.loggerInterval);
 
     setIfValid(config["process"], "processes", &serverConfig.processes);
