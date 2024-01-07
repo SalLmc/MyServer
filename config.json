@@ -21,7 +21,6 @@
             "index": "index.html",
             "from": "/api/",
             "to": [
-                "http://www.baidu.com/",
                 "http://cn.bing.com/"
             ]
         },

@@ -17,7 +17,6 @@ enum class HeaderState
     SPACE0,
     VALUE,
     SPACE1,
-    IGNORE,
     LINE_DONE,
     HEADERS_DONE
 };

@@ -1121,20 +1121,21 @@ args:
 // Accept-Language: en-US,en;q=0.5\r\n
 // Connection: keep-alive\r\n
 // \r\n
-int parseHeaderLine(std::shared_ptr<Request> r, bool allowUnderscores)
+int parseHeaderLine(std::shared_ptr<Request> r)
 {
     u_char c, ch, *p;
 
-    // the last '\0' is not needed because string is zero terminated
+    // valid char map, set r->invalidHeader_ to false if a char is not in this table
+    // valid: 0~9, A~Z, a~Z, '-', '_'
     static u_char lowcase[] = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
                               "\0\0\0\0\0\0\0\0\0\0\0\0\0-\0\0"
                               "0123456789\0\0\0\0\0\0"
+                              "\0abcdefghijklmnopqrstuvwxyz\0\0\0\0_"
                               "\0abcdefghijklmnopqrstuvwxyz\0\0\0\0\0"
-                              "\0abcdefghijklmnopqrstuvwxyz\0\0\0\0\0"
                               "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
                               "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
                               "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
-                              "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
+                              "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
 
     HeaderState &state = r->headerState_;
     auto &buffer = r->c_->readBuffer_;
@@ -1171,18 +1172,6 @@ int parseHeaderLine(std::shared_ptr<Request> r, bool allowUnderscores)
                     break;
                 }
 
-                if (ch == '_')
-                {
-                    if (allowUnderscores)
-                    {
-                    }
-                    else
-                    {
-                        r->invalidHeader_ = 1;
-                    }
-                    break;
-                }
-
                 // invalid char, check ascii table to learn more
                 // unlike invalid header, we need to return ERROR right away
                 if (ch <= 0x20 || ch == 0x7f || ch == ':')
@@ -1202,18 +1191,6 @@ int parseHeaderLine(std::shared_ptr<Request> r, bool allowUnderscores)
 
             if (c)
             {
-                break;
-            }
-
-            if (ch == '_')
-            {
-                if (allowUnderscores)
-                {
-                }
-                else
-                {
-                    r->invalidHeader_ = 1;
-                }
                 break;
             }
 
@@ -1312,18 +1289,8 @@ int parseHeaderLine(std::shared_ptr<Request> r, bool allowUnderscores)
                 r->headerValueEnd_ = p;
                 return ERROR;
             default:
+                // this space is a part of a header's value
                 state = HeaderState::VALUE;
-                break;
-            }
-            break;
-
-        case HeaderState::IGNORE:
-            switch (ch)
-            {
-            case LF:
-                state = HeaderState::START;
-                break;
-            default:
                 break;
             }
             break;

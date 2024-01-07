@@ -381,7 +381,7 @@ int processRequestHeaders(Event *ev)
             }
         }
 
-        rc = parseHeaderLine(r, 1);
+        rc = parseHeaderLine(r);
 
         if (rc == OK)
         {
@@ -636,6 +636,7 @@ int processUpsStatusLine(std::shared_ptr<Request> upsr)
         return ret;
     }
 
+    LOG_INFO << "processUpsStatusLine OK";
     ups->processHandler_ = processUpsHeaders;
     return processUpsHeaders(upsr);
 }
@@ -647,16 +648,24 @@ int processUpsHeaders(std::shared_ptr<Request> upsr)
     while (1)
     {
         // OK AGAIN DONE ERROR
-        int ret = parseHeaderLine(upsr, 1);
+        int ret = parseHeaderLine(upsr);
         if (ret == OK)
         {
+            if (upsr->invalidHeader_)
+            {
+                LOG_WARN << "Upstream sent invalid header line";
+                continue;
+            }
+
             if (tryMoveHeader(upsr, 1) == ERROR)
             {
+                LOG_WARN << "upstream send too long header name";
                 return ERROR;
             }
 
             if (tryMoveHeader(upsr, 0) == ERROR)
             {
+                LOG_WARN << "upstream send too long header value";
                 return ERROR;
             }
 
@@ -669,6 +678,15 @@ int processUpsHeaders(std::shared_ptr<Request> upsr)
         }
         else if (ret == AGAIN)
         {
+            if (upsr->c_->readBuffer_.pivot_->pos_ == upsr->c_->readBuffer_.pivot_->len_)
+            {
+                if (upsr->c_->readBuffer_.pivot_->next_)
+                {
+                    upsr->c_->readBuffer_.pivot_ = upsr->c_->readBuffer_.pivot_->next_;
+                    continue;
+                }
+            }
+
             return AGAIN;
         }
         else if (ret == DONE)
@@ -682,6 +700,7 @@ int processUpsHeaders(std::shared_ptr<Request> upsr)
 
             upsr->requestBody_.left_ = -1;
 
+            LOG_INFO << "processUpsHeaders OK";
             ups->processHandler_ = processUpsBody;
             return processUpsBody(upsr);
         }

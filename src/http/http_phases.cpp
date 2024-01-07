@@ -492,7 +492,7 @@ int initUpstream(std::shared_ptr<Request> r)
         return ERROR;
     }
 
-    LOG_INFO << "init upstream OK";
+    LOG_INFO << "init upstream OK, client: " << r->c_->fd_.getFd() << ", upstream: " << upc->fd_.getFd();
 
     // send && call send2Upstream at upc's loop
     return OK;
