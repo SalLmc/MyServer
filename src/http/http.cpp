@@ -1194,15 +1194,26 @@ int keepAliveRequest(std::shared_ptr<Request> r)
     return 0;
 }
 
+// close others
 int finalizeConnectionNow(Connection *c)
 {
+    if (c == NULL)
+    {
+        LOG_CRIT << "FINALIZE CONNECTION NULL";
+        return 0;
+    }
     int fd = c->fd_.getFd();
-    serverPtr->multiplexer_->delFd(fd);
-    serverPtr->pool_.recoverConnection(c);
-    LOG_INFO << "Connection recover, FD:" << fd;
+
+    c->quit_ = 1;
+
+    // delete c at the end of a eventloop
+    close(fd);
+
+    LOG_INFO << "set connection->quit, FD:" << fd;
     return 0;
 }
 
+// close others
 int finalizeRequestNow(std::shared_ptr<Request> r)
 {
     r->quit_ = 1;
@@ -1210,6 +1221,7 @@ int finalizeRequestNow(std::shared_ptr<Request> r)
     return 0;
 }
 
+// close itself
 int finalizeConnection(Connection *c)
 {
     if (c == NULL)
@@ -1227,6 +1239,7 @@ int finalizeConnection(Connection *c)
     return 0;
 }
 
+// close itself
 int finalizeRequest(std::shared_ptr<Request> r)
 {
     r->quit_ = 1;

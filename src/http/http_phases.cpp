@@ -503,6 +503,7 @@ int send2Upstream(Event *upcEv)
     Connection *upc = upcEv->c_;
     std::shared_ptr<Upstream> ups = upc->upstream_;
     std::shared_ptr<Request> cr = upc->upstream_->client_->request_;
+    std::shared_ptr<Request> upsr = ups->upstream_->request_;
     int ret = 0;
 
     for (; upc->writeBuffer_.allRead() != 1;)
@@ -523,16 +524,16 @@ int send2Upstream(Event *upcEv)
             else
             {
                 LOG_WARN << "SEND ERR, FINALIZE CONNECTION";
-                finalizeConnection(upc);
-                finalizeRequest(cr);
+                finalizeRequest(upsr);
+                finalizeRequestNow(cr);
                 return ERROR;
             }
         }
         else if (ret == 0)
         {
             LOG_WARN << "Upstream close connection, FINALIZE CONNECTION";
-            finalizeConnection(upc);
-            finalizeRequest(cr);
+            finalizeRequest(upsr);
+            finalizeRequestNow(cr);
             return ERROR;
         }
         else
@@ -545,8 +546,8 @@ int send2Upstream(Event *upcEv)
     if (serverPtr->multiplexer_->modFd(upc->fd_.getFd(), Events(IN | ET), upc) != 1)
     {
         LOG_CRIT << "epoller modfd failed, error:" << strerror(errno);
-        finalizeConnection(upc);
-        finalizeRequest(cr);
+        finalizeRequest(upsr);
+        finalizeRequestNow(cr);
     }
 
     // read: recvFromUpstream; write: empty
@@ -582,14 +583,14 @@ int recvFromUpstream(Event *upcEv)
         {
             LOG_WARN << "Recv error, errno: " << strerror(errno);
             finalizeRequest(upsr);
-            finalizeRequest(cr);
+            finalizeRequestNow(cr);
             return ERROR;
         }
         else if (n == 0)
         {
             LOG_WARN << "Upstream server close connection";
             finalizeRequest(upsr);
-            finalizeRequest(cr);
+            finalizeRequestNow(cr);
             return ERROR;
         }
         else
@@ -604,7 +605,7 @@ int recvFromUpstream(Event *upcEv)
             {
                 LOG_WARN << "Process error";
                 finalizeRequest(upsr);
-                finalizeRequest(cr);
+                finalizeRequestNow(cr);
                 return ERROR;
             }
 
@@ -615,20 +616,16 @@ int recvFromUpstream(Event *upcEv)
 
     LOG_INFO << "Upstream recv done";
 
-    upsr->c_->writeBuffer_.append("HTTP/1.1 " + std::string(ups->ctx_.status_.start_, ups->ctx_.status_.end_) + "\r\n");
+    cr->c_->writeBuffer_.append("HTTP/1.1 " + std::string(ups->ctx_.status_.start_, ups->ctx_.status_.end_) + "\r\n");
     for (auto &x : upsr->contextIn_.headers_)
     {
-        upsr->c_->writeBuffer_.append(x.name_ + ": " + x.value_ + "\r\n");
+        cr->c_->writeBuffer_.append(x.name_ + ": " + x.value_ + "\r\n");
     }
-    upsr->c_->writeBuffer_.append("\r\n");
+    cr->c_->writeBuffer_.append("\r\n");
     for (auto &x : upsr->requestBody_.listBody_)
     {
-        upsr->c_->writeBuffer_.append(x.toString());
+        cr->c_->writeBuffer_.append(x.toString());
     }
-
-    // read: empty; write: empty
-    upc->read_.handler_ = std::function<int(Event *)>();
-    upc->write_.handler_ = std::function<int(Event *)>();
 
     // read: block; write: send2Client
     upc->upstream_->client_->read_.handler_ = blockReading;
@@ -640,9 +637,11 @@ int recvFromUpstream(Event *upcEv)
     {
         LOG_CRIT << "epoller modfd failed, error:" << strerror(errno);
         finalizeRequest(upsr);
-        finalizeRequest(cr);
+        finalizeRequestNow(cr);
         return ERROR;
     }
+
+    finalizeRequest(upsr);
 
     return OK;
 }
@@ -831,20 +830,17 @@ int doResponse(std::shared_ptr<Request> r)
 int send2Client(Event *ev)
 {
     Connection *c = ev->c_;
-    Connection *upc = c->upstream_->upstream_;
-    std::shared_ptr<Upstream> ups = c->upstream_;
-    std::shared_ptr<Request> cr = c->request_;
-    std::shared_ptr<Request> upsr = upc->request_;
+    std::shared_ptr<Request> r = c->request_;
 
     int ret = 0;
 
     LOG_INFO << "Write to client, FD:" << c->fd_.getFd();
 
-    for (; upc->writeBuffer_.allRead() != 1;)
+    for (; c->writeBuffer_.allRead() != 1;)
     {
-        ret = upc->writeBuffer_.bufferSend(c->fd_.getFd(), 0);
+        ret = c->writeBuffer_.bufferSend(c->fd_.getFd(), 0);
 
-        if (upc->writeBuffer_.allRead())
+        if (c->writeBuffer_.allRead())
         {
             break;
         }
@@ -858,16 +854,14 @@ int send2Client(Event *ev)
             else
             {
                 LOG_WARN << "SEND ERR, FINALIZE CONNECTION";
-                finalizeRequest(upsr);
-                finalizeRequest(cr);
+                finalizeRequest(r);
                 return ERROR;
             }
         }
         else if (ret == 0)
         {
             LOG_WARN << "Client close connection, FINALIZE CONNECTION";
-            finalizeRequest(upsr);
-            finalizeRequest(cr);
+            finalizeRequest(r);
             return ERROR;
         }
         else
@@ -878,14 +872,13 @@ int send2Client(Event *ev)
 
     LOG_INFO << "PROXYPASS RESPONSED";
 
-    finalizeRequest(upsr);
-    if (cr->contextIn_.connectionType_ == ConnectionType::KEEP_ALIVE)
+    if (r->contextIn_.connectionType_ == ConnectionType::KEEP_ALIVE)
     {
-        keepAliveRequest(cr);
+        keepAliveRequest(r);
     }
     else
     {
-        finalizeRequest(cr);
+        finalizeRequest(r);
     }
     return OK;
 }
