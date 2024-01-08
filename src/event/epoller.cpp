@@ -65,7 +65,7 @@ bool Epoller::delFd(int fd)
     return epoll_ctl(epollfd_, EPOLL_CTL_DEL, fd, &event) == 0;
 }
 
-int Epoller::processEvents(int flags, int timeoutMs)
+int Epoller::processEvents(FLAGS flags, int timeoutMs)
 {
     int ret = epoll_wait(epollfd_, events_, size_, timeoutMs);
     if (ret == -1)

@@ -93,13 +93,14 @@ class ConnectionPool
     ~ConnectionPool();
     Connection *getNewConnection();
     void recoverConnection(Connection *c);
+    bool isActive(Connection *c);
     int activeCnt;
 
   private:
     std::list<Connection *> connectionList_;
-    std::vector<Connection *> connectionPtrs_;
+    std::unordered_map<uint64_t, bool> poolPtrsActiveMap_;
 
-    std::unordered_set<uint64_t> savePtrs_;
+    std::unordered_set<uint64_t> activeMallocPtrs_;
 };
 
 struct ServerAttribute

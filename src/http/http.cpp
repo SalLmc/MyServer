@@ -613,8 +613,8 @@ int processRequest(std::shared_ptr<Request> r)
 {
     Connection *c = r->c_;
 
-    // read: block; write: empty
-    c->read_.handler_ = blockReading;
+    // read: empty; write: empty
+    c->read_.handler_ = std::function<int(Event *)>();
 
     // // register EPOLLOUT
     // serverPtr->eventProccessor->modFd(c->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, c);
@@ -784,7 +784,7 @@ int writeResponse(Event *ev)
         }
     }
 
-    r->c_->write_.handler_ = blockWriting;
+    r->c_->write_.handler_ = std::function<int(Event *)>();
     serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), Events(IN | ET), r->c_);
 
     if (r->contextOut_.resType_ == ResponseType::FILE)
@@ -812,18 +812,6 @@ int writeResponse(Event *ev)
     return PHASE_QUIT;
 }
 
-int blockReading(Event *ev)
-{
-    LOG_WARN << "Block reading triggered, FD:" << ev->c_->fd_.getFd();
-    return OK;
-}
-
-int blockWriting(Event *ev)
-{
-    LOG_WARN << "Block writing triggered, FD:" << ev->c_->fd_.getFd();
-    return OK;
-}
-
 int clientAliveCheck(Event *ev)
 {
     Connection *c = (Connection *)ev->c_;
@@ -837,7 +825,7 @@ int clientAliveCheck(Event *ev)
     {
         LOG_INFO << "Client close connection";
         finalizeRequest(r);
-        finalizeRequest(upsr);
+        finalizeRequestLater(upsr);
         return OK;
     }
 
@@ -845,13 +833,13 @@ int clientAliveCheck(Event *ev)
     {
         LOG_WARN << "Read error: " << strerror(errno);
         finalizeRequest(r);
-        finalizeRequest(upsr);
+        finalizeRequestLater(upsr);
         return ERROR;
     }
 
     LOG_WARN << "Unexpected result from client";
     finalizeRequest(r);
-    finalizeRequest(upsr);
+    finalizeRequestLater(upsr);
     return ERROR;
 }
 
@@ -970,8 +958,8 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
     // no content-length && not chunked
     if (r->contextIn_.contentLength_ == 0 && !r->contextIn_.isChunked_)
     {
-        // read: block; write: empty
-        r->c_->read_.handler_ = blockReading;
+        // read: empty; write: empty
+        r->c_->read_.handler_ = std::function<int(Event *)>();
         if (postHandler)
         {
             LOG_INFO << "To post_handler";
@@ -985,8 +973,8 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
 
     if (ret == OK)
     {
-        // read: block; write: empty
-        r->c_->read_.handler_ = blockReading;
+        // read: empty; write: empty
+        r->c_->read_.handler_ = std::function<int(Event *)>();
         if (postHandler)
         {
             LOG_INFO << "To post_handler";
@@ -1064,8 +1052,8 @@ int readRequestBodyInner(Event *ev)
         }
     }
 
-    // read: block; write: empty
-    r->c_->read_.handler_ = blockReading;
+    // read: empty; write: empty
+    r->c_->read_.handler_ = std::function<int(Event *)>();
     if (rb.postHandler_)
     {
         LOG_INFO << "To post handler";
@@ -1104,7 +1092,7 @@ int sendfileEvent(Event *ev)
     }
 
     serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), Events(IN | ET), r->c_);
-    r->c_->write_.handler_ = blockWriting;
+    r->c_->write_.handler_ = std::function<int(Event *)>();
     filebody.filefd_.closeFd();
 
     LOG_INFO << "SENDFILE RESPONSED";
@@ -1154,7 +1142,7 @@ int sendStrEvent(Event *ev)
 
     offset = 0;
     serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), Events(IN | ET), r->c_);
-    r->c_->write_.handler_ = blockWriting;
+    r->c_->write_.handler_ = std::function<int(Event *)>();
 
     LOG_INFO << "SENDSTR RESPONSED";
 
@@ -1194,8 +1182,23 @@ int keepAliveRequest(std::shared_ptr<Request> r)
     return 0;
 }
 
+int timerRecoverConnection(void *arg)
+{
+    Connection *c = (Connection *)arg;
+
+    if (serverPtr->pool_.isActive(c) && c->quit_)
+    {
+        int fd = c->fd_.getFd();
+        serverPtr->multiplexer_->delFd(fd);
+        serverPtr->pool_.recoverConnection(c);
+        LOG_INFO << "Connection recover in timer, FD:" << fd;
+    }
+
+    return 0;
+}
+
 // close others
-int finalizeConnectionNow(Connection *c)
+int finalizeConnectionLater(Connection *c)
 {
     if (c == NULL)
     {
@@ -1206,18 +1209,18 @@ int finalizeConnectionNow(Connection *c)
 
     c->quit_ = 1;
 
-    // delete c at the end of a eventloop
-    close(fd);
+    // delete c at timer
+    serverPtr->timer_.add(fd, "finalize conn", getTickMs(), timerRecoverConnection, (void *)c);
 
     LOG_INFO << "set connection->quit, FD:" << fd;
     return 0;
 }
 
 // close others
-int finalizeRequestNow(std::shared_ptr<Request> r)
+int finalizeRequestLater(std::shared_ptr<Request> r)
 {
     r->quit_ = 1;
-    finalizeConnectionNow(r->c_);
+    finalizeConnectionLater(r->c_);
     return 0;
 }
 

@@ -21,7 +21,7 @@ class Multiplexer
     // ctx is Connection*
     virtual bool modFd(int fd, Events events, void *ctx) = 0;
     virtual bool delFd(int fd) = 0;
-    virtual int processEvents(int flags, int timeoutMs) = 0;
+    virtual int processEvents(FLAGS flags, int timeoutMs) = 0;
     virtual void processPostedAcceptEvents() = 0;
     virtual void processPostedEvents() = 0;
 };

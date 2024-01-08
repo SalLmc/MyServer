@@ -360,15 +360,14 @@ int sendStrEvent(Event *ev);
 int keepAliveRequest(std::shared_ptr<Request> r);
 int finalizeRequest(std::shared_ptr<Request> r);
 int finalizeConnection(Connection *c);
-int finalizeRequestNow(std::shared_ptr<Request> r);
-int finalizeConnectionNow(Connection *c);
+int finalizeRequestLater(std::shared_ptr<Request> r);
+int finalizeConnectionLater(Connection *c);
+int timerRecoverConnection(void *arg);
 
 // others
 std::string getEtag(int fd);
 bool etagMatched(int fd, std::string browserEtag);
 int clientAliveCheck(Event *ev);
-int blockReading(Event *ev);
-int blockWriting(Event *ev);
 std::string getContentType(std::string exten, Charset charset);
 HttpCode getByCode(ResponseCode code);
 std::string getStatusLineByCode(ResponseCode code);

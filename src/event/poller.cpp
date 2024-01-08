@@ -56,7 +56,7 @@ bool Poller::delFd(int fd)
     return 1;
 }
 
-int Poller::processEvents(int flags, int timeoutMs)
+int Poller::processEvents(FLAGS flags, int timeoutMs)
 {
     pollfd fds[fdCtxMap_.size()];
 

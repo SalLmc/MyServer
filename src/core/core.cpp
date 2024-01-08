@@ -56,18 +56,18 @@ ConnectionPool::ConnectionPool(int size) : activeCnt(0)
     {
         Connection *c = new Connection(ResourceType::POOL);
         connectionList_.push_back(c);
-        connectionPtrs_.push_back(c);
+        poolPtrsActiveMap_.insert({(uint64_t)c, 0});
     }
 }
 
 ConnectionPool::~ConnectionPool()
 {
-    for (auto c : connectionPtrs_)
+    for (auto x : poolPtrsActiveMap_)
     {
-        delete c;
+        delete (Connection *)x.first;
     }
 
-    for (auto c : savePtrs_)
+    for (auto c : activeMallocPtrs_)
     {
         delete (Connection *)c;
     }
@@ -81,11 +81,12 @@ Connection *ConnectionPool::getNewConnection()
     {
         c = connectionList_.front();
         connectionList_.pop_front();
+        poolPtrsActiveMap_[(uint64_t)c] = 1;
     }
     else
     {
         c = new Connection(ResourceType::MALLOC);
-        savePtrs_.insert((uint64_t)c);
+        activeMallocPtrs_.insert((uint64_t)c);
     }
 
     if (c != NULL)
@@ -109,14 +110,27 @@ void ConnectionPool::recoverConnection(Connection *c)
     {
         c->init(ResourceType::POOL);
         connectionList_.push_back(c);
+        poolPtrsActiveMap_[(uint64_t)c] = 0;
     }
     else
     {
-        savePtrs_.erase((uint64_t)c);
+        activeMallocPtrs_.erase((uint64_t)c);
         delete c;
     }
 
     return;
+}
+
+bool ConnectionPool::isActive(Connection *c)
+{
+    if (c->type_ == ResourceType::POOL)
+    {
+        return poolPtrsActiveMap_[(uint64_t)c];
+    }
+    else
+    {
+        return activeMallocPtrs_.count((uint64_t)c);
+    }
 }
 
 ServerAttribute defaultAttr = {
@@ -210,7 +224,7 @@ int Server::regisListen(Events events)
 
 void Server::eventLoop()
 {
-    int flags = NORMAL;
+    FLAGS flags = NORMAL;
 
     unsigned long long nextTick = timer_.getNextTick();
     nextTick = ((nextTick == (unsigned long long)-1) ? -1 : (nextTick - getTickMs()));

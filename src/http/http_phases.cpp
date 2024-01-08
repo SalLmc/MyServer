@@ -345,6 +345,118 @@ int proxyPassHandler(std::shared_ptr<Request> r)
     return PHASE_QUIT;
 }
 
+int staticContentHandler(std::shared_ptr<Request> r)
+{
+    LOG_INFO << "Static content handler, FD:" << r->c_->fd_.getFd();
+    if (r->contextOut_.resType_ == ResponseType::FILE)
+    {
+        LOG_INFO << "RES_FILE";
+        r->contextOut_.contentLength_ = r->contextOut_.fileBody_.fileSize_;
+        std::string etag = getEtag(r->contextOut_.fileBody_.filefd_.getFd());
+        if (etag != "")
+        {
+            r->contextOut_.headers_.emplace_back("Etag", std::move(etag));
+        }
+    }
+    else if (r->contextOut_.resType_ == ResponseType::STRING)
+    {
+        LOG_INFO << "RES_STR";
+        r->contextOut_.contentLength_ = r->contextOut_.strBody_.length();
+    }
+    else if (r->contextOut_.resType_ == ResponseType::EMPTY)
+    {
+        LOG_INFO << "RES_EMTPY";
+        r->contextOut_.contentLength_ = 0;
+    }
+    else if (r->contextOut_.resType_ == ResponseType::AUTO_INDEX)
+    {
+        LOG_INFO << "RES_AUTO_INDEX";
+        return PHASE_CONTINUE;
+    }
+
+    std::string exten = std::string(r->exten_.data_, r->exten_.data_ + r->exten_.len_);
+
+    r->contextOut_.headers_.emplace_back("Content-Type", getContentType(exten, Charset::UTF_8));
+    r->contextOut_.headers_.emplace_back("Content-Length", std::to_string(r->contextOut_.contentLength_));
+    r->contextOut_.headers_.emplace_back("Connection", "Keep-Alive");
+
+    return doResponse(r);
+}
+
+int autoIndexHandler(std::shared_ptr<Request> r)
+{
+    LOG_INFO << "Auto index handler, FD:" << r->c_->fd_.getFd();
+    if (r->contextOut_.resType_ != ResponseType::AUTO_INDEX)
+    {
+        LOG_WARN << "Pass auto index handler";
+        return PHASE_NEXT;
+    }
+
+    // setup
+    r->contextOut_.resType_ = ResponseType::STRING;
+
+    extenSave[0] = 'h', extenSave[1] = 't', extenSave[2] = 'm', extenSave[3] = 'l', extenSave[4] = '\0';
+    r->exten_.data_ = extenSave;
+    r->exten_.len_ = 4;
+
+    // auto index
+    auto &out = r->contextOut_;
+    auto &server = serverPtr->servers_[r->c_->serverIdx_];
+
+    static char title[] = "<html>" CRLF "<head><title>Index of ";
+    static char header[] = "</title></head>" CRLF "<body>" CRLF "<h1>Index of ";
+    static char tail[] = "</pre>" CRLF "<hr>" CRLF "</body>" CRLF "</html>";
+
+    // open location
+    auto &root = server.root_;
+    auto subpath = std::string(r->uri_.data_, r->uri_.data_ + r->uri_.len_);
+    Dir directory(opendir((root + subpath).c_str()));
+
+    // can't open dir
+    if (directory.dir_ == NULL)
+    {
+        setErrorResponse(r, HTTP_INTERNAL_SERVER_ERROR);
+        return doResponse(r);
+    }
+
+    directory.getInfos(root + subpath);
+
+    out.strBody_.append(title);
+    out.strBody_.append(header);
+    out.strBody_.append(subpath);
+    out.strBody_.append("</h1>" CRLF "<hr>" CRLF);
+    out.strBody_.append("<pre><a href=\"../\">../</a>" CRLF);
+
+    for (auto &x : directory.infos_)
+    {
+        out.strBody_.append("<a href=\"");
+        out.strBody_.append(urlEncode(x.name_, '/'));
+        out.strBody_.append("\">");
+        out.strBody_.append(x.name_);
+        out.strBody_.append("</a>\t\t\t\t");
+        out.strBody_.append(mtime2Str(&x.mtime_));
+        out.strBody_.append("\t");
+        if (x.type_ == DT_DIR)
+        {
+            out.strBody_.append("-");
+        }
+        else
+        {
+            out.strBody_.append(byte2ProperStr(x.sizeBytes_));
+        }
+        out.strBody_.append(CRLF);
+    }
+
+    out.strBody_.append(tail);
+
+    // headers
+    r->contextOut_.headers_.emplace_back("Content-Type", getContentType("html", Charset::UTF_8));
+    r->contextOut_.headers_.emplace_back("Content-Length", std::to_string(out.strBody_.length()));
+    r->contextOut_.headers_.emplace_back("Connection", "Keep-Alive");
+
+    return doResponse(r);
+}
+
 int initUpstream(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Initing upstream";
@@ -488,7 +600,7 @@ int initUpstream(std::shared_ptr<Request> r)
     {
         LOG_CRIT << "epoller addfd failed, error:" << strerror(errno);
         serverPtr->pool_.recoverConnection(upc);
-        finalizeRequest(r);
+        finalizeRequest(r);                                                                             
         return ERROR;
     }
 
@@ -504,6 +616,7 @@ int send2Upstream(Event *upcEv)
     std::shared_ptr<Upstream> ups = upc->upstream_;
     std::shared_ptr<Request> cr = upc->upstream_->client_->request_;
     std::shared_ptr<Request> upsr = ups->upstream_->request_;
+
     int ret = 0;
 
     for (; upc->writeBuffer_.allRead() != 1;)
@@ -525,7 +638,7 @@ int send2Upstream(Event *upcEv)
             {
                 LOG_WARN << "SEND ERR, FINALIZE CONNECTION";
                 finalizeRequest(upsr);
-                finalizeRequestNow(cr);
+                finalizeRequestLater(cr);
                 return ERROR;
             }
         }
@@ -533,7 +646,7 @@ int send2Upstream(Event *upcEv)
         {
             LOG_WARN << "Upstream close connection, FINALIZE CONNECTION";
             finalizeRequest(upsr);
-            finalizeRequestNow(cr);
+            finalizeRequestLater(cr);
             return ERROR;
         }
         else
@@ -547,7 +660,7 @@ int send2Upstream(Event *upcEv)
     {
         LOG_CRIT << "epoller modfd failed, error:" << strerror(errno);
         finalizeRequest(upsr);
-        finalizeRequestNow(cr);
+        finalizeRequestLater(cr);
     }
 
     // read: recvFromUpstream; write: empty
@@ -583,14 +696,14 @@ int recvFromUpstream(Event *upcEv)
         {
             LOG_WARN << "Recv error, errno: " << strerror(errno);
             finalizeRequest(upsr);
-            finalizeRequestNow(cr);
+            finalizeRequestLater(cr);
             return ERROR;
         }
         else if (n == 0)
         {
             LOG_WARN << "Upstream server close connection";
             finalizeRequest(upsr);
-            finalizeRequestNow(cr);
+            finalizeRequestLater(cr);
             return ERROR;
         }
         else
@@ -605,7 +718,7 @@ int recvFromUpstream(Event *upcEv)
             {
                 LOG_WARN << "Process error";
                 finalizeRequest(upsr);
-                finalizeRequestNow(cr);
+                finalizeRequestLater(cr);
                 return ERROR;
             }
 
@@ -627,8 +740,8 @@ int recvFromUpstream(Event *upcEv)
         cr->c_->writeBuffer_.append(x.toString());
     }
 
-    // read: block; write: send2Client
-    upc->upstream_->client_->read_.handler_ = blockReading;
+    // read: empty; write: send2Client
+    upc->upstream_->client_->read_.handler_ = std::function<int(Event *)>();
     upc->upstream_->client_->write_.handler_ = send2Client;
 
     // call send2Client at client's loop
@@ -637,194 +750,13 @@ int recvFromUpstream(Event *upcEv)
     {
         LOG_CRIT << "epoller modfd failed, error:" << strerror(errno);
         finalizeRequest(upsr);
-        finalizeRequestNow(cr);
+        finalizeRequestLater(cr);
         return ERROR;
     }
 
     finalizeRequest(upsr);
 
     return OK;
-}
-
-int staticContentHandler(std::shared_ptr<Request> r)
-{
-    LOG_INFO << "Static content handler, FD:" << r->c_->fd_.getFd();
-    if (r->contextOut_.resType_ == ResponseType::FILE)
-    {
-        LOG_INFO << "RES_FILE";
-        r->contextOut_.contentLength_ = r->contextOut_.fileBody_.fileSize_;
-        std::string etag = getEtag(r->contextOut_.fileBody_.filefd_.getFd());
-        if (etag != "")
-        {
-            r->contextOut_.headers_.emplace_back("Etag", std::move(etag));
-        }
-    }
-    else if (r->contextOut_.resType_ == ResponseType::STRING)
-    {
-        LOG_INFO << "RES_STR";
-        r->contextOut_.contentLength_ = r->contextOut_.strBody_.length();
-    }
-    else if (r->contextOut_.resType_ == ResponseType::EMPTY)
-    {
-        LOG_INFO << "RES_EMTPY";
-        r->contextOut_.contentLength_ = 0;
-    }
-    else if (r->contextOut_.resType_ == ResponseType::AUTO_INDEX)
-    {
-        LOG_INFO << "RES_AUTO_INDEX";
-        return PHASE_CONTINUE;
-    }
-
-    std::string exten = std::string(r->exten_.data_, r->exten_.data_ + r->exten_.len_);
-
-    r->contextOut_.headers_.emplace_back("Content-Type", getContentType(exten, Charset::UTF_8));
-    r->contextOut_.headers_.emplace_back("Content-Length", std::to_string(r->contextOut_.contentLength_));
-    r->contextOut_.headers_.emplace_back("Connection", "Keep-Alive");
-
-    return doResponse(r);
-}
-
-int autoIndexHandler(std::shared_ptr<Request> r)
-{
-    LOG_INFO << "Auto index handler, FD:" << r->c_->fd_.getFd();
-    if (r->contextOut_.resType_ != ResponseType::AUTO_INDEX)
-    {
-        LOG_WARN << "Pass auto index handler";
-        return PHASE_NEXT;
-    }
-
-    // setup
-    r->contextOut_.resType_ = ResponseType::STRING;
-
-    extenSave[0] = 'h', extenSave[1] = 't', extenSave[2] = 'm', extenSave[3] = 'l', extenSave[4] = '\0';
-    r->exten_.data_ = extenSave;
-    r->exten_.len_ = 4;
-
-    // auto index
-    auto &out = r->contextOut_;
-    auto &server = serverPtr->servers_[r->c_->serverIdx_];
-
-    static char title[] = "<html>" CRLF "<head><title>Index of ";
-    static char header[] = "</title></head>" CRLF "<body>" CRLF "<h1>Index of ";
-    static char tail[] = "</pre>" CRLF "<hr>" CRLF "</body>" CRLF "</html>";
-
-    // open location
-    auto &root = server.root_;
-    auto subpath = std::string(r->uri_.data_, r->uri_.data_ + r->uri_.len_);
-    Dir directory(opendir((root + subpath).c_str()));
-
-    // can't open dir
-    if (directory.dir_ == NULL)
-    {
-        setErrorResponse(r, HTTP_INTERNAL_SERVER_ERROR);
-        return doResponse(r);
-    }
-
-    directory.getInfos(root + subpath);
-
-    out.strBody_.append(title);
-    out.strBody_.append(header);
-    out.strBody_.append(subpath);
-    out.strBody_.append("</h1>" CRLF "<hr>" CRLF);
-    out.strBody_.append("<pre><a href=\"../\">../</a>" CRLF);
-
-    for (auto &x : directory.infos_)
-    {
-        out.strBody_.append("<a href=\"");
-        out.strBody_.append(urlEncode(x.name_, '/'));
-        out.strBody_.append("\">");
-        out.strBody_.append(x.name_);
-        out.strBody_.append("</a>\t\t\t\t");
-        out.strBody_.append(mtime2Str(&x.mtime_));
-        out.strBody_.append("\t");
-        if (x.type_ == DT_DIR)
-        {
-            out.strBody_.append("-");
-        }
-        else
-        {
-            out.strBody_.append(byte2ProperStr(x.sizeBytes_));
-        }
-        out.strBody_.append(CRLF);
-    }
-
-    out.strBody_.append(tail);
-
-    // headers
-    r->contextOut_.headers_.emplace_back("Content-Type", getContentType("html", Charset::UTF_8));
-    r->contextOut_.headers_.emplace_back("Content-Length", std::to_string(out.strBody_.length()));
-    r->contextOut_.headers_.emplace_back("Connection", "Keep-Alive");
-
-    return doResponse(r);
-}
-
-int appendResponseLine(std::shared_ptr<Request> r)
-{
-    auto &writebuffer = r->c_->writeBuffer_;
-    auto &out = r->contextOut_;
-
-    writebuffer.append(out.statusLine_);
-
-    return OK;
-}
-int appendResponseHeader(std::shared_ptr<Request> r)
-{
-    auto &writebuffer = r->c_->writeBuffer_;
-    auto &out = r->contextOut_;
-
-    for (auto &x : out.headers_)
-    {
-        std::string thisHeader = x.name_ + ": " + x.value_ + "\r\n";
-        writebuffer.append(thisHeader);
-    }
-
-    writebuffer.append("\r\n");
-    return OK;
-}
-int appendResponseBody(std::shared_ptr<Request> r)
-{
-    // auto &writebuffer = r->c->writeBuffer_;
-    auto &out = r->contextOut_;
-
-    if (out.resType_ == ResponseType::EMPTY)
-    {
-        return OK;
-    }
-
-    if (out.resType_ == ResponseType::FILE)
-    {
-        // use sendfile in writeResponse
-    }
-    else if (out.resType_ == ResponseType::STRING)
-    {
-        // avoid copy, send str_body in writeResponse
-        // writebuffer.append(out.str_body);
-    }
-    return OK;
-}
-
-std::list<std::function<int(std::shared_ptr<Request>)>> responseList{appendResponseLine, appendResponseHeader,
-                                                                     appendResponseBody};
-
-int doResponse(std::shared_ptr<Request> r)
-{
-    for (auto &x : responseList)
-    {
-        if (x(r) == ERROR)
-        {
-            return PHASE_ERR;
-        }
-    }
-
-    // auto &buffer = r->c->writeBuffer_;
-    // for (auto &x : buffer.nodes)
-    // {
-    //     if (x.len == 0)
-    //         break;
-    //     LOG_INFO << x.toString();
-    // }
-
-    return writeResponse(&r->c_->write_);
 }
 
 int send2Client(Event *ev)
@@ -881,4 +813,67 @@ int send2Client(Event *ev)
         finalizeRequest(r);
     }
     return OK;
+}
+
+int appendResponseLine(std::shared_ptr<Request> r)
+{
+    auto &writebuffer = r->c_->writeBuffer_;
+    auto &out = r->contextOut_;
+
+    writebuffer.append(out.statusLine_);
+
+    return OK;
+}
+
+int appendResponseHeader(std::shared_ptr<Request> r)
+{
+    auto &writebuffer = r->c_->writeBuffer_;
+    auto &out = r->contextOut_;
+
+    for (auto &x : out.headers_)
+    {
+        std::string thisHeader = x.name_ + ": " + x.value_ + "\r\n";
+        writebuffer.append(thisHeader);
+    }
+
+    writebuffer.append("\r\n");
+    return OK;
+}
+
+int appendResponseBody(std::shared_ptr<Request> r)
+{
+    // auto &writebuffer = r->c->writeBuffer_;
+    auto &out = r->contextOut_;
+
+    if (out.resType_ == ResponseType::EMPTY)
+    {
+        return OK;
+    }
+
+    if (out.resType_ == ResponseType::FILE)
+    {
+        // use sendfile in writeResponse
+    }
+    else if (out.resType_ == ResponseType::STRING)
+    {
+        // avoid copy, send str_body in writeResponse
+        // writebuffer.append(out.str_body);
+    }
+    return OK;
+}
+
+std::list<std::function<int(std::shared_ptr<Request>)>> responseList{appendResponseLine, appendResponseHeader,
+                                                                     appendResponseBody};
+
+int doResponse(std::shared_ptr<Request> r)
+{
+    for (auto &x : responseList)
+    {
+        if (x(r) == ERROR)
+        {
+            return PHASE_ERR;
+        }
+    }
+
+    return writeResponse(&r->c_->write_);
 }
