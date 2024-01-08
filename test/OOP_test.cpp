@@ -4,6 +4,7 @@
 
 Server *serverPtr;
 bool enable_logger = 1;
+Level logger_level = Level(0);
 
 extern ServerAttribute defaultAttr;
 

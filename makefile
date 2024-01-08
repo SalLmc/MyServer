@@ -21,7 +21,7 @@ BUILDEXE = $(CXX) $(CXXFLAGS) $^ -o $@ $(LINK)
 
 CONFIG = config.json types.json
 
-all: $(CONFIG) $(PRE_HEADER) $(PROGS) tests
+all: $(CONFIG) $(PRE_HEADER) $(PROGS)
 
 src/headers.h.gch: src/headers.h
 	$(CXX) $(CXXFLAGS) src/headers.h

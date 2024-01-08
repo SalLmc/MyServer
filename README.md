@@ -6,6 +6,7 @@
 | ------------------- | ----------------------------------------------------------------------------------- | ------------ |
 | logger.threshold    | The threshold to wake up the logger                                                 | 1            |
 | logger.enable       | True to enable logger                                                               | true         |
+| logger.level        | 0, 1, 2 correspond to INFO, WARN, CRIT respectively                                 | 0            |
 | logger.interval     | The time gap between two logging actions, even if the threshold hasn't been reached | 3            |
 | process.daemon      | True to daemonize                                                                   | false        |
 | process.only_worker | True to have only one worker process, usually used in debug                         | false        |

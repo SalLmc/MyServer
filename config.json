@@ -1,6 +1,7 @@
 {
     "logger": {
         "enable": 1,
+        "level": 0,
         "threshold": 1,
         "interval": 3
     },

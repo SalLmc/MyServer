@@ -11,6 +11,7 @@
 struct Config
 {
     bool loggerEnable;
+    int loggerLevel;
     unsigned long loggerThreshold;
     int loggerInterval;
 
