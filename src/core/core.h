@@ -105,18 +105,18 @@ class ConnectionPool
 
 struct ServerAttribute
 {
-    int port_;
-    std::string root_;
-    std::string index_;
+    int port;
+    std::string root;
+    std::string index;
 
-    std::string from_;
-    std::vector<std::string> to_;
-    int idx_ = 0;
+    std::string from;
+    std::vector<std::string> to;
+    int idx = 0;
 
-    bool autoIndex_;
-    std::vector<std::string> tryFiles_;
+    bool autoIndex;
+    std::vector<std::string> tryFiles;
 
-    std::vector<std::string> authPaths_;
+    std::vector<std::string> authPaths;
 };
 
 class Server

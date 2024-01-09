@@ -28,7 +28,7 @@ int acceptDelay(void *ev)
     Event *event = (Event *)ev;
     event->timeout_ = TimeoutStatus::NOT_TIMED_OUT;
     // use LT on listenfd
-    if (serverPtr->multiplexer_->addFd(event->c_->fd_.getFd(), Events(IN), event->c_) == 0)
+    if (serverPtr->multiplexer_->addFd(event->c_->fd_.get(), Events(IN), event->c_) == 0)
     {
         LOG_CRIT << "Listenfd add failed, errno:" << strerror(errno);
     }
@@ -54,7 +54,7 @@ int newConnection(Event *ev)
                 ev->timeout_ = TimeoutStatus::TIMEOUT;
                 serverPtr->timer_.add(ACCEPT_DELAY, "Accept delay", getTickMs() + serverConfig.eventDelay * 1000,
                                       acceptDelay, (void *)ev);
-                if (serverPtr->multiplexer_->delFd(ev->c_->fd_.getFd()) != 1)
+                if (serverPtr->multiplexer_->delFd(ev->c_->fd_.get()) != 1)
                 {
                     LOG_CRIT << "Del accept event failed";
                 }
@@ -65,17 +65,17 @@ int newConnection(Event *ev)
         Connection *newc = serverPtr->pool_.getNewConnection();
         if (newc == NULL)
         {
-            LOG_WARN << "Get new connection failed, listenfd:" << ev->c_->fd_.getFd();
+            LOG_WARN << "Get new connection failed, listenfd:" << ev->c_->fd_.get();
             return 1;
         }
 
         sockaddr_in *addr = &newc->addr_;
         socklen_t len = sizeof(*addr);
 
-        newc->fd_ = accept4(ev->c_->fd_.getFd(), (sockaddr *)addr, &len, SOCK_NONBLOCK);
-        if (newc->fd_.getFd() < 0)
+        newc->fd_ = accept4(ev->c_->fd_.get(), (sockaddr *)addr, &len, SOCK_NONBLOCK);
+        if (newc->fd_.get() < 0)
         {
-            LOG_WARN << "Accept from FD:" << ev->c_->fd_.getFd() << " failed, errno: " << strerror(errno);
+            LOG_WARN << "Accept from FD:" << ev->c_->fd_.get() << " failed, errno: " << strerror(errno);
             serverPtr->pool_.recoverConnection(newc);
             return 1;
         }
@@ -84,15 +84,15 @@ int newConnection(Event *ev)
 
         newc->read_.handler_ = waitRequest;
 
-        if (serverPtr->multiplexer_->addFd(newc->fd_.getFd(), Events(IN | ET), newc) == 0)
+        if (serverPtr->multiplexer_->addFd(newc->fd_.get(), Events(IN | ET), newc) == 0)
         {
-            LOG_WARN << "Add client fd failed, FD:" << newc->fd_.getFd();
+            LOG_WARN << "Add client fd failed, FD:" << newc->fd_.get();
         }
 
-        serverPtr->timer_.add(newc->fd_.getFd(), "Connection timeout", getTickMs() + 60000, setEventTimeout,
+        serverPtr->timer_.add(newc->fd_.get(), "Connection timeout", getTickMs() + 60000, setEventTimeout,
                               (void *)&newc->read_);
 
-        LOG_INFO << "NEW CONNECTION FROM FD:" << ev->c_->fd_.getFd() << ", WITH FD:" << newc->fd_.getFd();
+        LOG_INFO << "NEW CONNECTION FROM FD:" << ev->c_->fd_.get() << ", WITH FD:" << newc->fd_.get();
 
 #ifdef LOOP_ACCEPT
     }
@@ -105,18 +105,18 @@ int waitRequest(Event *ev)
 {
     if (ev->timeout_ == TimeoutStatus::TIMEOUT)
     {
-        LOG_INFO << "Client timeout, FD:" << ev->c_->fd_.getFd();
+        LOG_INFO << "Client timeout, FD:" << ev->c_->fd_.get();
         finalizeConnection(ev->c_);
         return -1;
     }
 
-    serverPtr->timer_.remove(ev->c_->fd_.getFd());
+    serverPtr->timer_.remove(ev->c_->fd_.get());
 
     Connection *c = ev->c_;
 
-    LOG_INFO << "waitRequest recv from FD:" << c->fd_.getFd();
+    LOG_INFO << "waitRequest recv from FD:" << c->fd_.get();
 
-    int len = c->readBuffer_.bufferRecv(c->fd_.getFd(), 0);
+    int len = c->readBuffer_.bufferRecv(c->fd_.get(), 0);
 
     if (len == 0)
     {
@@ -152,18 +152,18 @@ int waitRequestAgain(Event *ev)
 {
     if (ev->timeout_ == TimeoutStatus::TIMEOUT)
     {
-        LOG_INFO << "Client timeout, FD:" << ev->c_->fd_.getFd();
+        LOG_INFO << "Client timeout, FD:" << ev->c_->fd_.get();
         finalizeRequest(ev->c_->request_);
         return -1;
     }
 
-    serverPtr->timer_.remove(ev->c_->fd_.getFd());
+    serverPtr->timer_.remove(ev->c_->fd_.get());
 
     Connection *c = ev->c_;
 
-    LOG_INFO << "keepAlive recv from FD:" << c->fd_.getFd();
+    LOG_INFO << "keepAlive recv from FD:" << c->fd_.get();
 
-    int len = c->readBuffer_.bufferRecv(c->fd_.getFd(), 0);
+    int len = c->readBuffer_.bufferRecv(c->fd_.get(), 0);
 
     if (len == 0)
     {
@@ -433,7 +433,7 @@ int processRequestHeaders(Event *ev)
 
             LOG_INFO << "Host: " << r->contextIn_.headerNameValueMap_["host"].value_;
 
-            LOG_INFO << "Port: " << serverPtr->servers_[r->c_->serverIdx_].port_;
+            LOG_INFO << "Port: " << serverPtr->servers_[r->c_->serverIdx_].port;
 
             processRequest(r);
 
@@ -474,7 +474,7 @@ int readRequest(std::shared_ptr<Request> r)
         return 1;
     }
 
-    n = c->readBuffer_.bufferRecv(c->fd_.getFd(), 0);
+    n = c->readBuffer_.bufferRecv(c->fd_.get(), 0);
 
     if (n < 0)
     {
@@ -767,7 +767,7 @@ int writeResponse(Event *ev)
 
     if (buffer.allRead() != 1)
     {
-        int len = buffer.bufferSend(ev->c_->fd_.getFd(), 0);
+        int len = buffer.bufferSend(ev->c_->fd_.get(), 0);
 
         if (len < 0 && errno != EAGAIN)
         {
@@ -779,13 +779,13 @@ int writeResponse(Event *ev)
         if (buffer.allRead() != 1)
         {
             r->c_->write_.handler_ = writeResponse;
-            serverPtr->multiplexer_->modFd(ev->c_->fd_.getFd(), Events(IN | OUT | ET), ev->c_);
+            serverPtr->multiplexer_->modFd(ev->c_->fd_.get(), Events(IN | OUT | ET), ev->c_);
             return PHASE_QUIT;
         }
     }
 
     r->c_->write_.handler_ = std::function<int(Event *)>();
-    serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), Events(IN | ET), r->c_);
+    serverPtr->multiplexer_->modFd(r->c_->fd_.get(), Events(IN | ET), r->c_);
 
     if (r->contextOut_.resType_ == ResponseType::FILE)
     {
@@ -819,7 +819,7 @@ int clientAliveCheck(Event *ev)
     Connection *upc = c->upstream_->upstream_;
     std::shared_ptr<Request> upsr = upc->request_;
 
-    int n = c->readBuffer_.bufferRecv(c->fd_.getFd(), 0);
+    int n = c->readBuffer_.bufferRecv(c->fd_.get(), 0);
 
     if (n == 0)
     {
@@ -994,7 +994,7 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
 
     // read: readRequestBodyInner; write: empty
     r->c_->read_.handler_ = readRequestBodyInner;
-    serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), Events(IN | ET), r->c_);
+    serverPtr->multiplexer_->modFd(r->c_->fd_.get(), Events(IN | ET), r->c_);
 
     return readRequestBodyInner(&r->c_->read_);
 }
@@ -1010,7 +1010,7 @@ int readRequestBodyInner(Event *ev)
 
     while (1)
     {
-        int ret = buffer.bufferRecv(c->fd_.getFd(), 0);
+        int ret = buffer.bufferRecv(c->fd_.get(), 0);
 
         if (ret == 0)
         {
@@ -1068,7 +1068,7 @@ int sendfileEvent(Event *ev)
     std::shared_ptr<Request> r = ev->c_->request_;
     auto &filebody = r->contextOut_.fileBody_;
 
-    ssize_t len = sendfile(r->c_->fd_.getFd(), filebody.filefd_.getFd(), &filebody.offset_,
+    ssize_t len = sendfile(r->c_->fd_.get(), filebody.filefd_.get(), &filebody.offset_,
                            filebody.fileSize_ - filebody.offset_);
 
     if (len < 0 && errno != EAGAIN)
@@ -1087,13 +1087,13 @@ int sendfileEvent(Event *ev)
     if (filebody.fileSize_ - filebody.offset_ > 0)
     {
         r->c_->write_.handler_ = sendfileEvent;
-        serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), Events(IN | OUT | ET), r->c_);
+        serverPtr->multiplexer_->modFd(r->c_->fd_.get(), Events(IN | OUT | ET), r->c_);
         return AGAIN;
     }
 
-    serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), Events(IN | ET), r->c_);
+    serverPtr->multiplexer_->modFd(r->c_->fd_.get(), Events(IN | ET), r->c_);
     r->c_->write_.handler_ = std::function<int(Event *)>();
-    filebody.filefd_.closeFd();
+    filebody.filefd_.close();
 
     LOG_INFO << "SENDFILE RESPONSED";
 
@@ -1117,7 +1117,7 @@ int sendStrEvent(Event *ev)
     static int offset = 0;
     int bodysize = strbody.size();
 
-    int len = send(r->c_->fd_.getFd(), strbody.c_str() + offset, bodysize - offset, 0);
+    int len = send(r->c_->fd_.get(), strbody.c_str() + offset, bodysize - offset, 0);
 
     if (len < 0 && errno != EAGAIN)
     {
@@ -1136,12 +1136,12 @@ int sendStrEvent(Event *ev)
     if (bodysize - offset > 0)
     {
         r->c_->write_.handler_ = sendStrEvent;
-        serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), Events(IN | OUT | ET), r->c_);
+        serverPtr->multiplexer_->modFd(r->c_->fd_.get(), Events(IN | OUT | ET), r->c_);
         return AGAIN;
     }
 
     offset = 0;
-    serverPtr->multiplexer_->modFd(r->c_->fd_.getFd(), Events(IN | ET), r->c_);
+    serverPtr->multiplexer_->modFd(r->c_->fd_.get(), Events(IN | ET), r->c_);
     r->c_->write_.handler_ = std::function<int(Event *)>();
 
     LOG_INFO << "SENDSTR RESPONSED";
@@ -1160,7 +1160,7 @@ int sendStrEvent(Event *ev)
 
 int keepAliveRequest(std::shared_ptr<Request> r)
 {
-    int fd = r->c_->fd_.getFd();
+    int fd = r->c_->fd_.get();
 
     Connection *c = r->c_;
 
@@ -1174,7 +1174,7 @@ int keepAliveRequest(std::shared_ptr<Request> r)
     c->readBuffer_.init();
     c->writeBuffer_.init();
 
-    serverPtr->timer_.add(c->fd_.getFd(), "Connection timeout", getTickMs() + 60000, setEventTimeout,
+    serverPtr->timer_.add(c->fd_.get(), "Connection timeout", getTickMs() + 60000, setEventTimeout,
                           (void *)&c->read_);
 
     LOG_INFO << "KEEPALIVE CONNECTION DONE, FD:" << fd;
@@ -1188,7 +1188,7 @@ int timerRecoverConnection(void *arg)
 
     if (serverPtr->pool_.isActive(c) && c->quit_)
     {
-        int fd = c->fd_.getFd();
+        int fd = c->fd_.get();
         serverPtr->multiplexer_->delFd(fd);
         serverPtr->pool_.recoverConnection(c);
         LOG_INFO << "Connection recover in timer, FD:" << fd;
@@ -1205,7 +1205,7 @@ int finalizeConnectionLater(Connection *c)
         LOG_CRIT << "FINALIZE CONNECTION NULL";
         return 0;
     }
-    int fd = c->fd_.getFd();
+    int fd = c->fd_.get();
 
     c->quit_ = 1;
 
@@ -1232,7 +1232,7 @@ int finalizeConnection(Connection *c)
         LOG_CRIT << "FINALIZE CONNECTION NULL";
         return 0;
     }
-    int fd = c->fd_.getFd();
+    int fd = c->fd_.get();
 
     c->quit_ = 1;
 
@@ -1345,7 +1345,7 @@ std::string getContentType(std::string exten, Charset charset)
     }
     else
     {
-        type = serverPtr->extenContentTypeMap_["default_content_type"];
+        type = "application/octet-stream";
     }
 
     switch (charset)
@@ -1364,7 +1364,7 @@ std::string getContentType(std::string exten, Charset charset)
 int selectServer(std::shared_ptr<Request> r)
 {
     auto &server = serverPtr->servers_[r->c_->serverIdx_];
-    int save = server.idx_;
-    server.idx_ = (server.idx_ + 1) % server.to_.size();
+    int save = server.idx;
+    server.idx = (server.idx + 1) % server.to.size();
     return save;
 }

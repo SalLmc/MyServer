@@ -85,7 +85,7 @@ int endPhaseHandler(std::shared_ptr<Request> r)
 
 int logPhaseHandler(std::shared_ptr<Request> r)
 {
-    LOG_INFO << "Log handler, FD:" << r->c_->fd_.getFd();
+    LOG_INFO << "Log handler, FD:" << r->c_->fd_.get();
     char ipString[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &r->c_->addr_.sin_addr, ipString, INET_ADDRSTRLEN);
     LOG_INFO << "ip: " << ipString;
@@ -95,11 +95,11 @@ int logPhaseHandler(std::shared_ptr<Request> r)
 
 int authAccessHandler(std::shared_ptr<Request> r)
 {
-    LOG_INFO << "Auth access handler, FD:" << r->c_->fd_.getFd();
+    LOG_INFO << "Auth access handler, FD:" << r->c_->fd_.get();
     auto &server = serverPtr->servers_[r->c_->serverIdx_];
 
     bool need_auth = 0;
-    for (std::string path : server.authPaths_)
+    for (std::string path : server.authPaths)
     {
         if (isMatch(r->uri_.toString(), path))
         {
@@ -116,12 +116,12 @@ int authAccessHandler(std::shared_ptr<Request> r)
     int ok = 0;
 
     char authc[128] = {0};
-    std::string path = "authcode_" + std::to_string(server.port_);
+    std::string path = "authcode_" + std::to_string(server.port);
     std::string auth;
     Fd fd(open(path.c_str(), O_RDONLY));
-    if (fd.getFd() >= 0)
+    if (fd.get() >= 0)
     {
-        read(fd.getFd(), authc, sizeof(authc));
+        read(fd.get(), authc, sizeof(authc));
         auth.append(authc);
     }
 
@@ -155,16 +155,16 @@ int authAccessHandler(std::shared_ptr<Request> r)
 
 int contentAccessHandler(std::shared_ptr<Request> r)
 {
-    LOG_INFO << "Content access handler, FD:" << r->c_->fd_.getFd();
+    LOG_INFO << "Content access handler, FD:" << r->c_->fd_.get();
     auto &server = serverPtr->servers_[r->c_->serverIdx_];
     std::string uri = std::string(r->uri_.data_, r->uri_.data_ + r->uri_.len_);
     std::string path;
     Fd fd;
 
     // proxy_pass
-    if (!server.from_.empty() && !server.to_.empty())
+    if (!server.from.empty() && !server.to.empty())
     {
-        if (uri.find(server.from_) != std::string::npos)
+        if (uri.find(server.from) != std::string::npos)
         {
             r->nowProxyPass_ = 1;
             return PHASE_NEXT;
@@ -178,12 +178,12 @@ int contentAccessHandler(std::shared_ptr<Request> r)
         return doResponse(r);
     }
 
-    path = server.root_ + uri;
+    path = server.root + uri;
     fd = open(path.c_str(), O_RDONLY);
 
-    if (fd.getFd() < 0)
+    if (fd.get() < 0)
     {
-        if (open(server.root_.c_str(), O_RDONLY) < 0)
+        if (open(server.root.c_str(), O_RDONLY) < 0)
         {
             LOG_WARN << "can't open server root location";
             setErrorResponse(r, HTTP_INTERNAL_SERVER_ERROR);
@@ -193,7 +193,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
     }
 
     struct stat st;
-    fstat(fd.getFd(), &st);
+    fstat(fd.get(), &st);
     if (st.st_mode & S_IFDIR)
     {
         // use index & try_files
@@ -203,9 +203,9 @@ int contentAccessHandler(std::shared_ptr<Request> r)
         }
 
         // index
-        std::string filePath = path + server.index_;
+        std::string filePath = path + server.index;
         Fd filefd(open(filePath.c_str(), O_RDONLY));
-        if (filefd.getFd() >= 0)
+        if (filefd.get() >= 0)
         {
             auto pos = filePath.find('.');
             if (pos != std::string::npos) // has exten
@@ -219,21 +219,21 @@ int contentAccessHandler(std::shared_ptr<Request> r)
                 r->exten_.len_ = extenlen;
             }
 
-            fd.closeFd();
+            fd.close();
             fd.reset(std::move(filefd));
 
             goto fileok;
         }
         else // try_files
         {
-            for (auto &name : server.tryFiles_)
+            for (auto &name : server.tryFiles)
             {
                 filePath = path + name;
                 filefd = open(filePath.c_str(), O_RDONLY);
-                if (filefd.getFd() >= 0)
+                if (filefd.get() >= 0)
                 {
                     struct stat st;
-                    fstat(fd.getFd(), &st);
+                    fstat(fd.get(), &st);
                     if (!(st.st_mode & S_IFDIR))
                     {
                         auto pos = filePath.find('.');
@@ -254,7 +254,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
                     }
                     else
                     {
-                        filefd.closeFd();
+                        filefd.close();
                     }
                 }
             }
@@ -269,12 +269,12 @@ int contentAccessHandler(std::shared_ptr<Request> r)
     }
 
 fileok:
-    if (fd.getFd() >= 0)
+    if (fd.get() >= 0)
     {
         if (r->contextIn_.headerNameValueMap_.count("if-none-match"))
         {
             std::string browser_etag = r->contextIn_.headerNameValueMap_["if-none-match"].value_;
-            if (etagMatched(fd.getFd(), browser_etag))
+            if (etagMatched(fd.get(), browser_etag))
             {
                 r->contextOut_.resCode_ = HTTP_NOT_MODIFIED;
                 r->contextOut_.statusLine_ = getStatusLineByCode(r->contextOut_.resCode_);
@@ -289,7 +289,7 @@ fileok:
         r->contextOut_.resType_ = ResponseType::FILE;
 
         struct stat st;
-        fstat(fd.getFd(), &st);
+        fstat(fd.get(), &st);
         r->contextOut_.fileBody_.fileSize_ = st.st_size;
 
         // close fd after sendfile in writeResponse
@@ -299,7 +299,7 @@ fileok:
     }
 
 autoindex:
-    if (server.autoIndex_ == 0)
+    if (server.autoIndex == 0)
     {
     send404:
         setErrorResponse(r, HTTP_NOT_FOUND);
@@ -324,7 +324,7 @@ autoindex:
 
 int proxyPassHandler(std::shared_ptr<Request> r)
 {
-    LOG_INFO << "Proxy pass handler, FD:" << r->c_->fd_.getFd();
+    LOG_INFO << "Proxy pass handler, FD:" << r->c_->fd_.get();
 
     if (r->nowProxyPass_ != 1)
     {
@@ -347,12 +347,12 @@ int proxyPassHandler(std::shared_ptr<Request> r)
 
 int staticContentHandler(std::shared_ptr<Request> r)
 {
-    LOG_INFO << "Static content handler, FD:" << r->c_->fd_.getFd();
+    LOG_INFO << "Static content handler, FD:" << r->c_->fd_.get();
     if (r->contextOut_.resType_ == ResponseType::FILE)
     {
         LOG_INFO << "RES_FILE";
         r->contextOut_.contentLength_ = r->contextOut_.fileBody_.fileSize_;
-        std::string etag = getEtag(r->contextOut_.fileBody_.filefd_.getFd());
+        std::string etag = getEtag(r->contextOut_.fileBody_.filefd_.get());
         if (etag != "")
         {
             r->contextOut_.headers_.emplace_back("Etag", std::move(etag));
@@ -385,7 +385,7 @@ int staticContentHandler(std::shared_ptr<Request> r)
 
 int autoIndexHandler(std::shared_ptr<Request> r)
 {
-    LOG_INFO << "Auto index handler, FD:" << r->c_->fd_.getFd();
+    LOG_INFO << "Auto index handler, FD:" << r->c_->fd_.get();
     if (r->contextOut_.resType_ != ResponseType::AUTO_INDEX)
     {
         LOG_WARN << "Pass auto index handler";
@@ -408,7 +408,7 @@ int autoIndexHandler(std::shared_ptr<Request> r)
     static char tail[] = "</pre>" CRLF "<hr>" CRLF "</body>" CRLF "</html>";
 
     // open location
-    auto &root = server.root_;
+    auto &root = server.root;
     auto subpath = std::string(r->uri_.data_, r->uri_.data_ + r->uri_.len_);
     Dir directory(opendir((root + subpath).c_str()));
 
@@ -467,7 +467,7 @@ int initUpstream(std::shared_ptr<Request> r)
     // setup upstream server
     auto &server = serverPtr->servers_[r->c_->serverIdx_];
     int idx = selectServer(r);
-    std::string addr = server.to_[idx];
+    std::string addr = server.to[idx];
 
     std::string ip;
     std::string domain;
@@ -496,7 +496,7 @@ int initUpstream(std::shared_ptr<Request> r)
 
     // replace uri
     std::string fullUri = std::string(r->uriStart_, r->uriEnd_);
-    std::string newUri = getLeftUri(addr) + fullUri.replace(0, server.from_.length(), "");
+    std::string newUri = getLeftUri(addr) + fullUri.replace(0, server.from.length(), "");
 
     LOG_INFO << "Upstream to " << addr << " -> " << ip << ":" << port << newUri;
 
@@ -512,7 +512,7 @@ int initUpstream(std::shared_ptr<Request> r)
 
     upc->fd_ = socket(AF_INET, SOCK_STREAM, 0);
 
-    if (upc->fd_.getFd() < 0)
+    if (upc->fd_.get() < 0)
     {
         LOG_WARN << "open fd failed";
         serverPtr->pool_.recoverConnection(upc);
@@ -520,7 +520,7 @@ int initUpstream(std::shared_ptr<Request> r)
         return ERROR;
     }
 
-    if (setsockopt(upc->fd_.getFd(), SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) < 0)
+    if (setsockopt(upc->fd_.get(), SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) < 0)
     {
         LOG_WARN << "set keepalived failed";
         serverPtr->pool_.recoverConnection(upc);
@@ -532,7 +532,7 @@ int initUpstream(std::shared_ptr<Request> r)
     inet_pton(AF_INET, ip.c_str(), &upc->addr_.sin_addr);
     upc->addr_.sin_port = htons(port);
 
-    if (connect(upc->fd_.getFd(), (struct sockaddr *)&upc->addr_, sizeof(upc->addr_)) < 0)
+    if (connect(upc->fd_.get(), (struct sockaddr *)&upc->addr_, sizeof(upc->addr_)) < 0)
     {
         LOG_WARN << "CONNECT ERR, FINALIZE CONNECTION, errro: " << strerror(errno);
         serverPtr->pool_.recoverConnection(upc);
@@ -540,7 +540,7 @@ int initUpstream(std::shared_ptr<Request> r)
         return ERROR;
     }
 
-    if (setnonblocking(upc->fd_.getFd()) < 0)
+    if (setnonblocking(upc->fd_.get()) < 0)
     {
         LOG_WARN << "set nonblocking failed";
         serverPtr->pool_.recoverConnection(upc);
@@ -596,7 +596,7 @@ int initUpstream(std::shared_ptr<Request> r)
     // read: clientAliveCheck; write: empty
     r->c_->read_.handler_ = clientAliveCheck;
 
-    if (serverPtr->multiplexer_->addFd(upc->fd_.getFd(), Events(IN | OUT | ET), upc) != 1)
+    if (serverPtr->multiplexer_->addFd(upc->fd_.get(), Events(IN | OUT | ET), upc) != 1)
     {
         LOG_CRIT << "epoller addfd failed, error:" << strerror(errno);
         serverPtr->pool_.recoverConnection(upc);
@@ -604,7 +604,7 @@ int initUpstream(std::shared_ptr<Request> r)
         return ERROR;
     }
 
-    LOG_INFO << "init upstream OK, client: " << r->c_->fd_.getFd() << ", upstream: " << upc->fd_.getFd();
+    LOG_INFO << "init upstream OK, client: " << r->c_->fd_.get() << ", upstream: " << upc->fd_.get();
 
     // send && call send2Upstream at upc's loop
     return OK;
@@ -621,7 +621,7 @@ int send2Upstream(Event *upcEv)
 
     for (; upc->writeBuffer_.allRead() != 1;)
     {
-        ret = upc->writeBuffer_.bufferSend(upc->fd_.getFd(), 0);
+        ret = upc->writeBuffer_.bufferSend(upc->fd_.get(), 0);
 
         if (upc->writeBuffer_.allRead())
         {
@@ -656,7 +656,7 @@ int send2Upstream(Event *upcEv)
     }
 
     // remove EPOLLOUT events
-    if (serverPtr->multiplexer_->modFd(upc->fd_.getFd(), Events(IN | ET), upc) != 1)
+    if (serverPtr->multiplexer_->modFd(upc->fd_.get(), Events(IN | ET), upc) != 1)
     {
         LOG_CRIT << "epoller modfd failed, error:" << strerror(errno);
         finalizeRequest(upsr);
@@ -686,7 +686,7 @@ int recvFromUpstream(Event *upcEv)
 
     while (1)
     {
-        n = upc->readBuffer_.bufferRecv(upc->fd_.getFd(), 0);
+        n = upc->readBuffer_.bufferRecv(upc->fd_.get(), 0);
         if (n < 0 && errno == EAGAIN)
         {
             LOG_INFO << "recv from upstream EAGAIN";
@@ -745,7 +745,7 @@ int recvFromUpstream(Event *upcEv)
     upc->upstream_->client_->write_.handler_ = send2Client;
 
     // call send2Client at client's loop
-    if (serverPtr->multiplexer_->modFd(upc->upstream_->client_->fd_.getFd(), Events(IN | OUT | ET),
+    if (serverPtr->multiplexer_->modFd(upc->upstream_->client_->fd_.get(), Events(IN | OUT | ET),
                                        upc->upstream_->client_) != 1)
     {
         LOG_CRIT << "epoller modfd failed, error:" << strerror(errno);
@@ -766,11 +766,11 @@ int send2Client(Event *ev)
 
     int ret = 0;
 
-    LOG_INFO << "Write to client, FD:" << c->fd_.getFd();
+    LOG_INFO << "Write to client, FD:" << c->fd_.get();
 
     for (; c->writeBuffer_.allRead() != 1;)
     {
-        ret = c->writeBuffer_.bufferSend(c->fd_.getFd(), 0);
+        ret = c->writeBuffer_.bufferSend(c->fd_.get(), 0);
 
         if (c->writeBuffer_.allRead())
         {

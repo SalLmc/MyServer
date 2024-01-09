@@ -83,7 +83,6 @@ class JsonParser
     Token *getToken();
     void parsePrimitive();
     void parseString();
-    // @return real size of tokens
     void parse0();
 
     const char *json_;

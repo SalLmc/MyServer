@@ -33,7 +33,7 @@ void Connection::init(ResourceType type)
 
     if (fd_ != -1)
     {
-        close(fd_.getFd());
+        close(fd_.get());
         fd_ = -1;
     }
 
@@ -134,19 +134,18 @@ bool ConnectionPool::isActive(Connection *c)
 }
 
 ServerAttribute defaultAttr = {
-    .port_ = 80,
-    .root_ = "./static",
-    .index_ = "index.html",
-    .from_ = std::string(),
-    .to_ = std::vector<std::string>(),
-    .idx_ = 0,
-    .autoIndex_ = 0,
-    .tryFiles_ = std::vector<std::string>(),
-    .authPaths_ = std::vector<std::string>(),
+    .port = 80,
+    .root = "./static",
+    .index = "index.html",
+    .from = std::string(),
+    .to = std::vector<std::string>(),
+    .idx = 0,
+    .autoIndex = 0,
+    .tryFiles = std::vector<std::string>(),
+    .authPaths = std::vector<std::string>(),
 };
 
-Server::Server(Logger *logger)
-    : logger_(logger), multiplexer_(NULL), extenContentTypeMap_({{"default_content_type", "application/octet-stream"}})
+Server::Server(Logger *logger) : logger_(logger), multiplexer_(NULL)
 {
 }
 
@@ -180,7 +179,7 @@ int Server::initListen(std::function<int(Event *)> handler)
 {
     for (auto &x : servers_)
     {
-        Connection *c = setupListen(this, x.port_);
+        Connection *c = setupListen(this, x.port);
         if (c == NULL)
         {
             return ERROR;
@@ -214,7 +213,7 @@ int Server::regisListen(Events events)
     bool ok = 1;
     for (auto &listen : listening_)
     {
-        if (multiplexer_->addFd(listen->fd_.getFd(), events, listen) == 0)
+        if (multiplexer_->addFd(listen->fd_.get(), events, listen) == 0)
         {
             ok = 0;
         }
@@ -260,37 +259,37 @@ Connection *setupListen(Server *server, int port)
 
     listenConn->fd_ = socket(AF_INET, SOCK_STREAM, 0);
 
-    if (listenConn->fd_.getFd() < 0)
+    if (listenConn->fd_.get() < 0)
     {
         LOG_CRIT << "open listenfd failed";
         goto bad;
     }
 
-    if (setsockopt(listenConn->fd_.getFd(), SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) < 0)
+    if (setsockopt(listenConn->fd_.get(), SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) < 0)
     {
         LOG_WARN << "set keepalived failed";
         goto bad;
     }
 
-    if (setsockopt(listenConn->fd_.getFd(), SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val)) < 0)
+    if (setsockopt(listenConn->fd_.get(), SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val)) < 0)
     {
         LOG_CRIT << "set reuseport failed";
         goto bad;
     }
 
-    if (setnonblocking(listenConn->fd_.getFd()) < 0)
+    if (setnonblocking(listenConn->fd_.get()) < 0)
     {
         LOG_CRIT << "set nonblocking failed";
         goto bad;
     }
 
-    if (bind(listenConn->fd_.getFd(), (sockaddr *)&listenConn->addr_, sizeof(listenConn->addr_)) != 0)
+    if (bind(listenConn->fd_.get(), (sockaddr *)&listenConn->addr_, sizeof(listenConn->addr_)) != 0)
     {
         LOG_CRIT << "bind failed";
         goto bad;
     }
 
-    if (listen(listenConn->fd_.getFd(), 4096) != 0)
+    if (listen(listenConn->fd_.get(), 4096) != 0)
     {
         LOG_CRIT << "listen failed";
         goto bad;

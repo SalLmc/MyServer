@@ -58,7 +58,7 @@ void CtxOut::init()
     resCode_ = HTTP_OK;
     statusLine_.clear();
     strBody_.clear();
-    fileBody_.filefd_.closeFd();
+    fileBody_.filefd_.close();
     fileBody_.fileSize_ = 0;
     fileBody_.offset_ = 0;
     resType_ = ResponseType::EMPTY;

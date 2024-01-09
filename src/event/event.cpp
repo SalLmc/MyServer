@@ -23,7 +23,7 @@ int setEventTimeout(void *ev)
 
     if (thisev->c_->quit_)
     {
-        int fd = thisev->c_->fd_.getFd();
+        int fd = thisev->c_->fd_.get();
         serverPtr->multiplexer_->delFd(fd);
         serverPtr->pool_.recoverConnection(thisev->c_);
         LOG_INFO << "Connection recover, FD:" << fd;

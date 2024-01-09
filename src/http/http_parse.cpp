@@ -67,13 +67,13 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 {
 
                 case 3:
-                    if (str4cmp(m, 'G', 'E', 'T', ' '))
+                    if (equal(m, "GET", 3))
                     {
                         r->method_ = Method::GET;
                         break;
                     }
 
-                    if (str4cmp(m, 'P', 'U', 'T', ' '))
+                    if (equal(m, "PUT", 3))
                     {
                         r->method_ = Method::PUT;
                         break;
@@ -85,25 +85,25 @@ int parseRequestLine(std::shared_ptr<Request> r)
                     if (m[1] == 'O')
                     {
 
-                        if (str4cmp(m, 'P', 'O', 'S', 'T'))
+                        if (equal(m, "POST", 4))
                         {
                             r->method_ = Method::POST;
                             break;
                         }
 
-                        if (str4cmp(m, 'C', 'O', 'P', 'Y'))
+                        if (equal(m, "COPY", 4))
                         {
                             r->method_ = Method::COPY;
                             break;
                         }
 
-                        if (str4cmp(m, 'M', 'O', 'V', 'E'))
+                        if (equal(m, "MOVE", 4))
                         {
                             r->method_ = Method::MOVE;
                             break;
                         }
 
-                        if (str4cmp(m, 'L', 'O', 'C', 'K'))
+                        if (equal(m, "LOCK", 4))
                         {
                             r->method_ = Method::LOCK;
                             break;
@@ -112,7 +112,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
                     else
                     {
 
-                        if (str4cmp(m, 'H', 'E', 'A', 'D'))
+                        if (equal(m, "HEAD", 4))
                         {
                             r->method_ = Method::HEAD;
                             break;
@@ -122,19 +122,19 @@ int parseRequestLine(std::shared_ptr<Request> r)
                     break;
 
                 case 5:
-                    if (str5cmp(m, 'M', 'K', 'C', 'O', 'L'))
+                    if (equal(m, "MKCOL", 5))
                     {
                         r->method_ = Method::MKCOL;
                         break;
                     }
 
-                    if (str5cmp(m, 'P', 'A', 'T', 'C', 'H'))
+                    if (equal(m, "PATCH", 5))
                     {
                         r->method_ = Method::PATCH;
                         break;
                     }
 
-                    if (str5cmp(m, 'T', 'R', 'A', 'C', 'E'))
+                    if (equal(m, "TRACE", 5))
                     {
                         r->method_ = Method::TRACE;
                         break;
@@ -143,13 +143,13 @@ int parseRequestLine(std::shared_ptr<Request> r)
                     break;
 
                 case 6:
-                    if (str6cmp(m, 'D', 'E', 'L', 'E', 'T', 'E'))
+                    if (equal(m, "DELETE", 6))
                     {
                         r->method_ = Method::DELETE;
                         break;
                     }
 
-                    if (str6cmp(m, 'U', 'N', 'L', 'O', 'C', 'K'))
+                    if (equal(m, "UNLOCK", 6))
                     {
                         r->method_ = Method::UNLOCK;
                         break;
@@ -158,12 +158,12 @@ int parseRequestLine(std::shared_ptr<Request> r)
                     break;
 
                 case 7:
-                    if (str8cmp(m, 'O', 'P', 'T', 'I', 'O', 'N', 'S', ' '))
+                    if (equal(m, "OPTIONS", 7))
                     {
                         r->method_ = Method::OPTIONS;
                     }
 
-                    if (str8cmp(m, 'C', 'O', 'N', 'N', 'E', 'C', 'T', ' '))
+                    if (equal(m, "CONNECT", 7))
                     {
                         r->method_ = Method::CONNECT;
                     }
@@ -171,7 +171,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
                     break;
 
                 case 8:
-                    if (str8cmp(m, 'P', 'R', 'O', 'P', 'F', 'I', 'N', 'D'))
+                    if (equal(m, "PROPFIND", 8))
                     {
                         r->method_ = Method::PROPFIND;
                     }
@@ -179,7 +179,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
                     break;
 
                 case 9:
-                    if (str9cmp(m, 'P', 'R', 'O', 'P', 'P', 'A', 'T', 'C', 'H'))
+                    if (equal(m, "PROPPATCH", 9))
                     {
                         r->method_ = Method::PROPPATCH;
                     }

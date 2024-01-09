@@ -21,7 +21,7 @@ int main()
     serverPtr = &server;
 
     auto attr = defaultAttr;
-    attr.port_ = 8000;
+    attr.port = 8000;
 
     server.setServers({attr});
     server.initListen(callback);

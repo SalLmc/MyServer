@@ -19,8 +19,8 @@ class Fd
     Fd();
     Fd(int fd);
     ~Fd();
-    int getFd();
-    void closeFd();
+    int get();
+    void close();
     bool operator==(int fd);
     bool operator==(Fd fd);
     bool operator!=(int fd);

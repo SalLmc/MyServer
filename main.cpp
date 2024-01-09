@@ -128,16 +128,16 @@ ServerAttribute getServer(JsonResult config)
 {
     ServerAttribute server = defaultAttr;
 
-    setIfValid(config, "port", &server.port_);
-    setIfValid(config, "root", &server.root_);
-    setIfValid(config, "index", &server.index_);
+    setIfValid(config, "port", &server.port);
+    setIfValid(config, "root", &server.root);
+    setIfValid(config, "index", &server.index);
 
-    setIfValid(config, "from", &server.from_);
-    setIfValid(config, "to", &server.to_);
-    setIfValid(config, "auto_index", &server.autoIndex_);
+    setIfValid(config, "from", &server.from);
+    setIfValid(config, "to", &server.to);
+    setIfValid(config, "auto_index", &server.autoIndex);
 
-    setIfValid(config, "try_files", &server.tryFiles_);
-    setIfValid(config, "auth_path", &server.authPaths_);
+    setIfValid(config, "try_files", &server.tryFiles);
+    setIfValid(config, "auth_path", &server.authPaths);
 
     return server;
 }
