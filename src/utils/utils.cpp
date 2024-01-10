@@ -1,7 +1,8 @@
 #include "../headers.h"
 
-#include "../core/basic.h"
 #include "utils.h"
+
+#include "../core/basic.h"
 
 // return -1 on failure
 int setnonblocking(int fd)

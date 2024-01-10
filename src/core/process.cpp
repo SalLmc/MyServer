@@ -1,13 +1,13 @@
 #include "../headers.h"
 
-#include "../core/core.h"
-#include "../event/epoller.h"
-#include "../event/event.h"
+#include "process.h"
+
 #include "../global.h"
-#include "../http/http.h"
 #include "../log/logger.h"
 #include "../utils/utils.h"
-#include "process.h"
+#include "core.h"
+
+int newConnection(Event *ev);
 
 extern Server *serverPtr;
 

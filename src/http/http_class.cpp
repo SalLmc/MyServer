@@ -162,7 +162,3 @@ Upstream::Upstream()
     client_ = NULL;
     processHandler_ = NULL;
 }
-
-HttpCode::HttpCode(int code, std::string &&str) : code_(code), str_(str)
-{
-}

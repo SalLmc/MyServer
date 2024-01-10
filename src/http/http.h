@@ -104,17 +104,6 @@ enum class Method
     PROPPATCH
 };
 
-// enum class ResponseCode
-// {
-//     HTTP_OK,
-//     HTTP_NOT_MODIFIED,
-//     HTTP_UNAUTHORIZED,
-//     HTTP_FORBIDDEN,
-//     HTTP_NOT_FOUND,
-//     HTTP_INTERNAL_SERVER_ERROR,
-//     HTTP_MOVED_PERMANENTLY
-// };
-
 enum ResponseCode
 {
     HTTP_OK = 200,
@@ -320,15 +309,6 @@ class Upstream
     std::function<int(std::shared_ptr<Request> r)> processHandler_;
 };
 
-class HttpCode
-{
-  public:
-    HttpCode() = default;
-    HttpCode(int code, std::string &&str);
-    int code_;
-    std::string str_;
-};
-
 int newConnection(Event *ev);
 int waitRequest(Event *ev);
 int waitRequestAgain(Event *ev);
@@ -369,7 +349,7 @@ std::string getEtag(int fd);
 bool etagMatched(int fd, std::string browserEtag);
 int clientAliveCheck(Event *ev);
 std::string getContentType(std::string exten, Charset charset);
-HttpCode getByCode(ResponseCode code);
+std::string getByCode(ResponseCode code);
 std::string getStatusLineByCode(ResponseCode code);
 int selectServer(std::shared_ptr<Request> r);
 

@@ -13,14 +13,14 @@
 extern Server *serverPtr;
 extern std::vector<PhaseHandler> phases;
 
-std::unordered_map<int, HttpCode> httpCodeMap = {
-    {200, {200, "200 OK"}},
-    {301, {301, "301 Moved Permanently"}},
-    {304, {304, "304 Not Modified"}},
-    {401, {401, "401 Unauthorized"}},
-    {403, {403, "403 Forbidden"}},
-    {404, {404, "404 Not Found"}},
-    {500, {500, "500 Internal Server Error"}},
+std::unordered_map<int, std::string> httpCodeMap = {
+    {HTTP_OK, "200 OK"},
+    {HTTP_MOVED_PERMANENTLY, "301 Moved Permanently"},
+    {HTTP_NOT_MODIFIED, "304 Not Modified"},
+    {HTTP_UNAUTHORIZED, "401 Unauthorized"},
+    {HTTP_FORBIDDEN, "403 Forbidden"},
+    {HTTP_NOT_FOUND, "404 Not Found"},
+    {HTTP_INTERNAL_SERVER_ERROR, "500 Internal Server Error"},
 };
 
 int acceptDelay(void *ev)
@@ -1068,8 +1068,8 @@ int sendfileEvent(Event *ev)
     std::shared_ptr<Request> r = ev->c_->request_;
     auto &filebody = r->contextOut_.fileBody_;
 
-    ssize_t len = sendfile(r->c_->fd_.get(), filebody.filefd_.get(), &filebody.offset_,
-                           filebody.fileSize_ - filebody.offset_);
+    ssize_t len =
+        sendfile(r->c_->fd_.get(), filebody.filefd_.get(), &filebody.offset_, filebody.fileSize_ - filebody.offset_);
 
     if (len < 0 && errno != EAGAIN)
     {
@@ -1174,8 +1174,7 @@ int keepAliveRequest(std::shared_ptr<Request> r)
     c->readBuffer_.init();
     c->writeBuffer_.init();
 
-    serverPtr->timer_.add(c->fd_.get(), "Connection timeout", getTickMs() + 60000, setEventTimeout,
-                          (void *)&c->read_);
+    serverPtr->timer_.add(c->fd_.get(), "Connection timeout", getTickMs() + 60000, setEventTimeout, (void *)&c->read_);
 
     LOG_INFO << "KEEPALIVE CONNECTION DONE, FD:" << fd;
 
@@ -1282,14 +1281,14 @@ bool etagMatched(int fd, std::string b_etag)
 
 void setErrorResponse(std::shared_ptr<Request> r, ResponseCode code)
 {
-    HttpCode hc = getByCode(code);
+    auto statStr = getByCode(code);
     r->contextOut_.resCode_ = code;
     r->contextOut_.statusLine_ = getStatusLineByCode(code);
     r->contextOut_.resType_ = ResponseType::STRING;
     auto &str = r->contextOut_.strBody_;
-    str.append("<html>\n<head>\n\t<title>").append(hc.str_).append("</title>\n</head>\n");
+    str.append("<html>\n<head>\n\t<title>").append(statStr).append("</title>\n</head>\n");
     str.append("<body>\n\t<center>\n\t\t<h1>")
-        .append(hc.str_)
+        .append(statStr)
         .append("</h1>\n\t</center>\n\t<hr>\n\t<center>MyServer</center>\n</body>\n</html>");
 
     r->contextOut_.headers_.emplace_back("Content-Type", getContentType("html", Charset::UTF_8));
@@ -1297,43 +1296,22 @@ void setErrorResponse(std::shared_ptr<Request> r, ResponseCode code)
     r->contextOut_.headers_.emplace_back("Connection", "Keep-Alive");
 }
 
-HttpCode getByCode(ResponseCode code)
+std::string getByCode(ResponseCode code)
 {
-    HttpCode ans;
-    switch (code)
+    if (httpCodeMap.count(code))
     {
-    case HTTP_OK:
-        ans = httpCodeMap[code];
-        break;
-    case HTTP_MOVED_PERMANENTLY:
-        ans = httpCodeMap[code];
-        break;
-    case HTTP_NOT_MODIFIED:
-        ans = httpCodeMap[code];
-        break;
-    case HTTP_UNAUTHORIZED:
-        ans = httpCodeMap[code];
-        break;
-    case HTTP_FORBIDDEN:
-        ans = httpCodeMap[code];
-        break;
-    case HTTP_NOT_FOUND:
-        ans = httpCodeMap[code];
-        break;
-    case HTTP_INTERNAL_SERVER_ERROR:
-        // fall through
-    default:
-        ans = httpCodeMap[HTTP_INTERNAL_SERVER_ERROR];
-        break;
+        return httpCodeMap[code];
     }
-
-    return ans;
+    else
+    {
+        return httpCodeMap[HTTP_INTERNAL_SERVER_ERROR];
+    }
 }
 
 std::string getStatusLineByCode(ResponseCode code)
 {
-    HttpCode hc = getByCode(code);
-    return "HTTP/1.1 " + hc.str_ + "\r\n";
+    auto str = getByCode(code);
+    return "HTTP/1.1 " + str + "\r\n";
 }
 
 std::string getContentType(std::string exten, Charset charset)
