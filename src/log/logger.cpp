@@ -128,22 +128,22 @@ Logger::Logger(const char *rootPath, const char *logName)
     : rootPath_(rootPath), logName_(logName), threshold_(1), state_(State::INIT),
       writeThread_(&Logger::write2File, this)
 {
-    std::string folder(rootPath);
-    if (folder.back() != '/')
+    std::string file(rootPath);
+    if (file.back() != '/')
     {
-        folder.append("/");
+        file.append("/");
     }
-    folder.append(logName);
+    file.append(logName);
 
-    if (access(folder.data(), W_OK | R_OK | X_OK | F_OK) != 0)
+    if (access(rootPath, W_OK | R_OK | X_OK | F_OK) != 0)
     {
-        recursiveMkdir(folder.data(), 0777);
+        recursiveMkdir(rootPath, 0777);
     }
 
-    char info[100] = {0};
-    sprintf(info, "%s/info.log", folder.c_str());
+    char log[100] = {0};
+    sprintf(log, "%s.log", file.c_str());
 
-    log_ = open(info, O_RDWR | O_CREAT | O_TRUNC, 0666);
+    log_ = open(log, O_RDWR | O_CREAT | O_TRUNC, 0666);
 
     if (log_ >= 0)
     {

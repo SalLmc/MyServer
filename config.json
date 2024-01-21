@@ -1,14 +1,14 @@
 {
     "logger": {
-        "enable": 0,
+        "enable": 1,
         "level": 0,
-        "threshold": 1,
+        "threshold": 500,
         "interval": 3
     },
     "process": {
         "daemon": 0,
         "only_worker": 0,
-        "processes": 8
+        "processes": 1
     },
     "event": {
         "use_epoll": 1,
