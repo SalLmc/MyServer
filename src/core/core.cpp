@@ -139,10 +139,10 @@ ServerAttribute defaultAttr = {
     .index = "index.html",
     .from = std::string(),
     .to = std::vector<std::string>(),
-    .idx = 0,
     .autoIndex = 0,
     .tryFiles = std::vector<std::string>(),
     .authPaths = std::vector<std::string>(),
+    .idx = 0,
 };
 
 Server::Server(Logger *logger) : logger_(logger), multiplexer_(NULL)

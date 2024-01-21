@@ -108,15 +108,13 @@ struct ServerAttribute
     int port;
     std::string root;
     std::string index;
-
     std::string from;
     std::vector<std::string> to;
-    int idx = 0;
-
     bool autoIndex;
     std::vector<std::string> tryFiles;
-
     std::vector<std::string> authPaths;
+
+    int idx = 0;
 };
 
 class Server

@@ -600,7 +600,7 @@ int initUpstream(std::shared_ptr<Request> r)
     {
         LOG_CRIT << "epoller addfd failed, error:" << strerror(errno);
         serverPtr->pool_.recoverConnection(upc);
-        finalizeRequest(r);                                                                             
+        finalizeRequest(r);
         return ERROR;
     }
 
