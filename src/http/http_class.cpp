@@ -138,11 +138,11 @@ void Request::init()
     httpMajor_ = 0;
 }
 
-ResponseStatus::ResponseStatus() : httpVersion_(0), code_(0), count_(0), start_(NULL), end_(NULL)
+UpsResInfo::UpsResInfo() : httpVersion_(0), code_(0), count_(0), start_(NULL), end_(NULL)
 {
 }
 
-void ResponseStatus::init()
+void UpsResInfo::init()
 {
     httpVersion_ = 0;
     code_ = 0;
@@ -151,7 +151,7 @@ void ResponseStatus::init()
     end_ = NULL;
 }
 
-void UpstreamContext::init()
+void UpsContext::init()
 {
     status_.init();
 }

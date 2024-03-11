@@ -240,13 +240,13 @@ class Request
 
     int atPhase_;
 
-    // URI with "/."
+    // has "/."
     bool complexUri_;
-    // URI with "%"
+    // has "%"
     bool quotedUri_;
-    // URI with "+"
+    // has "+"
     bool plusInUri_;
-    // URI with empty path
+    // has empty path
     bool emptyPathInUri_;
 
     bool invalidHeader_;
@@ -279,10 +279,10 @@ class Request
     unsigned int httpMajor_;
 };
 
-class ResponseStatus
+class UpsResInfo
 {
   public:
-    ResponseStatus();
+    UpsResInfo();
     void init();
     int httpVersion_;
     int code_;
@@ -291,11 +291,11 @@ class ResponseStatus
     u_char *end_;
 };
 
-class UpstreamContext
+class UpsContext
 {
   public:
     void init();
-    ResponseStatus status_;
+    UpsResInfo status_;
     int upsIdx_;
 };
 
@@ -305,7 +305,7 @@ class Upstream
     Upstream();
     Connection *upstream_;
     Connection *client_;
-    UpstreamContext ctx_;
+    UpsContext ctx_;
     std::function<int(std::shared_ptr<Request> r)> processHandler_;
 };
 

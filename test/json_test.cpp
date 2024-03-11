@@ -4,7 +4,7 @@
 #include "../src/utils/json.hpp"
 
 class Server;
-bool enable_logger;
+bool enableLogger;
 Server *serverPtr;
 
 using std::cout;

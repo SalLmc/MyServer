@@ -630,7 +630,7 @@ int processUpsStatusLine(std::shared_ptr<Request> upsr)
     std::shared_ptr<Upstream> ups = upsr->c_->upstream_;
 
     // OK AGAIN ERROR
-    int ret = parseStatusLine(upsr, &ups->ctx_.status_);
+    int ret = parseResponseLine(upsr, &ups->ctx_.status_);
     if (ret != OK)
     {
         return ret;

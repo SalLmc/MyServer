@@ -7,7 +7,7 @@
 #include "../src/global.h"
 
 class Server;
-bool enable_logger;
+bool enableLogger;
 Server *serverPtr;
 
 std::unordered_map<Arg, std::string> mp;

@@ -3,7 +3,7 @@
 
 #include "../headers.h"
 
-extern bool enable_logger;
+extern bool enableLogger;
 
 enum class Level
 {
@@ -12,7 +12,7 @@ enum class Level
     CRIT
 };
 
-extern Level logger_level;
+extern Level loggerLevel;
 
 class LogLine
 {
@@ -104,15 +104,15 @@ class Logger
 };
 
 #define LOG_INFO                                                                                                       \
-    if (enable_logger && logger_level <= Level::INFO)                                                                  \
+    if (enableLogger && loggerLevel <= Level::INFO)                                                                  \
     __LOG_INFO
 
 #define LOG_WARN                                                                                                       \
-    if (enable_logger && logger_level <= Level::WARN)                                                                  \
+    if (enableLogger && loggerLevel <= Level::WARN)                                                                  \
     __LOG_WARN
 
 #define LOG_CRIT                                                                                                       \
-    if (enable_logger && logger_level <= Level::CRIT)                                                                  \
+    if (enableLogger && loggerLevel <= Level::CRIT)                                                                  \
     __LOG_CRIT
 
 #define __LOG_INFO __LOG_INFO_INNER(*serverPtr->logger_)

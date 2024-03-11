@@ -4,7 +4,7 @@
 #include "../src/utils/utils.h"
 
 class Server;
-bool enable_logger;
+bool enableLogger;
 Server *serverPtr;
 
 int main()

@@ -3,7 +3,7 @@
 #include "../src/buffer/buffer.h"
 
 class Server;
-bool enable_logger;
+bool enableLogger;
 Server *serverPtr;
 
 int main()

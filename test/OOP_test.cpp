@@ -3,8 +3,8 @@
 #include "../src/log/logger.h"
 
 Server *serverPtr;
-bool enable_logger = 1;
-Level logger_level = Level(0);
+bool enableLogger = 1;
+Level loggerLevel = Level(0);
 
 extern ServerAttribute defaultAttr;
 
@@ -16,7 +16,7 @@ int callback(Event *ev)
 
 int main()
 {
-    printf("enable_logger:%d\n", enable_logger);
+    printf("enable_logger:%d\n", enableLogger);
     Server server(new Logger("../log", "test"));
     serverPtr = &server;
 

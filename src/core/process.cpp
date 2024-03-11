@@ -47,7 +47,7 @@ void master(Server *server)
     int num = std::min(serverConfig.processes, MAX_PROCESS_N);
     for (int i = 0; i < num && !isChild; i++)
     {
-        spawnProcesses(server, worker);
+        startChildProcess(server, worker);
     }
 
     if (isChild)
@@ -71,7 +71,7 @@ void master(Server *server)
     LOG_INFO << "Quit";
 }
 
-pid_t spawnProcesses(Server *server, std::function<void(Server *)> proc)
+pid_t startChildProcess(Server *server, std::function<void(Server *)> proc)
 {
     pid_t pid = fork();
 
@@ -151,7 +151,7 @@ void worker(Server *server)
     }
 
     // timer
-    if (enable_logger)
+    if (enableLogger)
     {
         unsigned long long interval = serverConfig.loggerInterval * 1000;
         server->timer_.add(LOG, "logger timer", getTickMs() + interval, logging, (void *)interval);

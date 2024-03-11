@@ -4,25 +4,11 @@
 #include "http.h"
 #include "http_parse.h"
 
-// usage: usual[ch >> 5] & (1U << (ch & 0x1f))
-// if the expression above is true then the char is in this table
-uint32_t usual[] = {
-    0x00000000, /* 0000 0000 0000 0000  0000 0000 0000 0000 */
-
-    /* ?>=< ;:98 7654 3210  /.-, +*)( '&%$ #"!  */
-    0x7fff37d6, /* 0111 1111 1111 1111  0011 0111 1101 0110 */
-
-    /* _^]\ [ZYX WVUT SRQP  ONML KJIH GFED CBA@ */
-    0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
-
-    /*  ~}| {zyx wvut srqp  onml kjih gfed cba` */
-    0x7fffffff, /* 0111 1111 1111 1111  1111 1111 1111 1111 */
-
-    0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
-    0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
-    0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
-    0xffffffff  /* 1111 1111 1111 1111  1111 1111 1111 1111 */
-};
+std::unordered_set<char> normal = {
+    'A', 'B', 'C', 'D', 'E', 'F',  'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U',
+    'V', 'W', 'X', 'Y', 'Z', 'a',  'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p',
+    'q', 'r', 's', 't', 'u', 'v',  'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-',
+    '_', '.', '~', '!', '*', '\'', '(', ')', ';', ':', '@', '&', '=', '+', '$', ',', '/', '?', '#', '[', ']'};
 
 // GET /example/path HTTP/1.1\r\n
 int parseRequestLine(std::shared_ptr<Request> r)
@@ -410,7 +396,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
         // check "/.", "//", "%" in URI
         case RequestState::AFTER_SLASH_URI:
 
-            if (usual[ch >> 5] & (1U << (ch & 0x1f)))
+            if (normal.count(ch))
             {
                 state = RequestState::CHECK_URI;
                 break;
@@ -467,7 +453,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
         // check "/", "%" in URI
         case RequestState::CHECK_URI:
 
-            if (usual[ch >> 5] & (1U << (ch & 0x1f)))
+            if (normal.count(ch))
             {
                 break;
             }
@@ -520,7 +506,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
 
         case RequestState::URI:
 
-            if (usual[ch >> 5] & (1U << (ch & 0x1f)))
+            if (normal.count(ch))
             {
                 break;
             }
@@ -795,7 +781,7 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
 
         case USUAL:
 
-            if (usual[ch >> 5] & (1U << (ch & 0x1f)))
+            if (normal.count(ch))
             {
                 *now++ = ch;
                 ch = *old++;
@@ -835,7 +821,7 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
 
         case SLASH:
 
-            if (usual[ch >> 5] & (1U << (ch & 0x1f)))
+            if (normal.count(ch))
             {
                 state = USUAL;
                 *now++ = ch;
@@ -878,7 +864,7 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
 
         case DOT:
 
-            if (usual[ch >> 5] & (1U << (ch & 0x1f)))
+            if (normal.count(ch))
             {
                 state = USUAL;
                 *now++ = ch;
@@ -921,7 +907,7 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
 
         case DOT_DOT:
 
-            if (usual[ch >> 5] & (1U << (ch & 0x1f)))
+            if (normal.count(ch))
             {
                 state = USUAL;
                 *now++ = ch;
@@ -1126,7 +1112,7 @@ int parseHeaderLine(std::shared_ptr<Request> r)
     u_char c, ch, *p;
 
     // valid char map, set r->invalidHeader_ to false if a char is not in this table
-    // valid: 0~9, A~Z, a~Z, '-', '_'
+    // valid: 0-9, A-Z, a-z, '-', '_'
     static u_char lowcase[] = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
                               "\0\0\0\0\0\0\0\0\0\0\0\0\0-\0\0"
                               "0123456789\0\0\0\0\0\0"
@@ -1618,7 +1604,7 @@ invalid:
 }
 
 // HTTP/1.1 200 OK\r\n
-int parseStatusLine(std::shared_ptr<Request> r, ResponseStatus *status)
+int parseResponseLine(std::shared_ptr<Request> r, UpsResInfo *status)
 {
     u_char ch;
     u_char *p;
@@ -1762,7 +1748,7 @@ int parseStatusLine(std::shared_ptr<Request> r, ResponseStatus *status)
                 return ERROR;
             }
 
-            // response code has 3 digit
+            // response code has 3 digits
             if (++status->count_ == 3)
             {
                 state = ResponseState::STATUS_SPACE;

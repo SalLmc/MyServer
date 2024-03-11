@@ -14,8 +14,8 @@ extern ServerAttribute defaultAttr;
 
 // need to define these global variables
 Server *serverPtr;
-bool enable_logger = 0;
-Level logger_level = Level::INFO;
+bool enableLogger = 0;
+Level loggerLevel = Level::INFO;
 
 std::vector<ServerAttribute> readServerConfig();
 std::unordered_map<std::string, std::string> readTypesConfig();
@@ -153,10 +153,10 @@ std::vector<ServerAttribute> readServerConfig()
     // get values
     setIfValid(config["logger"], "threshold", &serverConfig.loggerThreshold);
     setIfValid(config["logger"], "enable", &serverConfig.loggerEnable);
-    enable_logger = serverConfig.loggerEnable;
+    enableLogger = serverConfig.loggerEnable;
     setIfValid(config["logger"], "interval", &serverConfig.loggerInterval);
     setIfValid(config["logger"], "level", &serverConfig.loggerLevel);
-    logger_level = Level(serverConfig.loggerLevel);
+    loggerLevel = Level(serverConfig.loggerLevel);
 
     setIfValid(config["process"], "processes", &serverConfig.processes);
     setIfValid(config["process"], "daemon", &serverConfig.daemon);
