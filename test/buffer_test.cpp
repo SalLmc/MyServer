@@ -1,7 +1,8 @@
 #include "../src/headers.h"
 
 #include "../src/buffer/buffer.h"
-
+#include "../src/log/logger.h"
+Level loggerLevel = Level::INFO;
 class Server;
 bool enableLogger;
 Server *serverPtr;

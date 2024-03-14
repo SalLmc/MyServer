@@ -2,7 +2,8 @@
 
 #include "../src/core/core.h"
 #include "../src/utils/json.hpp"
-
+#include "../src/log/logger.h"
+Level loggerLevel = Level::INFO;
 class Server;
 bool enableLogger;
 Server *serverPtr;

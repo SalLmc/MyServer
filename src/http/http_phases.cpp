@@ -90,6 +90,11 @@ int logPhaseHandler(std::shared_ptr<Request> r)
     inet_ntop(AF_INET, &r->c_->addr_.sin_addr, ipString, INET_ADDRSTRLEN);
     LOG_INFO << "ip: " << ipString;
 
+    // for (auto &x : r->c_->readBuffer_.nodes_)
+    // {
+    //     LOG_INFO << x.toStringAll();
+    // }
+
     return PHASE_NEXT;
 }
 
@@ -166,7 +171,7 @@ int contentAccessHandler(std::shared_ptr<Request> r)
     {
         if (uri.find(server.from) != std::string::npos)
         {
-            r->nowProxyPass_ = 1;
+            r->needProxyPass_ = 1;
             return PHASE_NEXT;
         }
     }
@@ -326,11 +331,11 @@ int proxyPassHandler(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Proxy pass handler, FD:" << r->c_->fd_.get();
 
-    if (r->nowProxyPass_ != 1)
+    if (r->needProxyPass_ != 1)
     {
         return PHASE_NEXT;
     }
-    r->nowProxyPass_ = 0;
+    r->needProxyPass_ = 0;
 
     LOG_INFO << "Need proxy pass";
 

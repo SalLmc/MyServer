@@ -2,12 +2,12 @@
     "logger": {
         "enable": 1,
         "level": 0,
-        "threshold": 500,
+        "threshold": 1,
         "interval": 3
     },
     "process": {
         "daemon": 0,
-        "only_worker": 0,
+        "only_worker": 1,
         "processes": 1
     },
     "event": {

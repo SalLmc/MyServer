@@ -25,7 +25,7 @@ enum class RequestState
 {
     START,
     METHOD,
-    SPACE_BEFORE_URI,
+    AFTER_METHOD,
     SCHEMA,
     SCHEMA_SLASH0,
     SCHEMA_SLASH1,
@@ -34,10 +34,10 @@ enum class RequestState
     HOST_END,
     HOST_IP,
     PORT,
-    AFTER_SLASH_URI,
-    CHECK_URI,
-    URI,
-    HTTP_09,
+    URI_AFTER_SLASH,
+    URI_NORMAL,
+    URI_SPECIAL,
+    HTTP_START,
     HTTP_H,
     HTTP_HT,
     HTTP_HTT,
@@ -207,7 +207,7 @@ class Request
     ~Request();
     void init();
 
-    bool nowProxyPass_ = 0;
+    bool needProxyPass_ = 0;
     bool quit_ = 0;
     Connection *c_;
 

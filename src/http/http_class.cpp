@@ -74,7 +74,7 @@ Request::~Request()
 
 void Request::init()
 {
-    nowProxyPass_ = 0;
+    needProxyPass_ = 0;
     quit_ = 0;
     c_ = NULL;
     httpVersion_ = 0;

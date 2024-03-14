@@ -5,7 +5,9 @@
 #include "../src/http/http.h"
 #include "../src/utils/utils.h"
 #include "../src/global.h"
+#include "../src/log/logger.h"
 
+Level loggerLevel = Level::INFO;
 class Server;
 bool enableLogger;
 Server *serverPtr;

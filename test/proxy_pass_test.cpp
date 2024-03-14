@@ -3,6 +3,7 @@
 #include "../src/log/logger.h"
 #include "../src/utils/utils.h"
 
+Level loggerLevel = Level::INFO;
 class Server;
 bool enableLogger;
 Server *serverPtr;

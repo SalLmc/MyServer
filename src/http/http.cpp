@@ -502,6 +502,8 @@ int handleRequestUri(std::shared_ptr<Request> r)
 {
     if (r->argsStart_)
     {
+        // args points to the original content
+        // only create new space for uri
         r->uri_.len_ = r->argsStart_ - 1 - r->uriStart_;
     }
     else
