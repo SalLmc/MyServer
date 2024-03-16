@@ -340,7 +340,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 r->plusInUri_ = 1;
                 break;
             default:
-                if (ch < 0x20 || ch == 0x7f)
+                if (ch < 32 || ch >= 127)
                 {
                     return ERROR;
                 }
@@ -394,7 +394,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 r->plusInUri_ = 1;
                 break;
             default:
-                if (ch < 0x20 || ch == 0x7f)
+                if (ch < 32 || ch >= 127)
                 {
                     return ERROR;
                 }
@@ -429,7 +429,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 r->complexUri_ = 1;
                 break;
             default:
-                if (ch < 0x20 || ch == 0x7f)
+                if (ch < 32 || ch >= 127)
                 {
                     return ERROR;
                 }
@@ -1059,9 +1059,8 @@ int parseHeaderLine(std::shared_ptr<Request> r)
                     break;
                 }
 
-                // invalid char, check ascii table to learn more
-                // unlike invalid header, we need to return ERROR right away
-                if (ch <= 0x20 || ch == 0x7f || ch == ':')
+                // header can't contain space
+                if (ch <= 32 || ch >= 127 || ch == ':')
                 {
                     r->headerValueEnd_ = p;
                     return ERROR;
@@ -1106,7 +1105,7 @@ int parseHeaderLine(std::shared_ptr<Request> r)
                 goto done;
             }
 
-            if (ch <= 0x20 || ch == 0x7f)
+            if (ch <= 32 || ch >= 127)
             {
                 r->headerValueEnd_ = p;
                 return ERROR;
