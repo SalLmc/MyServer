@@ -1,18 +1,18 @@
 {
     "logger": {
-        "enable": 1,
+        "enable": 0,
         "level": 0,
         "threshold": 1,
         "interval": 3
     },
     "process": {
         "daemon": 0,
-        "only_worker": 1,
-        "processes": 1
+        "only_worker": 0,
+        "processes": 8
     },
     "event": {
         "use_epoll": 1,
-        "connections": 1024,
+        "connections": 100000,
         "delay": 0
     },
     "servers": [
@@ -27,16 +27,13 @@
             ]
         },
         {
-            "port": 8001,
-            "root": "./",
-            "index": "xxxx",
-            "auto_index": 1
-        },
-        {
             "port": 8082,
-            "root": "/mnt/d/A_File",
+            "root": "./",
             "index": "sdfsdf",
-            "auto_index": 1
+            "auto_index": 1,
+            "auth_path": [
+                "*src*"
+            ]
         }
     ]
 }

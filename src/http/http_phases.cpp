@@ -11,7 +11,7 @@ extern Server *serverPtr;
 
 u_char extenSave[16];
 
-int testPhaseHandler(std::shared_ptr<Request> r)
+int testPhaseFunc(std::shared_ptr<Request> r)
 {
     r->contextOut_.resCode_ = HTTP_OK;
     r->contextOut_.statusLine_ = getStatusLineByCode(r->contextOut_.resCode_);
@@ -26,30 +26,30 @@ int testPhaseHandler(std::shared_ptr<Request> r)
     return doResponse(r);
 }
 
-std::vector<PhaseHandler> phases{{genericPhaseChecker, {logPhaseHandler}},
+std::vector<Phase> phases{{genericPhaseHandler, {logPhaseFunc}},
 
-                                 {genericPhaseChecker, {authAccessHandler, contentAccessHandler}},
-                                 {genericPhaseChecker, {proxyPassHandler}},
-                                 {genericPhaseChecker, {staticContentHandler, autoIndexHandler}},
+                          {genericPhaseHandler, {authAccessFunc, contentAccessFunc}},
+                          {genericPhaseHandler, {proxyPassFunc}},
+                          {genericPhaseHandler, {staticContentFunc, autoIndexFunc}},
 
-                                 {genericPhaseChecker, {endPhaseHandler}}};
+                          {genericPhaseHandler, {endPhaseFunc}}};
 
-PhaseHandler::PhaseHandler(std::function<int(std::shared_ptr<Request>, PhaseHandler *)> checker,
-                           std::vector<std::function<int(std::shared_ptr<Request>)>> &&handlers)
-    : checker(checker), handlers(handlers)
+Phase::Phase(std::function<int(std::shared_ptr<Request>, Phase *)> phaseHandler,
+             std::vector<std::function<int(std::shared_ptr<Request>)>> &&funcs)
+    : phaseHandler(phaseHandler), funcs(funcs)
 {
 }
 
-int genericPhaseChecker(std::shared_ptr<Request> r, PhaseHandler *ph)
+int genericPhaseHandler(std::shared_ptr<Request> r, Phase *ph)
 {
     int ret = 0;
 
     // PHASE_CONTINUE: call the next function in this phase
     // PHASE_NEXT: go to next phase & let runPhases keep running phases
     // PHASE_ERR: do nothing & return
-    for (size_t i = 0; i < ph->handlers.size(); i++)
+    for (size_t i = 0; i < ph->funcs.size(); i++)
     {
-        ret = ph->handlers[i](r);
+        ret = ph->funcs[i](r);
         if (ret == PHASE_NEXT)
         {
             r->atPhase_++;
@@ -77,13 +77,13 @@ int passPhaseHandler(std::shared_ptr<Request> r)
     return PHASE_NEXT;
 }
 
-int endPhaseHandler(std::shared_ptr<Request> r)
+int endPhaseFunc(std::shared_ptr<Request> r)
 {
     LOG_CRIT << "endPhaseHandler PHASE_ERR";
     return PHASE_ERR;
 }
 
-int logPhaseHandler(std::shared_ptr<Request> r)
+int logPhaseFunc(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Log handler, FD:" << r->c_->fd_.get();
     char ipString[INET_ADDRSTRLEN];
@@ -98,7 +98,7 @@ int logPhaseHandler(std::shared_ptr<Request> r)
     return PHASE_NEXT;
 }
 
-int authAccessHandler(std::shared_ptr<Request> r)
+int authAccessFunc(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Auth access handler, FD:" << r->c_->fd_.get();
     auto &server = serverPtr->servers_[r->c_->serverIdx_];
@@ -158,7 +158,7 @@ int authAccessHandler(std::shared_ptr<Request> r)
     return doResponse(r);
 }
 
-int contentAccessHandler(std::shared_ptr<Request> r)
+int contentAccessFunc(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Content access handler, FD:" << r->c_->fd_.get();
     auto &server = serverPtr->servers_[r->c_->serverIdx_];
@@ -327,7 +327,7 @@ autoindex:
     }
 }
 
-int proxyPassHandler(std::shared_ptr<Request> r)
+int proxyPassFunc(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Proxy pass handler, FD:" << r->c_->fd_.get();
 
@@ -350,7 +350,7 @@ int proxyPassHandler(std::shared_ptr<Request> r)
     return PHASE_QUIT;
 }
 
-int staticContentHandler(std::shared_ptr<Request> r)
+int staticContentFunc(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Static content handler, FD:" << r->c_->fd_.get();
     if (r->contextOut_.resType_ == ResponseType::FILE)
@@ -388,7 +388,7 @@ int staticContentHandler(std::shared_ptr<Request> r)
     return doResponse(r);
 }
 
-int autoIndexHandler(std::shared_ptr<Request> r)
+int autoIndexFunc(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Auto index handler, FD:" << r->c_->fd_.get();
     if (r->contextOut_.resType_ != ResponseType::AUTO_INDEX)

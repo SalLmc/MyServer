@@ -11,7 +11,7 @@
 #include "../utils/utils.h"
 
 extern Server *serverPtr;
-extern std::vector<PhaseHandler> phases;
+extern std::vector<Phase> phases;
 
 std::unordered_map<int, std::string> httpCodeMap = {
     {HTTP_OK, "200 OK"},
@@ -746,9 +746,9 @@ int runPhases(Event *ev)
 
     // OK: keep running phases
     // ERROR/DONE: quit phase running
-    while ((size_t)r->atPhase_ < phases.size() && phases[r->atPhase_].checker)
+    while ((size_t)r->atPhase_ < phases.size() && phases[r->atPhase_].phaseHandler)
     {
-        ret = phases[r->atPhase_].checker(r, &phases[r->atPhase_]);
+        ret = phases[r->atPhase_].phaseHandler(r, &phases[r->atPhase_]);
         if (ret == OK)
         {
             continue;

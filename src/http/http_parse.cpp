@@ -19,6 +19,17 @@ int parseRequestLine(std::shared_ptr<Request> r)
     auto &state = r->requestState_;
     auto &buffer = r->c_->readBuffer_;
 
+    static std::unordered_map<std::string, Method> strMethodMap = {
+        {"GET", Method::GET},           {"POST", Method::POST},
+        {"PUT", Method::PUT},           {"DELETE", Method::DELETE},
+        {"COPY", Method::COPY},         {"MOVE", Method::MOVE},
+        {"LOCK", Method::LOCK},         {"HEAD", Method::HEAD},
+        {"MKCOL", Method::MKCOL},       {"PATCH", Method::PATCH},
+        {"TRACE", Method::TRACE},       {"UNLOCK", Method::UNLOCK},
+        {"OPTIONS", Method::OPTIONS},   {"CONNECT", Method::CONNECT},
+        {"PROPFIND", Method::PROPFIND}, {"PROPPATCH", Method::PROPPATCH},
+    };
+
     for (p = buffer.pivot_->start_ + buffer.pivot_->pos_; p < buffer.pivot_->start_ + buffer.pivot_->len_; p++)
     {
         ch = *p;
@@ -49,109 +60,14 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 r->methodEnd_ = p;
                 m = r->requestStart_;
 
-                // switch between method length, like GET, POST
-                switch (p - m)
+                std::string method(m, p);
+                if (strMethodMap.count(method))
                 {
-                case 3:
-                    if (equal(m, "GET", 3))
-                    {
-                        r->method_ = Method::GET;
-                    }
-
-                    if (equal(m, "PUT", 3))
-                    {
-                        r->method_ = Method::PUT;
-                    }
-
-                    break;
-
-                case 4:
-                    if (equal(m, "POST", 4))
-                    {
-                        r->method_ = Method::POST;
-                    }
-
-                    if (equal(m, "COPY", 4))
-                    {
-                        r->method_ = Method::COPY;
-                    }
-
-                    if (equal(m, "MOVE", 4))
-                    {
-                        r->method_ = Method::MOVE;
-                    }
-
-                    if (equal(m, "LOCK", 4))
-                    {
-                        r->method_ = Method::LOCK;
-                    }
-
-                    if (equal(m, "HEAD", 4))
-                    {
-                        r->method_ = Method::HEAD;
-                    }
-
-                    break;
-
-                case 5:
-                    if (equal(m, "MKCOL", 5))
-                    {
-                        r->method_ = Method::MKCOL;
-                    }
-
-                    if (equal(m, "PATCH", 5))
-                    {
-                        r->method_ = Method::PATCH;
-                    }
-
-                    if (equal(m, "TRACE", 5))
-                    {
-                        r->method_ = Method::TRACE;
-                    }
-
-                    break;
-
-                case 6:
-                    if (equal(m, "DELETE", 6))
-                    {
-                        r->method_ = Method::DELETE;
-                    }
-
-                    if (equal(m, "UNLOCK", 6))
-                    {
-                        r->method_ = Method::UNLOCK;
-                    }
-
-                    break;
-
-                case 7:
-                    if (equal(m, "OPTIONS", 7))
-                    {
-                        r->method_ = Method::OPTIONS;
-                    }
-
-                    if (equal(m, "CONNECT", 7))
-                    {
-                        r->method_ = Method::CONNECT;
-                    }
-
-                    break;
-
-                case 8:
-                    if (equal(m, "PROPFIND", 8))
-                    {
-                        r->method_ = Method::PROPFIND;
-                    }
-
-                    break;
-
-                case 9:
-                    if (equal(m, "PROPPATCH", 9))
-                    {
-                        r->method_ = Method::PROPPATCH;
-                    }
-
-                    break;
+                    r->method_ = strMethodMap[method];
+                }
+                else
+                {
+                    return ERROR;
                 }
 
                 state = RequestState::AFTER_METHOD;
@@ -968,7 +884,7 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
             return ERROR;
 
         case QUOTED_SECOND:
-        
+
             if (ch >= '0' && ch <= '9')
             {
                 ch = (u_char)((decoded << 4) + (ch - '0'));
