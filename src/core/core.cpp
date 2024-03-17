@@ -223,12 +223,10 @@ int Server::regisListen(Events events)
 
 void Server::eventLoop()
 {
-    FLAGS flags = NORMAL;
-
     unsigned long long nextTick = timer_.getNextTick();
     nextTick = ((nextTick == (unsigned long long)-1) ? -1 : (nextTick - getTickMs()));
 
-    int ret = multiplexer_->processEvents(flags, nextTick);
+    int ret = multiplexer_->processEvents(FLAGS::NORMAL, nextTick);
 
     if (ret == -1)
     {

@@ -3,7 +3,6 @@
 
 #define MAX_PROCESS_N 16
 
-// #define LOOP_ACCEPT
 // #define LOG_HEADER
 
 // config

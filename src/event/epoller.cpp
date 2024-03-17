@@ -89,7 +89,7 @@ int Epoller::processEvents(FLAGS flags, int timeoutMs)
 
         if ((revents & EPOLLIN) && c->read_.handler_)
         {
-            if (flags == POSTED)
+            if (flags == FLAGS::POSTED)
             {
                 if (c->read_.type_ == EventType::ACCEPT)
                 {
@@ -113,7 +113,7 @@ int Epoller::processEvents(FLAGS flags, int timeoutMs)
 
         if ((revents & EPOLLOUT) && c->write_.handler_)
         {
-            if (flags == POSTED)
+            if (flags == FLAGS::POSTED)
             {
                 postedEvents_.push_back(&c->write_);
             }

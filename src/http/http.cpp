@@ -38,10 +38,8 @@ int acceptDelay(void *ev)
 
 int newConnection(Event *ev)
 {
-#ifdef LOOP_ACCEPT
     while (1)
     {
-#endif
         if (ev->timeout_ == TimeoutStatus::TIMEOUT)
         {
             return 1;
@@ -62,6 +60,16 @@ int newConnection(Event *ev)
             return 1;
         }
 
+        sockaddr_in addr;
+        socklen_t len = sizeof(addr);
+        Fd fd = accept4(ev->c_->fd_.get(), (sockaddr *)&addr, &len, SOCK_NONBLOCK);
+
+        if (fd.get() < 0)
+        {
+            LOG_WARN << "Accept from FD:" << ev->c_->fd_.get() << " failed, errno: " << strerror(errno);
+            return 1;
+        }
+
         Connection *newc = serverPtr->pool_.getNewConnection();
         if (newc == NULL)
         {
@@ -69,17 +77,8 @@ int newConnection(Event *ev)
             return 1;
         }
 
-        sockaddr_in *addr = &newc->addr_;
-        socklen_t len = sizeof(*addr);
-
-        newc->fd_ = accept4(ev->c_->fd_.get(), (sockaddr *)addr, &len, SOCK_NONBLOCK);
-        if (newc->fd_.get() < 0)
-        {
-            LOG_WARN << "Accept from FD:" << ev->c_->fd_.get() << " failed, errno: " << strerror(errno);
-            serverPtr->pool_.recoverConnection(newc);
-            return 1;
-        }
-
+        newc->fd_.reset(std::move(fd));
+        newc->addr_ = addr;
         newc->serverIdx_ = ev->c_->serverIdx_;
 
         newc->read_.handler_ = waitRequest;
@@ -93,10 +92,7 @@ int newConnection(Event *ev)
                               (void *)&newc->read_);
 
         LOG_INFO << "NEW CONNECTION FROM FD:" << ev->c_->fd_.get() << ", WITH FD:" << newc->fd_.get();
-
-#ifdef LOOP_ACCEPT
     }
-#endif
 
     return 0;
 }

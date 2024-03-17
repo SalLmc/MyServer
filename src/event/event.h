@@ -6,7 +6,7 @@
 class Server;
 class Event;
 
-enum FLAGS
+enum class FLAGS
 {
     NORMAL,
     POSTED
