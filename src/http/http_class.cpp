@@ -138,14 +138,12 @@ void Request::init()
     httpMajor_ = 0;
 }
 
-UpsResInfo::UpsResInfo() : httpVersion_(0), code_(0), count_(0), start_(NULL), end_(NULL)
+UpsResInfo::UpsResInfo() : count_(0), start_(NULL), end_(NULL)
 {
 }
 
 void UpsResInfo::init()
 {
-    httpVersion_ = 0;
-    code_ = 0;
     count_ = 0;
     start_ = NULL;
     end_ = NULL;

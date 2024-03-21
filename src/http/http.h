@@ -284,8 +284,6 @@ class UpsResInfo
   public:
     UpsResInfo();
     void init();
-    int httpVersion_;
-    int code_;
     int count_;
     u_char *start_;
     u_char *end_;
@@ -317,7 +315,7 @@ int processRequestLine(Event *ev);
 int readRequest(std::shared_ptr<Request> r);
 int handleRequestUri(std::shared_ptr<Request> r);
 int processRequestHeaders(Event *ev);
-int tryMoveHeader(std::shared_ptr<Request> r, bool isName);
+int tryMoveBuffer(std::shared_ptr<Request> r, void **leftAddr, void **rightAddr);
 int handleRequestHeader(std::shared_ptr<Request> r, int needHost);
 int processRequest(std::shared_ptr<Request> r);
 

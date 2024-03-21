@@ -1517,6 +1517,7 @@ int parseResponseLine(std::shared_ptr<Request> r, UpsResInfo *status)
             switch (ch)
             {
             case 'H':
+                status->start_ = p;
                 state = ResponseState::H;
                 break;
             default:
@@ -1646,7 +1647,6 @@ int parseResponseLine(std::shared_ptr<Request> r, UpsResInfo *status)
             if (++status->count_ == 3)
             {
                 state = ResponseState::STATUS_SPACE;
-                status->start_ = p - 2;
             }
 
             break;
@@ -1706,7 +1706,7 @@ done:
         status->end_ = p;
     }
 
-    status->httpVersion_ = r->httpMajor_ * 1000 + r->httpMinor_;
+    r->httpVersion_ = r->httpMajor_ * 1000 + r->httpMinor_;
     state = ResponseState::START;
 
     return OK;

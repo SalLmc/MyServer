@@ -253,20 +253,10 @@ int processRequestLine(Event *ev)
     return OK;
 }
 
-int tryMoveHeader(std::shared_ptr<Request> r, bool isName)
+int tryMoveBuffer(std::shared_ptr<Request> r, void **leftAddr, void **rightAddr)
 {
-    u_char *left, *right;
-
-    if (isName)
-    {
-        left = r->headerNameStart_;
-        right = r->headerNameEnd_;
-    }
-    else
-    {
-        left = r->headerValueStart_;
-        right = r->headerValueEnd_;
-    }
+    u_char *left = *(u_char **)leftAddr;
+    u_char *right = *(u_char **)rightAddr;
 
     if (right < left || right > left + LinkedBufferNode::NODE_SIZE)
     {
@@ -307,16 +297,8 @@ int tryMoveHeader(std::shared_ptr<Request> r, bool isName)
         a->pos_ = a->len_;
         b->pre_ = right - b->start_;
 
-        if (isName)
-        {
-            r->headerNameStart_ = iter->start_ + iter->pos_;
-            r->headerNameEnd_ = iter->start_ + iter->len_;
-        }
-        else
-        {
-            r->headerValueStart_ = iter->start_ + iter->pos_;
-            r->headerValueEnd_ = iter->start_ + iter->len_;
-        }
+        *(u_char **)leftAddr = iter->start_ + iter->pos_;
+        *(u_char **)rightAddr = iter->start_ + iter->len_;
 
         iter->pos_ = iter->len_;
     }
@@ -367,14 +349,14 @@ int processRequestHeaders(Event *ev)
                 continue;
             }
 
-            if (tryMoveHeader(r, 1) == ERROR)
+            if (tryMoveBuffer(r, (void **)&r->headerNameStart_, (void **)&r->headerNameEnd_) == ERROR)
             {
                 LOG_WARN << "Header name too long";
                 finalizeRequest(r);
                 break;
             }
 
-            if (tryMoveHeader(r, 0) == ERROR)
+            if (tryMoveBuffer(r, (void **)&r->headerValueStart_, (void **)&r->headerValueEnd_) == ERROR)
             {
                 LOG_WARN << "Header value too long";
                 finalizeRequest(r);
@@ -613,10 +595,6 @@ int processRequest(std::shared_ptr<Request> r)
     // read: empty; write: empty
     c->read_.handler_ = std::function<int(Event *)>();
 
-    // // register EPOLLOUT
-    // serverPtr->eventProccessor->modFd(c->fd_.getFd(), EPOLLIN | EPOLLOUT | EPOLLET, c);
-    // c->write_.handler = runPhases;
-
     r->atPhase_ = 0;
     runPhases(&c->write_);
     return OK;
@@ -654,13 +632,13 @@ int processUpsHeaders(std::shared_ptr<Request> upsr)
                 continue;
             }
 
-            if (tryMoveHeader(upsr, 1) == ERROR)
+            if (tryMoveBuffer(upsr, (void **)&upsr->headerNameStart_, (void **)&upsr->headerNameEnd_) == ERROR)
             {
                 LOG_WARN << "upstream send too long header name";
                 return ERROR;
             }
 
-            if (tryMoveHeader(upsr, 0) == ERROR)
+            if (tryMoveBuffer(upsr, (void **)&upsr->headerValueStart_, (void **)&upsr->headerValueEnd_) == ERROR)
             {
                 LOG_WARN << "upstream send too long header value";
                 return ERROR;
