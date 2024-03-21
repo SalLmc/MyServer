@@ -95,7 +95,7 @@ void Request::init()
 
     protocol_.init();
     methodName_.init();
-    schema_.init();
+    scheme_.init();
     host_.init();
     requestLine_.init();
     args_.init();
@@ -119,7 +119,7 @@ void Request::init()
     uriStart_ = NULL;
     uriEnd_ = NULL;
 
-    uriExt_ = NULL;
+    uriExtStart_ = NULL;
 
     argsStart_ = NULL;
     requestStart_ = NULL;
@@ -128,8 +128,8 @@ void Request::init()
 
     methodEnd_ = NULL;
 
-    schemaStart_ = NULL;
-    schemaEnd_ = NULL;
+    schemeStart_ = NULL;
+    schemeEnd_ = NULL;
     
     hostStart_ = NULL;
     hostEnd_ = NULL;

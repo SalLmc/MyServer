@@ -26,9 +26,9 @@ enum class RequestState
     START,
     METHOD,
     AFTER_METHOD,
-    SCHEMA,
-    SCHEMA_SLASH0,
-    SCHEMA_SLASH1,
+    SCHEME,
+    SCHEME_SLASH0,
+    SCHEME_SLASH1,
     HOST_START,
     HOST,
     HOST_END,
@@ -229,7 +229,7 @@ class Request
     // GET / POST
     c_str methodName_;
     // http / https / ftp
-    c_str schema_;
+    c_str scheme_;
     // www.bing.com / 121.12.12.12
     c_str host_;
 
@@ -240,7 +240,7 @@ class Request
 
     int atPhase_;
 
-    // has "/."
+    // has "/.", "#"
     bool complexUri_;
     // has "%"
     bool quotedUri_;
@@ -260,7 +260,7 @@ class Request
     u_char *uriStart_;
     u_char *uriEnd_;
 
-    u_char *uriExt_;
+    u_char *uriExtStart_;
 
     u_char *argsStart_;
 
@@ -269,8 +269,8 @@ class Request
 
     u_char *methodEnd_;
 
-    u_char *schemaStart_;
-    u_char *schemaEnd_;
+    u_char *schemeStart_;
+    u_char *schemeEnd_;
 
     u_char *hostStart_;
     u_char *hostEnd_;

@@ -1,8 +1,8 @@
 {
     "logger": {
-        "enable": 0,
+        "enable": 1,
         "level": 0,
-        "threshold": 100,
+        "threshold": 1,
         "interval": 3
     },
     "process": {

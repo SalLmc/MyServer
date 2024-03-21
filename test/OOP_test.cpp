@@ -37,18 +37,4 @@ int main()
     server.initEvent(1);
     server.regisListen(Events(IN));
 
-    while (1)
-    {
-        Epoller *ep = (Epoller *)server.multiplexer_;
-        int ret = epoll_wait(ep->epollfd_, ep->events_, ep->size_, 1);
-        for (int i = 0; i < ret; i++)
-        {
-            Connection *c = (Connection *)ep->events_[i].data.ptr;
-            auto revents = ep->events_[i].events;
-            if ((revents & EPOLLIN) && c->read_.handler_)
-            {
-                c->read_.handler_(&c->read_);
-            }
-        }
-    }
 }

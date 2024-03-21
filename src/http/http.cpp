@@ -224,29 +224,9 @@ int processRequestLine(Event *ev)
             LOG_INFO << "request line:"
                      << std::string(r->requestLine_.data_, r->requestLine_.data_ + r->requestLine_.len_);
 
-            r->methodName_.len_ = r->methodEnd_ - r->requestStart_;
-            r->methodName_.data_ = r->requestLine_.data_;
-
-            if (r->protocol_.data_)
-            {
-                r->protocol_.len_ = r->requestEnd_ - r->protocol_.data_;
-            }
-
             if (handleRequestUri(r) != OK)
             {
                 break;
-            }
-
-            if (r->schemaEnd_)
-            {
-                r->schema_.len_ = r->schemaEnd_ - r->schemaStart_;
-                r->schema_.data_ = r->schemaStart_;
-            }
-
-            if (r->hostEnd_)
-            {
-                r->host_.len_ = r->hostEnd_ - r->hostStart_;
-                r->host_.data_ = r->hostStart_;
             }
 
             ev->handler_ = processRequestHeaders;
@@ -496,10 +476,28 @@ int readRequest(std::shared_ptr<Request> r)
 
 int handleRequestUri(std::shared_ptr<Request> r)
 {
+    r->methodName_.len_ = r->methodEnd_ - r->requestStart_;
+    r->methodName_.data_ = r->requestLine_.data_;
+
+    if (r->protocol_.data_)
+    {
+        r->protocol_.len_ = r->requestEnd_ - r->protocol_.data_;
+    }
+
+    if (r->schemeEnd_)
+    {
+        r->scheme_.len_ = r->schemeEnd_ - r->schemeStart_;
+        r->scheme_.data_ = r->schemeStart_;
+    }
+
+    if (r->hostEnd_)
+    {
+        r->host_.len_ = r->hostEnd_ - r->hostStart_;
+        r->host_.data_ = r->hostStart_;
+    }
+
     if (r->argsStart_)
     {
-        // args points to the original content
-        // only create new space for uri
         r->uri_.len_ = r->argsStart_ - 1 - r->uriStart_;
     }
     else
@@ -531,18 +529,19 @@ int handleRequestUri(std::shared_ptr<Request> r)
         r->uri_.data_ = r->uriStart_;
     }
 
-    if (r->uriExt_)
+    // true only if parseComplexUri isn't executed
+    if (r->uriExtStart_)
     {
         if (r->argsStart_)
         {
-            r->exten_.len_ = r->argsStart_ - 1 - r->uriExt_;
+            r->exten_.len_ = r->argsStart_ - 1 - r->uriExtStart_;
         }
         else
         {
-            r->exten_.len_ = r->uriEnd_ - r->uriExt_;
+            r->exten_.len_ = r->uriEnd_ - r->uriExtStart_;
         }
 
-        r->exten_.data_ = r->uriExt_;
+        r->exten_.data_ = r->uriExtStart_;
     }
 
     if (r->argsStart_ && r->uriEnd_ > r->argsStart_)

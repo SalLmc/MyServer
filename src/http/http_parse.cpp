@@ -96,22 +96,25 @@ int parseRequestLine(std::shared_ptr<Request> r)
             c = (u_char)(ch | 0x20);
             if (c >= 'a' && c <= 'z')
             {
-                r->schemaStart_ = p;
-                state = RequestState::SCHEMA;
+                r->schemeStart_ = p;
+                state = RequestState::SCHEME;
                 break;
             }
 
             // skip space
-            switch (ch)
+            if (ch == ' ')
             {
-            case ' ':
                 break;
-            default:
+            }
+            else
+            {
                 return ERROR;
             }
+
             break;
 
-        case RequestState::SCHEMA:
+        // http, ftp
+        case RequestState::SCHEME:
 
             c = (u_char)(ch | 0x20);
             if (c >= 'a' && c <= 'z')
@@ -119,42 +122,45 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 break;
             }
 
-            if ((ch >= '0' && ch <= '9') || ch == '+' || ch == '-' || ch == '.')
+            if (ch == ':')
             {
+                r->schemeEnd_ = p;
+                state = RequestState::SCHEME_SLASH0;
                 break;
             }
-
-            switch (ch)
+            else
             {
-            case ':':
-                r->schemaEnd_ = p;
-                state = RequestState::SCHEMA_SLASH0;
-                break;
-            default:
                 return ERROR;
             }
+
             break;
 
-        case RequestState::SCHEMA_SLASH0:
-            switch (ch)
+        case RequestState::SCHEME_SLASH0:
+
+            if (ch == '/')
             {
-            case '/':
-                state = RequestState::SCHEMA_SLASH1;
+                state = RequestState::SCHEME_SLASH1;
                 break;
-            default:
+            }
+            else
+            {
                 return ERROR;
             }
+
             break;
 
-        case RequestState::SCHEMA_SLASH1:
-            switch (ch)
+        case RequestState::SCHEME_SLASH1:
+
+            if (ch == '/')
             {
-            case '/':
                 state = RequestState::HOST_START;
                 break;
-            default:
+            }
+            else
+            {
                 return ERROR;
             }
+
             break;
 
         case RequestState::HOST_START:
@@ -174,12 +180,8 @@ int parseRequestLine(std::shared_ptr<Request> r)
         case RequestState::HOST:
 
             c = (u_char)(ch | 0x20);
-            if (c >= 'a' && c <= 'z')
-            {
-                break;
-            }
 
-            if ((ch >= '0' && ch <= '9') || ch == '.' || ch == '-')
+            if ((c >= 'a' && c <= 'z') || (ch >= '0' && ch <= '9') || ch == '.')
             {
                 break;
             }
@@ -206,10 +208,11 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 state = RequestState::URI_SPECIAL;
                 break;
             case ' ':
-                // use single "/" from request line to preserve pointers, if request line will be copied to another
-                // buffer
-                r->uriStart_ = r->schemaEnd_ + 1;
-                r->uriEnd_ = r->schemaEnd_ + 2;
+                // use single "/" from request line to preserve pointers
+                // in case this request line will be copied to another buffer
+                // since schemeEnd_+1 points to an '/'. like: http://
+                r->uriStart_ = r->schemeEnd_ + 1;
+                r->uriEnd_ = r->schemeEnd_ + 2;
                 state = RequestState::HTTP_START;
                 break;
             default:
@@ -219,13 +222,9 @@ int parseRequestLine(std::shared_ptr<Request> r)
 
         case RequestState::HOST_IP:
 
-            if (ch >= '0' && ch <= '9')
-            {
-                break;
-            }
-
             c = (u_char)(ch | 0x20);
-            if (c >= 'a' && c <= 'z')
+
+            if ((c >= 'a' && c <= 'z') || (ch >= '0' && ch <= '9'))
             {
                 break;
             }
@@ -241,8 +240,6 @@ int parseRequestLine(std::shared_ptr<Request> r)
             case '.':
             case '_':
             case '~':
-                // unreserved
-                break;
             case '!':
             case '$':
             case '&':
@@ -254,7 +251,6 @@ int parseRequestLine(std::shared_ptr<Request> r)
             case ',':
             case ';':
             case '=':
-                // sub-delims
                 break;
             default:
                 return ERROR;
@@ -281,10 +277,9 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 state = RequestState::URI_SPECIAL;
                 break;
             case ' ':
-                // use single "/" from request line to preserve pointers, if request line will be copied to another
-                // buffer
-                r->uriStart_ = r->schemaEnd_ + 1;
-                r->uriEnd_ = r->schemaEnd_ + 2;
+                // same as before
+                r->uriStart_ = r->schemeEnd_ + 1;
+                r->uriEnd_ = r->schemeEnd_ + 2;
                 state = RequestState::HTTP_START;
                 break;
             default:
@@ -372,11 +367,11 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 r->httpMinor_ = 9;
                 goto done;
             case '/':
-                r->uriExt_ = NULL;
+                r->uriExtStart_ = NULL;
                 state = RequestState::URI_AFTER_SLASH;
                 break;
             case '.':
-                r->uriExt_ = p + 1;
+                r->uriExtStart_ = p + 1;
                 break;
             case '%':
                 r->quotedUri_ = 1;
@@ -662,12 +657,12 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
 
     old = r->uriStart_;
     now = r->uri_.data_;
-    r->uriExt_ = NULL;
+    r->uriExtStart_ = NULL;
     r->argsStart_ = NULL;
 
     if (r->emptyPathInUri_)
     {
-        // *now++ <=> *now='/'; now++
+        // *now='/'; now++
         *now++ = '/';
     }
 
@@ -690,9 +685,9 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
             switch (ch)
             {
             case '/':
-                r->uriExt_ = NULL;
+                r->uriExtStart_ = NULL;
                 state = SLASH;
-                *now++ = ch;
+                *now++ = '/';
                 break;
             case '%':
                 saveState = state;
@@ -704,8 +699,8 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
             case '#':
                 goto done;
             case '.':
-                r->uriExt_ = now + 1;
-                *now++ = ch;
+                *now++ = '.';
+                r->uriExtStart_ = now;
                 break;
             case '+':
                 r->plusInUri_ = 1;
@@ -733,12 +728,12 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
             case '/':
                 if (!mergeSlashes)
                 {
-                    *now++ = ch;
+                    *now++ = '/';
                 }
                 break;
             case '.':
                 state = DOT;
-                *now++ = ch;
+                *now++ = '.';
                 break;
             case '%':
                 saveState = state;
@@ -779,7 +774,7 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
                 break;
             case '.':
                 state = DOT_DOT;
-                *now++ = ch;
+                *now++ = '.';
                 break;
             case '%':
                 saveState = state;
@@ -819,6 +814,7 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
             case '/':
             case '?':
             case '#':
+                // make now points to the place after the previous '/'
                 now -= 4;
                 for (;;)
                 {
@@ -949,13 +945,11 @@ int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
             {
                 return ERROR;
             }
-
             if (*now == '/')
             {
                 now++;
                 break;
             }
-
             now--;
         }
     }
@@ -964,13 +958,13 @@ done:
 
     r->uri_.len_ = now - r->uri_.data_;
 
-    if (r->uriExt_)
+    if (r->uriExtStart_)
     {
-        r->exten_.len_ = now - r->uriExt_;
-        r->exten_.data_ = r->uriExt_;
+        r->exten_.len_ = now - r->uriExtStart_;
+        r->exten_.data_ = r->uriExtStart_;
     }
 
-    r->uriExt_ = NULL;
+    r->uriExtStart_ = NULL;
 
     return OK;
 
@@ -992,13 +986,13 @@ args:
 
     r->uri_.len_ = now - r->uri_.data_;
 
-    if (r->uriExt_)
+    if (r->uriExtStart_)
     {
-        r->exten_.len_ = now - r->uriExt_;
-        r->exten_.data_ = r->uriExt_;
+        r->exten_.len_ = now - r->uriExtStart_;
+        r->exten_.data_ = r->uriExtStart_;
     }
 
-    r->uriExt_ = NULL;
+    r->uriExtStart_ = NULL;
 
     return OK;
 }
