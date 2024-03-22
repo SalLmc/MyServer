@@ -9,6 +9,7 @@ class Server;
 class Connection;
 class Event;
 class Request;
+class LinkedBuffer;
 
 enum class HeaderState
 {
@@ -315,7 +316,7 @@ int processRequestLine(Event *ev);
 int readRequest(std::shared_ptr<Request> r);
 int handleRequestUri(std::shared_ptr<Request> r);
 int processRequestHeaders(Event *ev);
-int tryMoveBuffer(std::shared_ptr<Request> r, void **leftAddr, void **rightAddr);
+int tryMoveBuffer(LinkedBuffer *buffer, void **leftAddr, void **rightAddr);
 int handleRequestHeader(std::shared_ptr<Request> r, int needHost);
 int processRequest(std::shared_ptr<Request> r);
 

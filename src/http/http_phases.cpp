@@ -734,14 +734,15 @@ int recvFromUpstream(Event *upcEv)
 
     LOG_INFO << "Upstream recv done";
 
-    if (tryMoveBuffer(upsr, (void **)&ups->ctx_.status_.start_, (void **)ups->ctx_.status_.end_) == ERROR)
+    if (tryMoveBuffer(&upsr->c_->readBuffer_, (void **)&ups->ctx_.status_.start_, (void **)&ups->ctx_.status_.end_) ==
+        ERROR)
     {
         LOG_WARN << "too long response line" << strerror(errno);
         finalizeRequest(upsr);
         finalizeRequestLater(cr);
         return ERROR;
     }
-    
+
     cr->c_->writeBuffer_.append(std::string(ups->ctx_.status_.start_, ups->ctx_.status_.end_) + "\r\n");
     for (auto &x : upsr->contextIn_.headers_)
     {
