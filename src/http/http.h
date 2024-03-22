@@ -36,8 +36,8 @@ enum class RequestState
     HOST_IP,
     PORT,
     URI_AFTER_SLASH,
-    URI_NORMAL,
-    URI_SPECIAL,
+    URI_EXT_CHECK,
+    URI,
     HTTP_START,
     HTTP_H,
     HTTP_HT,
@@ -315,6 +315,7 @@ int waitRequestAgain(Event *ev);
 int processRequestLine(Event *ev);
 int readRequest(std::shared_ptr<Request> r);
 int handleRequestUri(std::shared_ptr<Request> r);
+int handleComplexUri(std::shared_ptr<Request> r);
 int processRequestHeaders(Event *ev);
 int tryMoveBuffer(LinkedBuffer *buffer, void **leftAddr, void **rightAddr);
 int handleRequestHeader(std::shared_ptr<Request> r, int needHost);

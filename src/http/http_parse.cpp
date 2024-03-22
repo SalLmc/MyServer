@@ -205,7 +205,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 r->uriStart_ = p;
                 r->argsStart_ = p + 1;
                 r->emptyPathInUri_ = 1;
-                state = RequestState::URI_SPECIAL;
+                state = RequestState::URI;
                 break;
             case ' ':
                 // use single "/" from request line to preserve pointers
@@ -274,7 +274,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 r->uriStart_ = p;
                 r->argsStart_ = p + 1;
                 r->emptyPathInUri_ = 1;
-                state = RequestState::URI_SPECIAL;
+                state = RequestState::URI;
                 break;
             case ' ':
                 // same as before
@@ -292,7 +292,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
 
             if (normal.count(ch))
             {
-                state = RequestState::URI_NORMAL;
+                state = RequestState::URI_EXT_CHECK;
                 break;
             }
 
@@ -313,23 +313,23 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 goto done;
             case '.':
                 r->complexUri_ = 1;
-                state = RequestState::URI_SPECIAL;
+                state = RequestState::URI;
                 break;
             case '%':
                 r->quotedUri_ = 1;
-                state = RequestState::URI_SPECIAL;
+                state = RequestState::URI;
                 break;
             case '/':
                 r->complexUri_ = 1;
-                state = RequestState::URI_SPECIAL;
+                state = RequestState::URI;
                 break;
             case '?':
                 r->argsStart_ = p + 1;
-                state = RequestState::URI_SPECIAL;
+                state = RequestState::URI;
                 break;
             case '#':
                 r->complexUri_ = 1;
-                state = RequestState::URI_SPECIAL;
+                state = RequestState::URI;
                 break;
             case '+':
                 r->plusInUri_ = 1;
@@ -339,12 +339,12 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 {
                     return ERROR;
                 }
-                state = RequestState::URI_NORMAL;
+                state = RequestState::URI_EXT_CHECK;
                 break;
             }
             break;
 
-        case RequestState::URI_NORMAL:
+        case RequestState::URI_EXT_CHECK:
 
             if (normal.count(ch))
             {
@@ -366,24 +366,24 @@ int parseRequestLine(std::shared_ptr<Request> r)
                 r->uriEnd_ = p;
                 r->httpMinor_ = 9;
                 goto done;
-            case '/':
-                r->uriExtStart_ = NULL;
-                state = RequestState::URI_AFTER_SLASH;
-                break;
             case '.':
                 r->uriExtStart_ = p + 1;
                 break;
             case '%':
                 r->quotedUri_ = 1;
-                state = RequestState::URI_SPECIAL;
+                state = RequestState::URI;
+                break;
+            case '/':
+                r->uriExtStart_ = NULL;
+                state = RequestState::URI_AFTER_SLASH;
                 break;
             case '?':
                 r->argsStart_ = p + 1;
-                state = RequestState::URI_SPECIAL;
+                state = RequestState::URI;
                 break;
             case '#':
                 r->complexUri_ = 1;
-                state = RequestState::URI_SPECIAL;
+                state = RequestState::URI;
                 break;
             case '+':
                 r->plusInUri_ = 1;
@@ -398,7 +398,7 @@ int parseRequestLine(std::shared_ptr<Request> r)
             break;
 
         // ".", '?', '%', '/', '#', '+'
-        case RequestState::URI_SPECIAL:
+        case RequestState::URI:
 
             if (normal.count(ch))
             {
@@ -627,372 +627,6 @@ done:
     {
         return ERROR;
     }
-
-    return OK;
-}
-
-// r->complexUri || r->quotedUri || r->emptyPathInUri
-// already malloc a new space for uri.data
-// 1. decode chars begin with '%' in QUOTED
-// 2. extract exten in state like DOT
-// 3. handle ./ and ../
-int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes)
-{
-    u_char c;
-    u_char ch;
-    u_char decoded;
-    u_char *old, *now;
-
-    enum
-    {
-        USUAL = 0,
-        SLASH,
-        DOT,
-        DOT_DOT,
-        QUOTED,
-        QUOTED_SECOND
-    } state, saveState;
-
-    state = USUAL;
-
-    old = r->uriStart_;
-    now = r->uri_.data_;
-    r->uriExtStart_ = NULL;
-    r->argsStart_ = NULL;
-
-    if (r->emptyPathInUri_)
-    {
-        // *now='/'; now++
-        *now++ = '/';
-    }
-
-    ch = *old++;
-
-    while (old <= r->uriEnd_)
-    {
-        switch (state)
-        {
-
-        case USUAL:
-
-            if (normal.count(ch))
-            {
-                *now++ = ch;
-                ch = *old++;
-                break;
-            }
-
-            switch (ch)
-            {
-            case '/':
-                r->uriExtStart_ = NULL;
-                state = SLASH;
-                *now++ = '/';
-                break;
-            case '%':
-                saveState = state;
-                state = QUOTED;
-                break;
-            case '?':
-                r->argsStart_ = old;
-                goto args;
-            case '#':
-                goto done;
-            case '.':
-                *now++ = '.';
-                r->uriExtStart_ = now;
-                break;
-            case '+':
-                r->plusInUri_ = 1;
-                // fall through
-            default:
-                *now++ = ch;
-                break;
-            }
-
-            ch = *old++;
-            break;
-
-        case SLASH:
-
-            if (normal.count(ch))
-            {
-                state = USUAL;
-                *now++ = ch;
-                ch = *old++;
-                break;
-            }
-
-            switch (ch)
-            {
-            case '/':
-                if (!mergeSlashes)
-                {
-                    *now++ = '/';
-                }
-                break;
-            case '.':
-                state = DOT;
-                *now++ = '.';
-                break;
-            case '%':
-                saveState = state;
-                state = QUOTED;
-                break;
-            case '?':
-                r->argsStart_ = old;
-                goto args;
-            case '#':
-                goto done;
-            case '+':
-                r->plusInUri_ = 1;
-                // fall through
-            default:
-                state = USUAL;
-                *now++ = ch;
-                break;
-            }
-
-            ch = *old++;
-            break;
-
-        case DOT:
-
-            if (normal.count(ch))
-            {
-                state = USUAL;
-                *now++ = ch;
-                ch = *old++;
-                break;
-            }
-
-            switch (ch)
-            {
-            case '/':
-                state = SLASH;
-                now--;
-                break;
-            case '.':
-                state = DOT_DOT;
-                *now++ = '.';
-                break;
-            case '%':
-                saveState = state;
-                state = QUOTED;
-                break;
-            case '?':
-                now--;
-                r->argsStart_ = old;
-                goto args;
-            case '#':
-                now--;
-                goto done;
-            case '+':
-                r->plusInUri_ = 1;
-                // fall through
-            default:
-                state = USUAL;
-                *now++ = ch;
-                break;
-            }
-
-            ch = *old++;
-            break;
-
-        case DOT_DOT:
-
-            if (normal.count(ch))
-            {
-                state = USUAL;
-                *now++ = ch;
-                ch = *old++;
-                break;
-            }
-
-            switch (ch)
-            {
-            case '/':
-            case '?':
-            case '#':
-                // make now points to the place after the previous '/'
-                now -= 4;
-                for (;;)
-                {
-                    if (now < r->uri_.data_)
-                    {
-                        return ERROR;
-                    }
-                    if (*now == '/')
-                    {
-                        now++;
-                        break;
-                    }
-                    now--;
-                }
-                if (ch == '?')
-                {
-                    r->argsStart_ = old;
-                    goto args;
-                }
-                if (ch == '#')
-                {
-                    goto done;
-                }
-                state = SLASH;
-                break;
-            case '%':
-                saveState = state;
-                state = QUOTED;
-                break;
-            case '+':
-                r->plusInUri_ = 1;
-                // fall through
-            default:
-                state = USUAL;
-                *now++ = ch;
-                break;
-            }
-
-            ch = *old++;
-            break;
-
-        case QUOTED:
-
-            r->quotedUri_ = 1;
-
-            if (ch >= '0' && ch <= '9')
-            {
-                decoded = (u_char)(ch - '0');
-                state = QUOTED_SECOND;
-                ch = *old++;
-                break;
-            }
-
-            c = (u_char)(ch | 0x20);
-            if (c >= 'a' && c <= 'f')
-            {
-                decoded = (u_char)(c - 'a' + 10);
-                state = QUOTED_SECOND;
-                ch = *old++;
-                break;
-            }
-
-            return ERROR;
-
-        case QUOTED_SECOND:
-
-            if (ch >= '0' && ch <= '9')
-            {
-                ch = (u_char)((decoded << 4) + (ch - '0'));
-
-                if (ch == '%' || ch == '#')
-                {
-                    state = USUAL;
-                    *now++ = ch;
-                    ch = *old++;
-                    break;
-                }
-                else if (ch == '\0')
-                {
-                    return ERROR;
-                }
-
-                state = saveState;
-                break;
-            }
-
-            c = (u_char)(ch | 0x20);
-            if (c >= 'a' && c <= 'f')
-            {
-                ch = (u_char)((decoded << 4) + (c - 'a') + 10);
-
-                if (ch == '?')
-                {
-                    state = USUAL;
-                    *now++ = ch;
-                    ch = *old++;
-                    break;
-                }
-                else if (ch == '+')
-                {
-                    r->plusInUri_ = 1;
-                }
-
-                state = saveState;
-                break;
-            }
-
-            return ERROR;
-        }
-    }
-
-    if (state == QUOTED || state == QUOTED_SECOND)
-    {
-        return ERROR;
-    }
-
-    if (state == DOT)
-    {
-        now--;
-    }
-    else if (state == DOT_DOT)
-    {
-        now -= 4;
-
-        for (;;)
-        {
-            if (now < r->uri_.data_)
-            {
-                return ERROR;
-            }
-            if (*now == '/')
-            {
-                now++;
-                break;
-            }
-            now--;
-        }
-    }
-
-done:
-
-    r->uri_.len_ = now - r->uri_.data_;
-
-    if (r->uriExtStart_)
-    {
-        r->exten_.len_ = now - r->uriExtStart_;
-        r->exten_.data_ = r->uriExtStart_;
-    }
-
-    r->uriExtStart_ = NULL;
-
-    return OK;
-
-args:
-
-    while (old < r->uriEnd_)
-    {
-        if (*old++ != '#')
-        {
-            continue;
-        }
-
-        r->args_.len_ = old - 1 - r->argsStart_;
-        r->args_.data_ = r->argsStart_;
-        r->argsStart_ = NULL;
-
-        break;
-    }
-
-    r->uri_.len_ = now - r->uri_.data_;
-
-    if (r->uriExtStart_)
-    {
-        r->exten_.len_ = now - r->uriExtStart_;
-        r->exten_.data_ = r->uriExtStart_;
-    }
-
-    r->uriExtStart_ = NULL;
 
     return OK;
 }

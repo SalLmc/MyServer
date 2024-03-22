@@ -16,7 +16,7 @@ int main()
 
     connect(c.fd_.get(), (const sockaddr *)&c.addr_, sizeof(c.addr_));
 
-    c.writeBuffer_.append("GET /s+../Documents.txt#HEADER HTTP/1.1\r\n");
+    c.writeBuffer_.append("GET /s+..//Documents.txt#HEADER HTTP/1.1\r\n");
     c.writeBuffer_.append("Host: localhost:8082\r\n");
     c.writeBuffer_.append("User-Agent: curl/7.81.0\r\n");
     c.writeBuffer_.append("Accept: */*\r\n\r\n");
