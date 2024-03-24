@@ -612,6 +612,10 @@ int initUpstream(std::shared_ptr<Request> r)
     LOG_INFO << "init upstream OK, client: " << r->c_->fd_.get() << ", upstream: " << upc->fd_.get();
 
     // send && call send2Upstream at upc's loop
+
+    serverPtr->timer_.add(upc->fd_.get(), "Upstream writable timeout", getTickMs() + 5000, setEventTimeout,
+                          (void *)&upc->write_);
+
     return OK;
 }
 
@@ -621,6 +625,21 @@ int send2Upstream(Event *upcEv)
     std::shared_ptr<Upstream> ups = upc->upstream_;
     std::shared_ptr<Request> cr = upc->upstream_->client_->request_;
     std::shared_ptr<Request> upsr = ups->upstream_->request_;
+
+    if (upcEv->timeout_ == TimeoutStatus::TIMEOUT)
+    {
+        LOG_INFO << "Upstream writable timeout, FD:" << upcEv->c_->fd_.get();
+        finalizeRequest(upsr);
+
+        // executed in timer already
+        int fd = cr->c_->fd_.get();
+        serverPtr->multiplexer_->delFd(fd);
+        serverPtr->pool_.recoverConnection(cr->c_);
+
+        return -1;
+    }
+
+    serverPtr->timer_.remove(upcEv->c_->fd_.get());
 
     int ret = 0;
 
@@ -755,12 +774,11 @@ int recvFromUpstream(Event *upcEv)
     }
 
     // read: empty; write: send2Client
-    upc->upstream_->client_->read_.handler_ = std::function<int(Event *)>();
-    upc->upstream_->client_->write_.handler_ = send2Client;
+    cr->c_->read_.handler_ = std::function<int(Event *)>();
+    cr->c_->write_.handler_ = send2Client;
 
     // call send2Client at client's loop
-    if (serverPtr->multiplexer_->modFd(upc->upstream_->client_->fd_.get(), Events(IN | OUT | ET),
-                                       upc->upstream_->client_) != 1)
+    if (serverPtr->multiplexer_->modFd(cr->c_->fd_.get(), Events(IN | OUT | ET), cr->c_) != 1)
     {
         LOG_CRIT << "epoller modfd failed, error:" << strerror(errno);
         finalizeRequest(upsr);
@@ -770,6 +788,9 @@ int recvFromUpstream(Event *upcEv)
 
     finalizeRequest(upsr);
 
+    serverPtr->timer_.add(cr->c_->fd_.get(), "Client writable timeout", getTickMs() + 5000, setEventTimeout,
+                          (void *)&cr->c_->write_);
+
     return OK;
 }
 
@@ -777,6 +798,15 @@ int send2Client(Event *ev)
 {
     Connection *c = ev->c_;
     std::shared_ptr<Request> r = c->request_;
+
+    if (ev->timeout_ == TimeoutStatus::TIMEOUT)
+    {
+        LOG_INFO << "Client writable timeout, FD:" << c->fd_.get();
+        finalizeRequest(r);
+        return -1;
+    }
+
+    serverPtr->timer_.remove(c->fd_.get());
 
     int ret = 0;
 

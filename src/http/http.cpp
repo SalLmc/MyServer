@@ -357,7 +357,8 @@ int processRequestHeaders(Event *ev)
                 break;
             }
 
-            if (tryMoveBuffer(&r->c_->readBuffer_, (void **)&r->headerValueStart_, (void **)&r->headerValueEnd_) == ERROR)
+            if (tryMoveBuffer(&r->c_->readBuffer_, (void **)&r->headerValueStart_, (void **)&r->headerValueEnd_) ==
+                ERROR)
             {
                 LOG_WARN << "Header value too long";
                 finalizeRequest(r);
@@ -996,13 +997,15 @@ int processUpsHeaders(std::shared_ptr<Request> upsr)
                 continue;
             }
 
-            if (tryMoveBuffer(&upsr->c_->readBuffer_, (void **)&upsr->headerNameStart_, (void **)&upsr->headerNameEnd_) == ERROR)
+            if (tryMoveBuffer(&upsr->c_->readBuffer_, (void **)&upsr->headerNameStart_,
+                              (void **)&upsr->headerNameEnd_) == ERROR)
             {
                 LOG_WARN << "upstream send too long header name";
                 return ERROR;
             }
 
-            if (tryMoveBuffer(&upsr->c_->readBuffer_, (void **)&upsr->headerValueStart_, (void **)&upsr->headerValueEnd_) == ERROR)
+            if (tryMoveBuffer(&upsr->c_->readBuffer_, (void **)&upsr->headerValueStart_,
+                              (void **)&upsr->headerValueEnd_) == ERROR)
             {
                 LOG_WARN << "upstream send too long header value";
                 return ERROR;
