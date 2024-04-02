@@ -259,37 +259,37 @@ Connection *setupListen(Server *server, int port)
 
     if (listenConn->fd_.get() < 0)
     {
-        LOG_CRIT << "open listenfd failed";
+        LOG_CRIT << "open listenfd failed, " << strerror(errno);
         goto bad;
     }
 
     if (setsockopt(listenConn->fd_.get(), SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) < 0)
     {
-        LOG_WARN << "set keepalived failed";
+        LOG_WARN << "set keepalived failed, " << strerror(errno);
         goto bad;
     }
 
     if (setsockopt(listenConn->fd_.get(), SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val)) < 0)
     {
-        LOG_CRIT << "set reuseport failed";
+        LOG_CRIT << "set reuseport failed, " << strerror(errno);
         goto bad;
     }
 
     if (setnonblocking(listenConn->fd_.get()) < 0)
     {
-        LOG_CRIT << "set nonblocking failed";
+        LOG_CRIT << "set nonblocking failed, " << strerror(errno);
         goto bad;
     }
 
     if (bind(listenConn->fd_.get(), (sockaddr *)&listenConn->addr_, sizeof(listenConn->addr_)) != 0)
     {
-        LOG_CRIT << "bind failed";
+        LOG_CRIT << "bind failed, " << strerror(errno);
         goto bad;
     }
 
     if (listen(listenConn->fd_.get(), 4096) != 0)
     {
-        LOG_CRIT << "listen failed";
+        LOG_CRIT << "listen failed, " << strerror(errno);
         goto bad;
     }
 

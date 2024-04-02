@@ -1274,6 +1274,7 @@ int processBodyChunked(std::shared_ptr<Request> r)
                 if (buffer.pivot_->next_ != NULL)
                 {
                     buffer.pivot_ = buffer.pivot_->next_;
+                    continue;
                 }
             }
             // need to recv more

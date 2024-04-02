@@ -12,28 +12,33 @@
     },
     "event": {
         "use_epoll": 1,
-        "connections": 100000,
+        "connections": 1024,
         "delay": 0
     },
     "servers": [
         {
-            "port": 8000,
-            "root": "static",
+            "port": 8081,
+            "root": "/mnt/d/A_File/VSCode/platform-ts/dist",
             "index": "index.html",
             "from": "/api/",
             "to": [
-                "http://cn.bing.com/",
-                "http://www.baidu.com/"
+                "http://139.199.176.139:8080/"
+            ],
+            "try_files": [
+                "index.html"
             ]
         },
         {
             "port": 8082,
-            "root": "./",
+            "root": "/home/sallmc/share",
             "index": "sdfsdf",
-            "auto_index": 1,
-            "auth_path": [
-                "*src*"
-            ]
+            "auto_index": 1
+        },
+        {
+            "port": 8083,
+            "root": "./log",
+            "index": "sdfsdf",
+            "auto_index": 1
         }
     ]
 }

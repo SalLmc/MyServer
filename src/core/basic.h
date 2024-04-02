@@ -27,6 +27,7 @@ class Fd
     bool operator!=(Fd fd);
     void operator=(int fd);
     void reset(Fd &&fd);
+    void reset(int fd);
     Fd &operator=(const Fd &) = delete;
 
   private:

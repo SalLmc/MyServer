@@ -141,6 +141,7 @@ void worker(Server *server)
     if (server->initListen(newConnection) == ERROR)
     {
         LOG_CRIT << "init listen failed";
+        exit(1);
     }
 
     server->initEvent(serverConfig.useEpoll);
@@ -148,6 +149,7 @@ void worker(Server *server)
     if (server->regisListen(IN) == ERROR)
     {
         LOG_CRIT << "Listenfd add failed, errno:" << strerror(errno);
+        exit(1);
     }
 
     // timer

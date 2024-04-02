@@ -64,6 +64,12 @@ void Fd::reset(Fd &&fd)
     fd.fd_ = -1;
 }
 
+void Fd::reset(int fd)
+{
+    close();
+    fd_ = fd;
+}
+
 SharedMemory::SharedMemory() : addr_(NULL)
 {
 }

@@ -161,10 +161,16 @@ int authAccessFunc(std::shared_ptr<Request> r)
 int contentAccessFunc(std::shared_ptr<Request> r)
 {
     LOG_INFO << "Content access handler, FD:" << r->c_->fd_.get();
+
     auto &server = serverPtr->servers_[r->c_->serverIdx_];
     std::string uri = std::string(r->uri_.data_, r->uri_.data_ + r->uri_.len_);
     std::string path;
+    std::string root;
+    std::string filePath;
     Fd fd;
+    Fd filefd;
+    struct stat st = {};
+    bool existed = 0;
 
     // proxy_pass
     if (!server.from.empty() && !server.to.empty())
@@ -183,33 +189,45 @@ int contentAccessFunc(std::shared_ptr<Request> r)
         return doResponse(r);
     }
 
-    path = server.root + uri;
-    fd = open(path.c_str(), O_RDONLY);
-
-    if (fd.get() < 0)
+    // root check
     {
-        if (open(server.root.c_str(), O_RDONLY) < 0)
+        Fd tmp(open(server.root.c_str(), O_RDONLY));
+        if (tmp.get() < 0)
         {
             LOG_WARN << "can't open server root location";
             setErrorResponse(r, HTTP_INTERNAL_SERVER_ERROR);
             return doResponse(r);
         }
-        goto send404;
     }
 
-    struct stat st;
-    fstat(fd.get(), &st);
-    if (st.st_mode & S_IFDIR)
+    path = server.root + uri;
+    root = (server.root.back() == '/') ? server.root : (server.root + "/");
+
+    fd.reset(open(path.c_str(), O_RDONLY));
+
+    if (fd.get() > 0)
     {
-        // use index & try_files
+        existed = 1;
+        fstat(fd.get(), &st);
+        if (st.st_mode & S_IFDIR)
+        {
+            fd.reset(-1);
+        }
+        else
+        {
+            goto fileok;
+        }
+    }
+
+    // is a directory
+    if (existed)
+    {
         if (path.back() != '/')
         {
             path += "/";
         }
-
-        // index
-        std::string filePath = path + server.index;
-        Fd filefd(open(filePath.c_str(), O_RDONLY));
+        filePath = path + server.index;
+        filefd.reset(open(filePath.c_str(), O_RDONLY));
         if (filefd.get() >= 0)
         {
             auto pos = filePath.find('.');
@@ -224,53 +242,31 @@ int contentAccessFunc(std::shared_ptr<Request> r)
                 r->exten_.len_ = extenlen;
             }
 
-            fd.close();
             fd.reset(std::move(filefd));
-
             goto fileok;
         }
-        else // try_files
-        {
-            for (auto &name : server.tryFiles)
-            {
-                filePath = path + name;
-                filefd = open(filePath.c_str(), O_RDONLY);
-                if (filefd.get() >= 0)
-                {
-                    struct stat st;
-                    fstat(fd.get(), &st);
-                    if (!(st.st_mode & S_IFDIR))
-                    {
-                        auto pos = filePath.find('.');
-                        if (pos != std::string::npos) // has exten
-                        {
-                            int extenlen = filePath.length() - pos - 1;
-                            for (int i = 0; i < extenlen; i++)
-                            {
-                                extenSave[i] = filePath[i + pos + 1];
-                            }
-                            r->exten_.data_ = extenSave;
-                            r->exten_.len_ = extenlen;
-                        }
-
-                        fd.reset(std::move(filefd));
-
-                        goto fileok;
-                    }
-                    else
-                    {
-                        filefd.close();
-                    }
-                }
-            }
-        }
-
-        // try autoindex
-        goto autoindex;
     }
-    else
+
+    for (auto &name : server.tryFiles)
     {
-        goto fileok;
+        filePath = root + name;
+        filefd.reset(open(filePath.c_str(), O_RDONLY));
+        if (filefd.get() >= 0)
+        {
+            auto pos = filePath.find('.');
+            if (pos != std::string::npos) // has exten
+            {
+                int extenlen = filePath.length() - pos - 1;
+                for (int i = 0; i < extenlen; i++)
+                {
+                    extenSave[i] = filePath[i + pos + 1];
+                }
+                r->exten_.data_ = extenSave;
+                r->exten_.len_ = extenlen;
+            }
+
+            fd.reset(std::move(filefd));
+        }
     }
 
 fileok:
@@ -303,14 +299,7 @@ fileok:
         return PHASE_NEXT;
     }
 
-autoindex:
-    if (server.autoIndex == 0)
-    {
-    send404:
-        setErrorResponse(r, HTTP_NOT_FOUND);
-        return doResponse(r);
-    }
-    else
+    if (existed && server.autoIndex)
     {
         // access a directory but uri doesn't end with '/'
         if (uri.back() != '/')
@@ -325,6 +314,9 @@ autoindex:
         r->contextOut_.resType_ = ResponseType::AUTO_INDEX;
         return PHASE_NEXT;
     }
+
+    setErrorResponse(r, HTTP_NOT_FOUND);
+    return doResponse(r);
 }
 
 int proxyPassFunc(std::shared_ptr<Request> r)
