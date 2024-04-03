@@ -1,32 +1,41 @@
-#include "../src/headers.h"
-
-#include "../src/core/core.h"
-#include "../src/utils/utils.h"
-
-Server *serverPtr;
-bool enable_logger = 1;
+#include <stdio.h>
+#include <string>
 
 int main()
 {
-    int val = 1;
-    std::string ip = "127.0.0.1";
-    int port = 8000;
-    Connection upc;
+    uint32_t usual[] = {
+        0x00000000, /* 0000 0000 0000 0000  0000 0000 0000 0000 */
 
-    upc.fd_ = socket(AF_INET, SOCK_STREAM, 0);
+        /* ?>=< ;:98 7654 3210  /.-, +*)( '&%$ #"!  */
+        0x7fff37d6, /* 0111 1111 1111 1111  0011 0111 1101 0110 */
 
-    setsockopt(upc.fd_.getFd(), SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val));
+    /* _^]\ [ZYX WVUT SRQP  ONML KJIH GFED CBA@ */
+#if (NGX_WIN32)
+        0xefffffff, /* 1110 1111 1111 1111  1111 1111 1111 1111 */
+#else
+        0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
+#endif
 
-    upc.addr_.sin_family = AF_INET;
-    inet_pton(AF_INET, ip.c_str(), &upc.addr_.sin_addr);
-    upc.addr_.sin_port = htons(port);
+        /*  ~}| {zyx wvut srqp  onml kjih gfed cba` */
+        0x7fffffff, /* 0111 1111 1111 1111  1111 1111 1111 1111 */
 
-    if (connect(upc.fd_.getFd(), (struct sockaddr *)&upc.addr_, sizeof(upc.addr_)) < 0)
+        0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
+        0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
+        0xffffffff, /* 1111 1111 1111 1111  1111 1111 1111 1111 */
+        0xffffffff  /* 1111 1111 1111 1111  1111 1111 1111 1111 */
+    };
+
+    char tmp[] = {'A',  'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q',
+                  'R',  'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
+                  'i',  'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y',
+                  'z',  '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', '_', '.', '~', '!', '*',
+                  '\'', '(', ')', ';', ':', '@', '&', '=', '+', '$', ',', '/', '?', '#', '[', ']'};
+
+    for (int i = 0; i < sizeof(tmp) / sizeof(char); i++)
     {
-        printf("error: %s\n", strerror(errno));
+        if (!(usual[tmp[i] >> 5] & (1U << (tmp[i] & 0x1f))))
+        {
+            printf("%c\n", tmp[i]);
+        }
     }
-
-    setnonblocking(upc.fd_.getFd());
-
-    printf("end\n");
 }

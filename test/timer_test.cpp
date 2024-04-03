@@ -2,11 +2,13 @@
 
 #include "../src/core/core.h"
 #include "../src/event/event.h"
+#include "../src/log/logger.h"
 #include "../src/timer/timer.h"
 #include "../src/utils/utils.h"
 
+Level loggerLevel = Level::INFO;
 class Server;
-bool enable_logger;
+bool enableLogger;
 Server *serverPtr;
 
 int main()

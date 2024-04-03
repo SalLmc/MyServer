@@ -33,7 +33,7 @@ void Connection::init(ResourceType type)
 
     if (fd_ != -1)
     {
-        close(fd_.getFd());
+        close(fd_.get());
         fd_ = -1;
     }
 
@@ -56,18 +56,18 @@ ConnectionPool::ConnectionPool(int size) : activeCnt(0)
     {
         Connection *c = new Connection(ResourceType::POOL);
         connectionList_.push_back(c);
-        connectionPtrs_.push_back(c);
+        poolPtrsActiveMap_.insert({(uint64_t)c, 0});
     }
 }
 
 ConnectionPool::~ConnectionPool()
 {
-    for (auto c : connectionPtrs_)
+    for (auto x : poolPtrsActiveMap_)
     {
-        delete c;
+        delete (Connection *)x.first;
     }
 
-    for (auto c : savePtrs_)
+    for (auto c : activeMallocPtrs_)
     {
         delete (Connection *)c;
     }
@@ -81,11 +81,12 @@ Connection *ConnectionPool::getNewConnection()
     {
         c = connectionList_.front();
         connectionList_.pop_front();
+        poolPtrsActiveMap_[(uint64_t)c] = 1;
     }
     else
     {
         c = new Connection(ResourceType::MALLOC);
-        savePtrs_.insert((uint64_t)c);
+        activeMallocPtrs_.insert((uint64_t)c);
     }
 
     if (c != NULL)
@@ -109,26 +110,42 @@ void ConnectionPool::recoverConnection(Connection *c)
     {
         c->init(ResourceType::POOL);
         connectionList_.push_back(c);
+        poolPtrsActiveMap_[(uint64_t)c] = 0;
     }
     else
     {
-        savePtrs_.erase((uint64_t)c);
+        activeMallocPtrs_.erase((uint64_t)c);
         delete c;
     }
 
     return;
 }
 
-ServerAttribute::ServerAttribute(int port, std::string &&root, std::string &&index, std::string &&from,
-                                 std::vector<std::string> &&to, bool auto_index, std::vector<std::string> &&tryfiles,
-                                 std::vector<std::string> &&auth_path)
-    : port_(port), root_(root), index_(index), from_(from), to_(to), auto_index_(auto_index), tryFiles_(tryfiles),
-      authPaths_(auth_path)
+bool ConnectionPool::isActive(Connection *c)
 {
+    if (c->type_ == ResourceType::POOL)
+    {
+        return poolPtrsActiveMap_[(uint64_t)c];
+    }
+    else
+    {
+        return activeMallocPtrs_.count((uint64_t)c);
+    }
 }
 
-Server::Server(Logger *logger)
-    : logger_(logger), multiplexer_(NULL), extenContentTypeMap_({{"default_content_type", "application/octet-stream"}})
+ServerAttribute defaultAttr = {
+    .port = 80,
+    .root = "./static",
+    .index = "index.html",
+    .from = std::string(),
+    .to = std::vector<std::string>(),
+    .autoIndex = 0,
+    .tryFiles = std::vector<std::string>(),
+    .authPaths = std::vector<std::string>(),
+    .idx = 0,
+};
+
+Server::Server(Logger *logger) : logger_(logger), multiplexer_(NULL)
 {
 }
 
@@ -162,7 +179,7 @@ int Server::initListen(std::function<int(Event *)> handler)
 {
     for (auto &x : servers_)
     {
-        Connection *c = setupListen(this, x.port_);
+        Connection *c = setupListen(this, x.port);
         if (c == NULL)
         {
             return ERROR;
@@ -196,7 +213,7 @@ int Server::regisListen(Events events)
     bool ok = 1;
     for (auto &listen : listening_)
     {
-        if (multiplexer_->addFd(listen->fd_.getFd(), events, listen) == 0)
+        if (multiplexer_->addFd(listen->fd_.get(), events, listen) == 0)
         {
             ok = 0;
         }
@@ -206,12 +223,10 @@ int Server::regisListen(Events events)
 
 void Server::eventLoop()
 {
-    int flags = NORMAL;
-
     unsigned long long nextTick = timer_.getNextTick();
     nextTick = ((nextTick == (unsigned long long)-1) ? -1 : (nextTick - getTickMs()));
 
-    int ret = multiplexer_->processEvents(flags, nextTick);
+    int ret = multiplexer_->processEvents(FLAGS::NORMAL, nextTick);
 
     if (ret == -1)
     {
@@ -242,39 +257,39 @@ Connection *setupListen(Server *server, int port)
 
     listenConn->fd_ = socket(AF_INET, SOCK_STREAM, 0);
 
-    if (listenConn->fd_.getFd() < 0)
+    if (listenConn->fd_.get() < 0)
     {
-        LOG_CRIT << "open listenfd failed";
+        LOG_CRIT << "open listenfd failed, " << strerror(errno);
         goto bad;
     }
 
-    if (setsockopt(listenConn->fd_.getFd(), SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) < 0)
+    if (setsockopt(listenConn->fd_.get(), SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) < 0)
     {
-        LOG_WARN << "set keepalived failed";
+        LOG_WARN << "set keepalived failed, " << strerror(errno);
         goto bad;
     }
 
-    if (setsockopt(listenConn->fd_.getFd(), SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val)) < 0)
+    if (setsockopt(listenConn->fd_.get(), SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val)) < 0)
     {
-        LOG_CRIT << "set reuseport failed";
+        LOG_CRIT << "set reuseport failed, " << strerror(errno);
         goto bad;
     }
 
-    if (setnonblocking(listenConn->fd_.getFd()) < 0)
+    if (setnonblocking(listenConn->fd_.get()) < 0)
     {
-        LOG_CRIT << "set nonblocking failed";
+        LOG_CRIT << "set nonblocking failed, " << strerror(errno);
         goto bad;
     }
 
-    if (bind(listenConn->fd_.getFd(), (sockaddr *)&listenConn->addr_, sizeof(listenConn->addr_)) != 0)
+    if (bind(listenConn->fd_.get(), (sockaddr *)&listenConn->addr_, sizeof(listenConn->addr_)) != 0)
     {
-        LOG_CRIT << "bind failed";
+        LOG_CRIT << "bind failed, " << strerror(errno);
         goto bad;
     }
 
-    if (listen(listenConn->fd_.getFd(), 4096) != 0)
+    if (listen(listenConn->fd_.get(), 4096) != 0)
     {
-        LOG_CRIT << "listen failed";
+        LOG_CRIT << "listen failed, " << strerror(errno);
         goto bad;
     }
 

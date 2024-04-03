@@ -1,6 +1,7 @@
 {
     "logger": {
         "enable": 1,
+        "level": 0,
         "threshold": 1,
         "interval": 3
     },
@@ -16,27 +17,32 @@
     },
     "servers": [
         {
-            "port": 8000,
-            "root": "static",
+            "port": 8081,
+            "root": "/mnt/d/A_File/VSCode/platform-ts/dist",
             "index": "index.html",
             "from": "/api/",
             "to": [
-                "http://www.baidu.com/",
-                "http://cn.bing.com/"
-            ]
-        },
-        {
-            "port": 8001,
-            "root": "./",
-            "index": "xxxx",
-            "auto_index": 1,
-            "auth_path": [
-                "*README*"
+                "http://139.199.176.139:8080/"
+            ],
+            "try_files": [
+                "index.html"
             ]
         },
         {
             "port": 8082,
-            "root": "/mnt/d/A_File",
+            "root": "/home/sallmc/share",
+            "index": "sdfsdf",
+            "auto_index": 1
+        },
+        {
+            "port": 8083,
+            "root": "./log",
+            "index": "sdfsdf",
+            "auto_index": 1
+        },
+        {
+            "port": 8084,
+            "root": "/mnt/d/A_File/",
             "index": "sdfsdf",
             "auto_index": 1
         }

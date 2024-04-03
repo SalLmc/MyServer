@@ -14,20 +14,20 @@ Fd::~Fd()
 {
     if (fd_ != -1)
     {
-        close(fd_);
+        ::close(fd_);
     }
 }
 
-int Fd::getFd()
+int Fd::get()
 {
     return fd_;
 }
 
-void Fd::closeFd()
+void Fd::close()
 {
     if (fd_ != -1)
     {
-        close(fd_);
+        ::close(fd_);
     }
     fd_ = -1;
 }
@@ -59,9 +59,15 @@ void Fd::operator=(int fd)
 
 void Fd::reset(Fd &&fd)
 {
-    closeFd();
+    close();
     fd_ = fd.fd_;
     fd.fd_ = -1;
+}
+
+void Fd::reset(int fd)
+{
+    close();
+    fd_ = fd;
 }
 
 SharedMemory::SharedMemory() : addr_(NULL)

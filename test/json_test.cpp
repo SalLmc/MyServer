@@ -2,9 +2,10 @@
 
 #include "../src/core/core.h"
 #include "../src/utils/json.hpp"
-
+#include "../src/log/logger.h"
+Level loggerLevel = Level::INFO;
 class Server;
-bool enable_logger;
+bool enableLogger;
 Server *serverPtr;
 
 using std::cout;

@@ -9,6 +9,7 @@ class Server;
 class Connection;
 class Event;
 class Request;
+class LinkedBuffer;
 
 enum class HeaderState
 {
@@ -17,7 +18,6 @@ enum class HeaderState
     SPACE0,
     VALUE,
     SPACE1,
-    IGNORE,
     LINE_DONE,
     HEADERS_DONE
 };
@@ -26,19 +26,19 @@ enum class RequestState
 {
     START,
     METHOD,
-    SPACE_BEFORE_URI,
-    SCHEMA,
-    SCHEMA_SLASH0,
-    SCHEMA_SLASH1,
+    AFTER_METHOD,
+    SCHEME,
+    SCHEME_SLASH0,
+    SCHEME_SLASH1,
     HOST_START,
     HOST,
     HOST_END,
     HOST_IP,
     PORT,
-    AFTER_SLASH_URI,
-    CHECK_URI,
+    URI_AFTER_SLASH,
+    URI_EXT_CHECK,
     URI,
-    HTTP_09,
+    HTTP_START,
     HTTP_H,
     HTTP_HT,
     HTTP_HTT,
@@ -104,17 +104,6 @@ enum class Method
     PROPFIND,
     PROPPATCH
 };
-
-// enum class ResponseCode
-// {
-//     HTTP_OK,
-//     HTTP_NOT_MODIFIED,
-//     HTTP_UNAUTHORIZED,
-//     HTTP_FORBIDDEN,
-//     HTTP_NOT_FOUND,
-//     HTTP_INTERNAL_SERVER_ERROR,
-//     HTTP_MOVED_PERMANENTLY
-// };
 
 enum ResponseCode
 {
@@ -219,7 +208,7 @@ class Request
     ~Request();
     void init();
 
-    bool nowProxyPass_ = 0;
+    bool needProxyPass_ = 0;
     bool quit_ = 0;
     Connection *c_;
 
@@ -241,7 +230,7 @@ class Request
     // GET / POST
     c_str methodName_;
     // http / https / ftp
-    c_str schema_;
+    c_str scheme_;
     // www.bing.com / 121.12.12.12
     c_str host_;
 
@@ -252,13 +241,13 @@ class Request
 
     int atPhase_;
 
-    // URI with "/."
+    // has "/.", "#"
     bool complexUri_;
-    // URI with "%"
+    // has "%"
     bool quotedUri_;
-    // URI with "+"
+    // has "+"
     bool plusInUri_;
-    // URI with empty path
+    // has empty path
     bool emptyPathInUri_;
 
     bool invalidHeader_;
@@ -272,7 +261,7 @@ class Request
     u_char *uriStart_;
     u_char *uriEnd_;
 
-    u_char *uriExt_;
+    u_char *uriExtStart_;
 
     u_char *argsStart_;
 
@@ -281,8 +270,8 @@ class Request
 
     u_char *methodEnd_;
 
-    u_char *schemaStart_;
-    u_char *schemaEnd_;
+    u_char *schemeStart_;
+    u_char *schemeEnd_;
 
     u_char *hostStart_;
     u_char *hostEnd_;
@@ -291,23 +280,21 @@ class Request
     unsigned int httpMajor_;
 };
 
-class ResponseStatus
+class UpsResInfo
 {
   public:
-    ResponseStatus();
+    UpsResInfo();
     void init();
-    int httpVersion_;
-    int code_;
     int count_;
     u_char *start_;
     u_char *end_;
 };
 
-class UpstreamContext
+class UpsContext
 {
   public:
     void init();
-    ResponseStatus status_;
+    UpsResInfo status_;
     int upsIdx_;
 };
 
@@ -317,17 +304,8 @@ class Upstream
     Upstream();
     Connection *upstream_;
     Connection *client_;
-    UpstreamContext ctx_;
+    UpsContext ctx_;
     std::function<int(std::shared_ptr<Request> r)> processHandler_;
-};
-
-class HttpCode
-{
-  public:
-    HttpCode() = default;
-    HttpCode(int code, std::string &&str);
-    int code_;
-    std::string str_;
 };
 
 int newConnection(Event *ev);
@@ -337,8 +315,9 @@ int waitRequestAgain(Event *ev);
 int processRequestLine(Event *ev);
 int readRequest(std::shared_ptr<Request> r);
 int handleRequestUri(std::shared_ptr<Request> r);
+int handleComplexUri(std::shared_ptr<Request> r);
 int processRequestHeaders(Event *ev);
-int tryMoveHeader(std::shared_ptr<Request> r, bool isName);
+int tryMoveBuffer(LinkedBuffer *buffer, void **leftAddr, void **rightAddr);
 int handleRequestHeader(std::shared_ptr<Request> r, int needHost);
 int processRequest(std::shared_ptr<Request> r);
 
@@ -361,17 +340,16 @@ int sendStrEvent(Event *ev);
 int keepAliveRequest(std::shared_ptr<Request> r);
 int finalizeRequest(std::shared_ptr<Request> r);
 int finalizeConnection(Connection *c);
-int finalizeRequestNow(std::shared_ptr<Request> r);
-int finalizeConnectionNow(Connection *c);
+int finalizeRequestLater(std::shared_ptr<Request> r);
+int finalizeConnectionLater(Connection *c);
+int timerRecoverConnection(void *arg);
 
 // others
 std::string getEtag(int fd);
 bool etagMatched(int fd, std::string browserEtag);
 int clientAliveCheck(Event *ev);
-int blockReading(Event *ev);
-int blockWriting(Event *ev);
 std::string getContentType(std::string exten, Charset charset);
-HttpCode getByCode(ResponseCode code);
+std::string getByCode(ResponseCode code);
 std::string getStatusLineByCode(ResponseCode code);
 int selectServer(std::shared_ptr<Request> r);
 

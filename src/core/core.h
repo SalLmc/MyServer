@@ -93,35 +93,28 @@ class ConnectionPool
     ~ConnectionPool();
     Connection *getNewConnection();
     void recoverConnection(Connection *c);
+    bool isActive(Connection *c);
     int activeCnt;
 
   private:
     std::list<Connection *> connectionList_;
-    std::vector<Connection *> connectionPtrs_;
+    std::unordered_map<uint64_t, bool> poolPtrsActiveMap_;
 
-    std::unordered_set<uint64_t> savePtrs_;
+    std::unordered_set<uint64_t> activeMallocPtrs_;
 };
 
-class ServerAttribute
+struct ServerAttribute
 {
-  public:
-    ServerAttribute(int port, std::string &&root, std::string &&index, std::string &&from,
-                    std::vector<std::string> &&to, bool auto_index, std::vector<std::string> &&tryfiles,
-                    std::vector<std::string> &&auth_path);
-    ServerAttribute() = default;
+    int port;
+    std::string root;
+    std::string index;
+    std::string from;
+    std::vector<std::string> to;
+    bool autoIndex;
+    std::vector<std::string> tryFiles;
+    std::vector<std::string> authPaths;
 
-    int port_;
-    std::string root_;
-    std::string index_;
-
-    std::string from_;
-    std::vector<std::string> to_;
-    int idx_ = 0;
-
-    bool auto_index_;
-    std::vector<std::string> tryFiles_;
-
-    std::vector<std::string> authPaths_;
+    int idx = 0;
 };
 
 class Server

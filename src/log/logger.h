@@ -3,7 +3,7 @@
 
 #include "../headers.h"
 
-extern bool enable_logger;
+extern bool enableLogger;
 
 enum class Level
 {
@@ -12,12 +12,13 @@ enum class Level
     CRIT
 };
 
+extern Level loggerLevel;
+
 class LogLine
 {
   public:
     LogLine();
     LogLine(Level level, char const *file, char const *function, unsigned int line);
-    int stringify(char *buffer, int n);
     LogLine &operator<<(int8_t arg);
     LogLine &operator<<(uint8_t arg);
     LogLine &operator<<(int16_t arg);
@@ -92,9 +93,7 @@ class Logger
 
     std::list<LogLine> ls_;
 
-    int info_ = -1;
-    int warn_ = -1;
-    int error_ = -1;
+    int log_ = -1;
 
     std::atomic<State> state_;
 
@@ -105,15 +104,15 @@ class Logger
 };
 
 #define LOG_INFO                                                                                                       \
-    if (enable_logger)                                                                                                 \
+    if (enableLogger && loggerLevel <= Level::INFO)                                                                  \
     __LOG_INFO
 
 #define LOG_WARN                                                                                                       \
-    if (enable_logger)                                                                                                 \
+    if (enableLogger && loggerLevel <= Level::WARN)                                                                  \
     __LOG_WARN
 
 #define LOG_CRIT                                                                                                       \
-    if (enable_logger)                                                                                                 \
+    if (enableLogger && loggerLevel <= Level::CRIT)                                                                  \
     __LOG_CRIT
 
 #define __LOG_INFO __LOG_INFO_INNER(*serverPtr->logger_)

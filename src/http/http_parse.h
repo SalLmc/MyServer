@@ -4,27 +4,13 @@
 #include "../headers.h"
 
 class Request;
-class ResponseStatus;
+class UpsResInfo;
 
-#define str4cmp(m, c0, c1, c2, c3) *(uint32_t *)m == ((c3 << 24) | (c2 << 16) | (c1 << 8) | c0)
-
-#define str5cmp(m, c0, c1, c2, c3, c4) *(uint32_t *)m == ((c3 << 24) | (c2 << 16) | (c1 << 8) | c0) && m[4] == c4
-
-#define str6cmp(m, c0, c1, c2, c3, c4, c5)                                                                         \
-    *(uint32_t *)m == ((c3 << 24) | (c2 << 16) | (c1 << 8) | c0) && (((uint32_t *)m)[1] & 0xffff) == ((c5 << 8) | c4)
-
-#define str8cmp(m, c0, c1, c2, c3, c4, c5, c6, c7)                                                                     \
-    *(uint32_t *)m == ((c3 << 24) | (c2 << 16) | (c1 << 8) | c0) &&                                                    \
-        ((uint32_t *)m)[1] == ((c7 << 24) | (c6 << 16) | (c5 << 8) | c4)
-
-#define str9cmp(m, c0, c1, c2, c3, c4, c5, c6, c7, c8)                                                             \
-    *(uint32_t *)m == ((c3 << 24) | (c2 << 16) | (c1 << 8) | c0) &&                                                    \
-        ((uint32_t *)m)[1] == ((c7 << 24) | (c6 << 16) | (c5 << 8) | c4) && m[8] == c8
-
+#define equal(a, b, len) (memcmp(a, b, len) == 0)
 int parseRequestLine(std::shared_ptr<Request> r);
 int parseComplexUri(std::shared_ptr<Request> r, int mergeSlashes);
-int parseHeaderLine(std::shared_ptr<Request> r, bool allowUnderscores);
+int parseHeaderLine(std::shared_ptr<Request> r);
 int parseChunked(std::shared_ptr<Request> r);
-int parseStatusLine(std::shared_ptr<Request> r, ResponseStatus *status);
+int parseResponseLine(std::shared_ptr<Request> r, UpsResInfo *status);
 
 #endif

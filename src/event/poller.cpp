@@ -56,7 +56,7 @@ bool Poller::delFd(int fd)
     return 1;
 }
 
-int Poller::processEvents(int flags, int timeoutMs)
+int Poller::processEvents(FLAGS flags, int timeoutMs)
 {
     pollfd fds[fdCtxMap_.size()];
 
@@ -93,7 +93,7 @@ int Poller::processEvents(int flags, int timeoutMs)
 
         if ((revents & POLLIN) && c->read_.handler_)
         {
-            if (flags == POSTED)
+            if (flags == FLAGS::POSTED)
             {
                 if (c->read_.type_ == EventType::ACCEPT)
                 {
@@ -117,7 +117,7 @@ int Poller::processEvents(int flags, int timeoutMs)
 
         if ((revents & POLLOUT) && c->write_.handler_)
         {
-            if (flags == POSTED)
+            if (flags == FLAGS::POSTED)
             {
                 postedEvents_.push_back(&c->write_);
             }
@@ -130,10 +130,10 @@ int Poller::processEvents(int flags, int timeoutMs)
     recover:
         if (c->quit_)
         {
-            int fd = c->fd_.getFd();
+            int fd = c->fd_.get();
             delFd(fd);
             serverPtr->pool_.recoverConnection(c);
-            LOG_INFO << "Connection recover, FD:" << fd;
+            LOG_INFO << "Connection recover, fd:" << fd;
         }
     }
     return 0;

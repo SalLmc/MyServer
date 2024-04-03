@@ -8,7 +8,7 @@ class Event;
 
 void master(Server *server);
 void worker(Server *server);
-pid_t spawnProcesses(Server *server, std::function<void(Server *)> proc);
+pid_t startChildProcess(Server *server, std::function<void(Server *)> proc);
 void signalWorkerProcesses(int sig);
 
 int logging(void *arg);

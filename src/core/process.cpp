@@ -1,13 +1,13 @@
 #include "../headers.h"
 
-#include "../core/core.h"
-#include "../event/epoller.h"
-#include "../event/event.h"
+#include "process.h"
+
 #include "../global.h"
-#include "../http/http.h"
 #include "../log/logger.h"
 #include "../utils/utils.h"
-#include "process.h"
+#include "core.h"
+
+int newConnection(Event *ev);
 
 extern Server *serverPtr;
 
@@ -47,7 +47,7 @@ void master(Server *server)
     int num = std::min(serverConfig.processes, MAX_PROCESS_N);
     for (int i = 0; i < num && !isChild; i++)
     {
-        spawnProcesses(server, worker);
+        startChildProcess(server, worker);
     }
 
     if (isChild)
@@ -71,7 +71,7 @@ void master(Server *server)
     LOG_INFO << "Quit";
 }
 
-pid_t spawnProcesses(Server *server, std::function<void(Server *)> proc)
+pid_t startChildProcess(Server *server, std::function<void(Server *)> proc)
 {
     pid_t pid = fork();
 
@@ -141,6 +141,7 @@ void worker(Server *server)
     if (server->initListen(newConnection) == ERROR)
     {
         LOG_CRIT << "init listen failed";
+        exit(1);
     }
 
     server->initEvent(serverConfig.useEpoll);
@@ -148,10 +149,11 @@ void worker(Server *server)
     if (server->regisListen(IN) == ERROR)
     {
         LOG_CRIT << "Listenfd add failed, errno:" << strerror(errno);
+        exit(1);
     }
 
     // timer
-    if (enable_logger)
+    if (enableLogger)
     {
         unsigned long long interval = serverConfig.loggerInterval * 1000;
         server->timer_.add(LOG, "logger timer", getTickMs() + interval, logging, (void *)interval);

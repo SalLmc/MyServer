@@ -11,7 +11,7 @@ extern Server *serverPtr;
 
 u_char extenSave[16];
 
-int testPhaseHandler(std::shared_ptr<Request> r)
+int testPhaseFunc(std::shared_ptr<Request> r)
 {
     r->contextOut_.resCode_ = HTTP_OK;
     r->contextOut_.statusLine_ = getStatusLineByCode(r->contextOut_.resCode_);
@@ -26,30 +26,30 @@ int testPhaseHandler(std::shared_ptr<Request> r)
     return doResponse(r);
 }
 
-std::vector<PhaseHandler> phases{{genericPhaseChecker, {logPhaseHandler}},
+std::vector<Phase> phases{{genericPhaseHandler, {logPhaseFunc}},
 
-                                 {genericPhaseChecker, {authAccessHandler, contentAccessHandler}},
-                                 {genericPhaseChecker, {proxyPassHandler}},
-                                 {genericPhaseChecker, {staticContentHandler, autoIndexHandler}},
+                          {genericPhaseHandler, {authAccessFunc, contentAccessFunc}},
+                          {genericPhaseHandler, {proxyPassFunc}},
+                          {genericPhaseHandler, {staticContentFunc, autoIndexFunc}},
 
-                                 {genericPhaseChecker, {endPhaseHandler}}};
+                          {genericPhaseHandler, {endPhaseFunc}}};
 
-PhaseHandler::PhaseHandler(std::function<int(std::shared_ptr<Request>, PhaseHandler *)> checker,
-                           std::vector<std::function<int(std::shared_ptr<Request>)>> &&handlers)
-    : checker(checker), handlers(handlers)
+Phase::Phase(std::function<int(std::shared_ptr<Request>, Phase *)> phaseHandler,
+             std::vector<std::function<int(std::shared_ptr<Request>)>> &&funcs)
+    : phaseHandler(phaseHandler), funcs(funcs)
 {
 }
 
-int genericPhaseChecker(std::shared_ptr<Request> r, PhaseHandler *ph)
+int genericPhaseHandler(std::shared_ptr<Request> r, Phase *ph)
 {
     int ret = 0;
 
     // PHASE_CONTINUE: call the next function in this phase
     // PHASE_NEXT: go to next phase & let runPhases keep running phases
     // PHASE_ERR: do nothing & return
-    for (size_t i = 0; i < ph->handlers.size(); i++)
+    for (size_t i = 0; i < ph->funcs.size(); i++)
     {
-        ret = ph->handlers[i](r);
+        ret = ph->funcs[i](r);
         if (ret == PHASE_NEXT)
         {
             r->atPhase_++;
@@ -77,29 +77,32 @@ int passPhaseHandler(std::shared_ptr<Request> r)
     return PHASE_NEXT;
 }
 
-int endPhaseHandler(std::shared_ptr<Request> r)
+int endPhaseFunc(std::shared_ptr<Request> r)
 {
     LOG_CRIT << "endPhaseHandler PHASE_ERR";
     return PHASE_ERR;
 }
 
-int logPhaseHandler(std::shared_ptr<Request> r)
+int logPhaseFunc(std::shared_ptr<Request> r)
 {
-    LOG_INFO << "Log handler, FD:" << r->c_->fd_.getFd();
     char ipString[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &r->c_->addr_.sin_addr, ipString, INET_ADDRSTRLEN);
     LOG_INFO << "ip: " << ipString;
 
+    // for (auto &x : r->c_->readBuffer_.nodes_)
+    // {
+    //     LOG_INFO << x.toStringAll();
+    // }
+
     return PHASE_NEXT;
 }
 
-int authAccessHandler(std::shared_ptr<Request> r)
+int authAccessFunc(std::shared_ptr<Request> r)
 {
-    LOG_INFO << "Auth access handler, FD:" << r->c_->fd_.getFd();
     auto &server = serverPtr->servers_[r->c_->serverIdx_];
 
     bool need_auth = 0;
-    for (std::string path : server.authPaths_)
+    for (std::string path : server.authPaths)
     {
         if (isMatch(r->uri_.toString(), path))
         {
@@ -116,21 +119,14 @@ int authAccessHandler(std::shared_ptr<Request> r)
     int ok = 0;
 
     char authc[128] = {0};
-    std::string path = "authcode_" + std::to_string(server.port_);
+    std::string path = "authcode_" + std::to_string(server.port);
     std::string auth;
     Fd fd(open(path.c_str(), O_RDONLY));
-    if (fd.getFd() >= 0)
+    if (fd.get() >= 0)
     {
-        read(fd.getFd(), authc, sizeof(authc));
+        read(fd.get(), authc, sizeof(authc));
         auth.append(authc);
     }
-
-    // std::string args = std::string(r->args.data, r->args.data + r->args.len);
-
-    // if (args.find("code=" + auth) != std::string::npos)
-    // {
-    //     ok = 1;
-    // }
 
     if (!ok)
     {
@@ -148,25 +144,30 @@ int authAccessHandler(std::shared_ptr<Request> r)
         return PHASE_CONTINUE;
     }
 
+    LOG_INFO << "Unauthorized";
     setErrorResponse(r, HTTP_UNAUTHORIZED);
 
     return doResponse(r);
 }
 
-int contentAccessHandler(std::shared_ptr<Request> r)
+int contentAccessFunc(std::shared_ptr<Request> r)
 {
-    LOG_INFO << "Content access handler, FD:" << r->c_->fd_.getFd();
     auto &server = serverPtr->servers_[r->c_->serverIdx_];
     std::string uri = std::string(r->uri_.data_, r->uri_.data_ + r->uri_.len_);
     std::string path;
+    std::string root;
+    std::string filePath;
     Fd fd;
+    Fd filefd;
+    struct stat st = {};
+    bool existed = 0;
 
     // proxy_pass
-    if (server.from_ != "")
+    if (!server.from.empty() && !server.to.empty())
     {
-        if (uri.find(server.from_) != std::string::npos)
+        if (uri.find(server.from) != std::string::npos)
         {
-            r->nowProxyPass_ = 1;
+            r->needProxyPass_ = 1;
             return PHASE_NEXT;
         }
     }
@@ -178,34 +179,46 @@ int contentAccessHandler(std::shared_ptr<Request> r)
         return doResponse(r);
     }
 
-    path = server.root_ + uri;
-    fd = open(path.c_str(), O_RDONLY);
-
-    if (fd.getFd() < 0)
+    // root check
     {
-        if (open(server.root_.c_str(), O_RDONLY) < 0)
+        Fd tmp(open(server.root.c_str(), O_RDONLY));
+        if (tmp.get() < 0)
         {
-            LOG_WARN << "can't open server root location";
+            LOG_WARN << "Can't open server root location";
             setErrorResponse(r, HTTP_INTERNAL_SERVER_ERROR);
             return doResponse(r);
         }
-        goto send404;
     }
 
-    struct stat st;
-    fstat(fd.getFd(), &st);
-    if (st.st_mode & S_IFDIR)
+    path = server.root + uri;
+    root = (server.root.back() == '/') ? server.root : (server.root + "/");
+
+    fd.reset(open(path.c_str(), O_RDONLY));
+
+    if (fd.get() > 0)
     {
-        // use index & try_files
+        existed = 1;
+        fstat(fd.get(), &st);
+        if (st.st_mode & S_IFDIR)
+        {
+            fd.reset(-1);
+        }
+        else
+        {
+            goto fileok;
+        }
+    }
+
+    // is a directory
+    if (existed)
+    {
         if (path.back() != '/')
         {
             path += "/";
         }
-
-        // index
-        std::string filePath = path + server.index_;
-        Fd filefd(open(filePath.c_str(), O_RDONLY));
-        if (filefd.getFd() >= 0)
+        filePath = path + server.index;
+        filefd.reset(open(filePath.c_str(), O_RDONLY));
+        if (filefd.get() >= 0)
         {
             auto pos = filePath.find('.');
             if (pos != std::string::npos) // has exten
@@ -219,62 +232,40 @@ int contentAccessHandler(std::shared_ptr<Request> r)
                 r->exten_.len_ = extenlen;
             }
 
-            fd.closeFd();
             fd.reset(std::move(filefd));
-
             goto fileok;
         }
-        else // try_files
-        {
-            for (auto &name : server.tryFiles_)
-            {
-                filePath = path + name;
-                filefd = open(filePath.c_str(), O_RDONLY);
-                if (filefd.getFd() >= 0)
-                {
-                    struct stat st;
-                    fstat(fd.getFd(), &st);
-                    if (!(st.st_mode & S_IFDIR))
-                    {
-                        auto pos = filePath.find('.');
-                        if (pos != std::string::npos) // has exten
-                        {
-                            int extenlen = filePath.length() - pos - 1;
-                            for (int i = 0; i < extenlen; i++)
-                            {
-                                extenSave[i] = filePath[i + pos + 1];
-                            }
-                            r->exten_.data_ = extenSave;
-                            r->exten_.len_ = extenlen;
-                        }
-
-                        fd.reset(std::move(filefd));
-
-                        goto fileok;
-                    }
-                    else
-                    {
-                        filefd.closeFd();
-                    }
-                }
-            }
-        }
-
-        // try autoindex
-        goto autoindex;
     }
-    else
+
+    for (auto &name : server.tryFiles)
     {
-        goto fileok;
+        filePath = root + name;
+        filefd.reset(open(filePath.c_str(), O_RDONLY));
+        if (filefd.get() >= 0)
+        {
+            auto pos = filePath.find('.');
+            if (pos != std::string::npos) // has exten
+            {
+                int extenlen = filePath.length() - pos - 1;
+                for (int i = 0; i < extenlen; i++)
+                {
+                    extenSave[i] = filePath[i + pos + 1];
+                }
+                r->exten_.data_ = extenSave;
+                r->exten_.len_ = extenlen;
+            }
+
+            fd.reset(std::move(filefd));
+        }
     }
 
 fileok:
-    if (fd.getFd() >= 0)
+    if (fd.get() >= 0)
     {
         if (r->contextIn_.headerNameValueMap_.count("if-none-match"))
         {
             std::string browser_etag = r->contextIn_.headerNameValueMap_["if-none-match"].value_;
-            if (etagMatched(fd.getFd(), browser_etag))
+            if (etagMatched(fd.get(), browser_etag))
             {
                 r->contextOut_.resCode_ = HTTP_NOT_MODIFIED;
                 r->contextOut_.statusLine_ = getStatusLineByCode(r->contextOut_.resCode_);
@@ -289,7 +280,7 @@ fileok:
         r->contextOut_.resType_ = ResponseType::FILE;
 
         struct stat st;
-        fstat(fd.getFd(), &st);
+        fstat(fd.get(), &st);
         r->contextOut_.fileBody_.fileSize_ = st.st_size;
 
         // close fd after sendfile in writeResponse
@@ -298,14 +289,7 @@ fileok:
         return PHASE_NEXT;
     }
 
-autoindex:
-    if (server.auto_index_ == 0)
-    {
-    send404:
-        setErrorResponse(r, HTTP_NOT_FOUND);
-        return doResponse(r);
-    }
-    else
+    if (existed && server.autoIndex)
     {
         // access a directory but uri doesn't end with '/'
         if (uri.back() != '/')
@@ -320,22 +304,21 @@ autoindex:
         r->contextOut_.resType_ = ResponseType::AUTO_INDEX;
         return PHASE_NEXT;
     }
+
+    setErrorResponse(r, HTTP_NOT_FOUND);
+    return doResponse(r);
 }
 
-int proxyPassHandler(std::shared_ptr<Request> r)
+int proxyPassFunc(std::shared_ptr<Request> r)
 {
-    LOG_INFO << "Proxy pass handler, FD:" << r->c_->fd_.getFd();
-
-    if (r->nowProxyPass_ != 1)
+    if (r->needProxyPass_ != 1)
     {
         return PHASE_NEXT;
     }
-    r->nowProxyPass_ = 0;
-
-    LOG_INFO << "Need proxy pass";
+    r->needProxyPass_ = 0;
 
     int ret = readRequestBody(r, initUpstream);
-    LOG_INFO << "readRequestBody:" << ret;
+
     if (ret != OK)
     {
         LOG_WARN << "PHASE ERR";
@@ -345,316 +328,12 @@ int proxyPassHandler(std::shared_ptr<Request> r)
     return PHASE_QUIT;
 }
 
-int initUpstream(std::shared_ptr<Request> r)
+int staticContentFunc(std::shared_ptr<Request> r)
 {
-    LOG_INFO << "Initing upstream";
-
-    int val = 1;
-    bool isDomain = 0;
-
-    // setup upstream server
-    auto &server = serverPtr->servers_[r->c_->serverIdx_];
-    int idx = selectServer(r);
-    std::string addr = server.to_[idx];
-
-    std::string ip;
-    std::string domain;
-    int port = 80;
-
-    try
-    {
-        auto upstreamInfo = getServer(addr);
-        if (isHostname(upstreamInfo.first))
-        {
-            ip = getIpByDomain(upstreamInfo.first);
-            isDomain = 1;
-            domain = upstreamInfo.first;
-        }
-        else
-        {
-            ip = upstreamInfo.first;
-        }
-        port = upstreamInfo.second;
-    }
-    catch (const std::exception &e)
-    {
-        LOG_WARN << e.what();
-        return ERROR;
-    }
-
-    // replace uri
-    std::string fullUri = std::string(r->uriStart_, r->uriEnd_);
-    std::string newUri = getLeftUri(addr) + fullUri.replace(0, server.from_.length(), "");
-
-    LOG_INFO << "Upstream to " << addr << " -> " << ip << ":" << port << newUri;
-
-    // setup connection
-    Connection *upc = serverPtr->pool_.getNewConnection();
-
-    if (upc == NULL)
-    {
-        LOG_WARN << "get connection failed";
-        finalizeRequest(r);
-        return ERROR;
-    }
-
-    upc->fd_ = socket(AF_INET, SOCK_STREAM, 0);
-
-    if (upc->fd_.getFd() < 0)
-    {
-        LOG_WARN << "open fd failed";
-        serverPtr->pool_.recoverConnection(upc);
-        finalizeRequest(r);
-        return ERROR;
-    }
-
-    if (setsockopt(upc->fd_.getFd(), SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) < 0)
-    {
-        LOG_WARN << "set keepalived failed";
-        serverPtr->pool_.recoverConnection(upc);
-        finalizeRequest(r);
-        return ERROR;
-    }
-
-    upc->addr_.sin_family = AF_INET;
-    inet_pton(AF_INET, ip.c_str(), &upc->addr_.sin_addr);
-    upc->addr_.sin_port = htons(port);
-
-    if (connect(upc->fd_.getFd(), (struct sockaddr *)&upc->addr_, sizeof(upc->addr_)) < 0)
-    {
-        LOG_WARN << "CONNECT ERR, FINALIZE CONNECTION, errro: " << strerror(errno);
-        serverPtr->pool_.recoverConnection(upc);
-        finalizeRequest(r);
-        return ERROR;
-    }
-
-    if (setnonblocking(upc->fd_.getFd()) < 0)
-    {
-        LOG_WARN << "set nonblocking failed";
-        serverPtr->pool_.recoverConnection(upc);
-        finalizeRequest(r);
-        return ERROR;
-    }
-
-    LOG_INFO << "Upstream connected";
-
-    // setup upstream
-    std::shared_ptr<Upstream> ups(new Upstream());
-    r->c_->upstream_ = ups;
-    upc->upstream_ = ups;
-    ups->client_ = r->c_;
-    ups->upstream_ = upc;
-    ups->ctx_.upsIdx_ = idx;
-
-    // setup send content
-    auto &wb = upc->writeBuffer_;
-    wb.append(r->methodName_.toString() + " " + newUri + " HTTP/1.1\r\n");
-    auto &in = r->contextIn_;
-
-    // headers
-    bool needRewriteHost = 0;
-    for (auto &x : in.headers_)
-    {
-        if (isDomain && (x.name_ == "Host" || x.name_ == "host"))
-        {
-            needRewriteHost = 1;
-            continue;
-        }
-        std::string thisHeader = x.name_ + ": " + x.value_ + "\r\n";
-        wb.append(thisHeader);
-    }
-    if (needRewriteHost)
-    {
-        wb.append("Host: ");
-        wb.append(domain);
-        wb.append("\r\n");
-    }
-    wb.append("\r\n");
-
-    // body
-    for (auto &x : r->requestBody_.listBody_)
-    {
-        wb.append(x.toString());
-    }
-
-    // read: empty; write: send2Upstream
-    upc->write_.handler_ = send2Upstream;
-
-    // read: clientAliveCheck; write: empty
-    r->c_->read_.handler_ = clientAliveCheck;
-
-    if (serverPtr->multiplexer_->addFd(upc->fd_.getFd(), Events(IN | OUT | ET), upc) != 1)
-    {
-        LOG_CRIT << "epoller addfd failed, error:" << strerror(errno);
-        serverPtr->pool_.recoverConnection(upc);
-        finalizeRequest(r);
-        return ERROR;
-    }
-
-    // send && call send2Upstream at upc's loop
-    return OK;
-}
-
-int send2Upstream(Event *upcEv)
-{
-    Connection *upc = upcEv->c_;
-    std::shared_ptr<Upstream> ups = upc->upstream_;
-    std::shared_ptr<Request> cr = upc->upstream_->client_->request_;
-    int ret = 0;
-
-    for (; upc->writeBuffer_.allRead() != 1;)
-    {
-        ret = upc->writeBuffer_.bufferSend(upc->fd_.getFd(), 0);
-
-        if (upc->writeBuffer_.allRead())
-        {
-            break;
-        }
-
-        if (ret < 0)
-        {
-            if (errno == EAGAIN)
-            {
-                return AGAIN;
-            }
-            else
-            {
-                LOG_WARN << "SEND ERR, FINALIZE CONNECTION";
-                finalizeConnection(upc);
-                finalizeRequestNow(cr);
-                return ERROR;
-            }
-        }
-        else if (ret == 0)
-        {
-            LOG_WARN << "Upstream close connection, FINALIZE CONNECTION";
-            finalizeConnection(upc);
-            finalizeRequestNow(cr);
-            return ERROR;
-        }
-        else
-        {
-            continue;
-        }
-    }
-
-    // remove EPOLLOUT events
-    if (serverPtr->multiplexer_->modFd(upc->fd_.getFd(), Events(IN | ET), upc) != 1)
-    {
-        LOG_CRIT << "epoller modfd failed, error:" << strerror(errno);
-        finalizeConnection(upc);
-        finalizeRequestNow(cr);
-    }
-
-    // read: recvFromUpstream; write: empty
-    upc->write_.handler_ = std::function<int(Event *)>();
-    upc->read_.handler_ = recvFromUpstream;
-
-    ups->processHandler_ = processUpsStatusLine;
-    std::shared_ptr<Request> upsr(new Request());
-    upsr->c_ = ups->upstream_;
-    ups->upstream_->request_ = upsr;
-
-    LOG_INFO << "Send client data to upstream complete";
-
-    return recvFromUpstream(&upc->read_);
-}
-
-int recvFromUpstream(Event *upcEv)
-{
-    int n;
-    int ret;
-    Connection *upc = upcEv->c_;
-    std::shared_ptr<Upstream> ups = upc->upstream_;
-
-    std::shared_ptr<Request> cr = ups->client_->request_;
-    std::shared_ptr<Request> upsr = ups->upstream_->request_;
-
-    while (1)
-    {
-        n = upc->readBuffer_.bufferRecv(upc->fd_.getFd(), 0);
-        if (n < 0 && errno == EAGAIN)
-        {
-            LOG_INFO << "recv from upstream EAGAIN";
-            return AGAIN;
-        }
-        else if (n < 0 && errno != EAGAIN)
-        {
-            LOG_WARN << "Recv error, errno: " << strerror(errno);
-            finalizeRequest(upsr);
-            finalizeRequestNow(cr);
-            return ERROR;
-        }
-        else if (n == 0)
-        {
-            LOG_WARN << "Upstream server close connection";
-            finalizeRequest(upsr);
-            finalizeRequestNow(cr);
-            return ERROR;
-        }
-        else
-        {
-            // processUpsStatusLine->processHeaders->processBody
-            ret = ups->processHandler_(upsr);
-            if (ret == AGAIN)
-            {
-                continue;
-            }
-            else if (ret == ERROR)
-            {
-                LOG_WARN << "Process error";
-                finalizeRequest(upsr);
-                finalizeRequestNow(cr);
-                return ERROR;
-            }
-
-            // OK
-            break;
-        }
-    }
-
-    LOG_INFO << "Upstream recv done";
-
-    upsr->c_->writeBuffer_.append("HTTP/1.1 " + std::string(ups->ctx_.status_.start_, ups->ctx_.status_.end_) + "\r\n");
-    for (auto &x : upsr->contextIn_.headers_)
-    {
-        upsr->c_->writeBuffer_.append(x.name_ + ": " + x.value_ + "\r\n");
-    }
-    upsr->c_->writeBuffer_.append("\r\n");
-    for (auto &x : upsr->requestBody_.listBody_)
-    {
-        upsr->c_->writeBuffer_.append(x.toString());
-    }
-
-    // read: empty; write: empty
-    upc->read_.handler_ = std::function<int(Event *)>();
-    upc->write_.handler_ = std::function<int(Event *)>();
-
-    // read: block; write: send2Client
-    upc->upstream_->client_->read_.handler_ = blockReading;
-    upc->upstream_->client_->write_.handler_ = send2Client;
-
-    // call send2Client at client's loop
-    if (serverPtr->multiplexer_->modFd(upc->upstream_->client_->fd_.getFd(), Events(IN | OUT | ET),
-                                       upc->upstream_->client_) != 1)
-    {
-        LOG_CRIT << "epoller modfd failed, error:" << strerror(errno);
-        finalizeRequest(upsr);
-        finalizeRequestNow(cr);
-        return ERROR;
-    }
-
-    return OK;
-}
-
-int staticContentHandler(std::shared_ptr<Request> r)
-{
-    LOG_INFO << "Static content handler, FD:" << r->c_->fd_.getFd();
     if (r->contextOut_.resType_ == ResponseType::FILE)
     {
-        LOG_INFO << "RES_FILE";
         r->contextOut_.contentLength_ = r->contextOut_.fileBody_.fileSize_;
-        std::string etag = getEtag(r->contextOut_.fileBody_.filefd_.getFd());
+        std::string etag = getEtag(r->contextOut_.fileBody_.filefd_.get());
         if (etag != "")
         {
             r->contextOut_.headers_.emplace_back("Etag", std::move(etag));
@@ -662,17 +341,14 @@ int staticContentHandler(std::shared_ptr<Request> r)
     }
     else if (r->contextOut_.resType_ == ResponseType::STRING)
     {
-        LOG_INFO << "RES_STR";
         r->contextOut_.contentLength_ = r->contextOut_.strBody_.length();
     }
     else if (r->contextOut_.resType_ == ResponseType::EMPTY)
     {
-        LOG_INFO << "RES_EMTPY";
         r->contextOut_.contentLength_ = 0;
     }
     else if (r->contextOut_.resType_ == ResponseType::AUTO_INDEX)
     {
-        LOG_INFO << "RES_AUTO_INDEX";
         return PHASE_CONTINUE;
     }
 
@@ -685,9 +361,8 @@ int staticContentHandler(std::shared_ptr<Request> r)
     return doResponse(r);
 }
 
-int autoIndexHandler(std::shared_ptr<Request> r)
+int autoIndexFunc(std::shared_ptr<Request> r)
 {
-    LOG_INFO << "Auto index handler, FD:" << r->c_->fd_.getFd();
     if (r->contextOut_.resType_ != ResponseType::AUTO_INDEX)
     {
         LOG_WARN << "Pass auto index handler";
@@ -710,13 +385,14 @@ int autoIndexHandler(std::shared_ptr<Request> r)
     static char tail[] = "</pre>" CRLF "<hr>" CRLF "</body>" CRLF "</html>";
 
     // open location
-    auto &root = server.root_;
+    auto &root = server.root;
     auto subpath = std::string(r->uri_.data_, r->uri_.data_ + r->uri_.len_);
     Dir directory(opendir((root + subpath).c_str()));
 
     // can't open dir
     if (directory.dir_ == NULL)
     {
+        LOG_WARN << "Can't open directory";
         setErrorResponse(r, HTTP_INTERNAL_SERVER_ERROR);
         return doResponse(r);
     }
@@ -759,6 +435,399 @@ int autoIndexHandler(std::shared_ptr<Request> r)
     return doResponse(r);
 }
 
+int initUpstream(std::shared_ptr<Request> r)
+{
+    int val = 1;
+    bool isDomain = 0;
+
+    // setup upstream server
+    auto &server = serverPtr->servers_[r->c_->serverIdx_];
+    int idx = selectServer(r);
+    std::string addr = server.to[idx];
+
+    std::string ip;
+    std::string domain;
+    int port = 80;
+
+    try
+    {
+        auto upstreamInfo = getServer(addr);
+        if (isHostname(upstreamInfo.first))
+        {
+            ip = getIpByDomain(upstreamInfo.first);
+            isDomain = 1;
+            domain = upstreamInfo.first;
+        }
+        else
+        {
+            ip = upstreamInfo.first;
+        }
+        port = upstreamInfo.second;
+    }
+    catch (const std::exception &e)
+    {
+        LOG_WARN << e.what();
+        return ERROR;
+    }
+
+    // replace uri
+    std::string fullUri = std::string(r->uriStart_, r->uriEnd_);
+    std::string newUri = getLeftUri(addr) + fullUri.replace(0, server.from.length(), "");
+
+    LOG_INFO << "Upstream request: " << r->requestLine_.toString() << " to " << ip << ":" << port << newUri;
+
+    // setup connection
+    Connection *upc = serverPtr->pool_.getNewConnection();
+
+    if (upc == NULL)
+    {
+        LOG_WARN << "Get connection failed";
+        finalizeRequest(r);
+        return ERROR;
+    }
+
+    upc->fd_ = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (upc->fd_.get() < 0)
+    {
+        LOG_WARN << "Open fd failed";
+        serverPtr->pool_.recoverConnection(upc);
+        finalizeRequest(r);
+        return ERROR;
+    }
+
+    if (setsockopt(upc->fd_.get(), SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) < 0)
+    {
+        LOG_WARN << "Set keepalived failed";
+        serverPtr->pool_.recoverConnection(upc);
+        finalizeRequest(r);
+        return ERROR;
+    }
+
+    upc->addr_.sin_family = AF_INET;
+    inet_pton(AF_INET, ip.c_str(), &upc->addr_.sin_addr);
+    upc->addr_.sin_port = htons(port);
+
+    if (connect(upc->fd_.get(), (struct sockaddr *)&upc->addr_, sizeof(upc->addr_)) < 0)
+    {
+        LOG_WARN << "Connect error, errno: " << strerror(errno);
+        serverPtr->pool_.recoverConnection(upc);
+        finalizeRequest(r);
+        return ERROR;
+    }
+
+    if (setnonblocking(upc->fd_.get()) < 0)
+    {
+        LOG_WARN << "Set nonblocking failed";
+        serverPtr->pool_.recoverConnection(upc);
+        finalizeRequest(r);
+        return ERROR;
+    }
+
+    // setup upstream
+    std::shared_ptr<Upstream> ups(new Upstream());
+    r->c_->upstream_ = ups;
+    upc->upstream_ = ups;
+    ups->client_ = r->c_;
+    ups->upstream_ = upc;
+    ups->ctx_.upsIdx_ = idx;
+    std::shared_ptr<Request> upsr(new Request());
+    upsr->c_ = ups->upstream_;
+    ups->upstream_->request_ = upsr;
+
+    // setup send content
+    auto &wb = upc->writeBuffer_;
+    wb.append(r->methodName_.toString() + " " + newUri + " HTTP/1.1\r\n");
+    auto &in = r->contextIn_;
+
+    // headers
+    bool needRewriteHost = 0;
+    for (auto &x : in.headers_)
+    {
+        if (isDomain && (x.name_ == "Host" || x.name_ == "host"))
+        {
+            needRewriteHost = 1;
+            continue;
+        }
+        std::string thisHeader = x.name_ + ": " + x.value_ + "\r\n";
+        wb.append(thisHeader);
+    }
+    if (needRewriteHost)
+    {
+        wb.append("Host: ");
+        wb.append(domain);
+        wb.append("\r\n");
+    }
+    wb.append("\r\n");
+
+    // body
+    for (auto &x : r->requestBody_.listBody_)
+    {
+        wb.append(x.toString());
+    }
+
+    // read: empty; write: send2Upstream
+    upc->write_.handler_ = send2Upstream;
+
+    // read: clientAliveCheck; write: empty
+    r->c_->read_.handler_ = clientAliveCheck;
+
+    if (serverPtr->multiplexer_->addFd(upc->fd_.get(), Events(IN | OUT | ET), upc) != 1)
+    {
+        LOG_CRIT << "epoller addfd failed, error:" << strerror(errno);
+        serverPtr->pool_.recoverConnection(upc);
+        finalizeRequest(r);
+        return ERROR;
+    }
+
+    LOG_INFO << "Connect to upstream OK, client: " << r->c_->fd_.get() << ", upstream: " << upc->fd_.get();
+
+    // send && call send2Upstream at upc's loop
+
+    serverPtr->timer_.add(upc->fd_.get(), "Upstream writable timeout", getTickMs() + 5000, setEventTimeout,
+                          (void *)&upc->write_);
+
+    return OK;
+}
+
+int send2Upstream(Event *upcEv)
+{
+    Connection *upc = upcEv->c_;
+    std::shared_ptr<Upstream> ups = upc->upstream_;
+    std::shared_ptr<Request> cr = upc->upstream_->client_->request_;
+    std::shared_ptr<Request> upsr = ups->upstream_->request_;
+
+    if (upcEv->timeout_ == TimeoutStatus::TIMEOUT)
+    {
+        LOG_INFO << "Upstream writable timeout, fd:" << upcEv->c_->fd_.get();
+        finalizeRequest(upsr);
+
+        // executed in timer already
+        int fd = cr->c_->fd_.get();
+        serverPtr->multiplexer_->delFd(fd);
+        serverPtr->pool_.recoverConnection(cr->c_);
+
+        return -1;
+    }
+
+    serverPtr->timer_.remove(upcEv->c_->fd_.get());
+
+    int ret = 0;
+
+    for (; upc->writeBuffer_.allRead() != 1;)
+    {
+        ret = upc->writeBuffer_.bufferSend(upc->fd_.get(), 0);
+
+        if (upc->writeBuffer_.allRead())
+        {
+            break;
+        }
+
+        if (ret < 0)
+        {
+            if (errno == EAGAIN)
+            {
+                return AGAIN;
+            }
+            else
+            {
+                LOG_WARN << "Send error, errno: " << strerror(errno);
+                finalizeRequest(upsr);
+                finalizeRequestLater(cr);
+                return ERROR;
+            }
+        }
+        else if (ret == 0)
+        {
+            LOG_WARN << "Upstream close connection";
+            finalizeRequest(upsr);
+            finalizeRequestLater(cr);
+            return ERROR;
+        }
+        else
+        {
+            continue;
+        }
+    }
+
+    // remove EPOLLOUT events
+    if (serverPtr->multiplexer_->modFd(upc->fd_.get(), Events(IN | ET), upc) != 1)
+    {
+        LOG_CRIT << "epoller modfd failed, error:" << strerror(errno);
+        finalizeRequest(upsr);
+        finalizeRequestLater(cr);
+    }
+
+    // read: recvFromUpstream; write: empty
+    upc->write_.handler_ = std::function<int(Event *)>();
+    upc->read_.handler_ = recvFromUpstream;
+
+    ups->processHandler_ = processUpsStatusLine;
+
+    LOG_INFO << "Send client data to upstream complete";
+
+    return recvFromUpstream(&upc->read_);
+}
+
+int recvFromUpstream(Event *upcEv)
+{
+    int n;
+    int ret;
+    Connection *upc = upcEv->c_;
+    std::shared_ptr<Upstream> ups = upc->upstream_;
+
+    std::shared_ptr<Request> cr = ups->client_->request_;
+    std::shared_ptr<Request> upsr = ups->upstream_->request_;
+
+    while (1)
+    {
+        n = upc->readBuffer_.bufferRecv(upc->fd_.get(), 0);
+        if (n < 0 && errno == EAGAIN)
+        {
+            LOG_INFO << "Recv from upstream EAGAIN";
+            return AGAIN;
+        }
+        else if (n < 0 && errno != EAGAIN)
+        {
+            LOG_WARN << "Recv error, errno: " << strerror(errno);
+            finalizeRequest(upsr);
+            finalizeRequestLater(cr);
+            return ERROR;
+        }
+        else if (n == 0)
+        {
+            LOG_WARN << "Upstream server close connection";
+            finalizeRequest(upsr);
+            finalizeRequestLater(cr);
+            return ERROR;
+        }
+        else
+        {
+            // processUpsStatusLine->processHeaders->processBody
+            ret = ups->processHandler_(upsr);
+            if (ret == AGAIN)
+            {
+                continue;
+            }
+            else if (ret == ERROR)
+            {
+                LOG_WARN << "Process error";
+                finalizeRequest(upsr);
+                finalizeRequestLater(cr);
+                return ERROR;
+            }
+
+            // OK
+            break;
+        }
+    }
+
+    LOG_INFO << "Recv from upstream done";
+
+    if (tryMoveBuffer(&upsr->c_->readBuffer_, (void **)&ups->ctx_.status_.start_, (void **)&ups->ctx_.status_.end_) ==
+        ERROR)
+    {
+        LOG_WARN << "too long response line" << strerror(errno);
+        finalizeRequest(upsr);
+        finalizeRequestLater(cr);
+        return ERROR;
+    }
+
+    cr->c_->writeBuffer_.append(std::string(ups->ctx_.status_.start_, ups->ctx_.status_.end_) + "\r\n");
+    for (auto &x : upsr->contextIn_.headers_)
+    {
+        cr->c_->writeBuffer_.append(x.name_ + ": " + x.value_ + "\r\n");
+    }
+    cr->c_->writeBuffer_.append("\r\n");
+    for (auto &x : upsr->requestBody_.listBody_)
+    {
+        cr->c_->writeBuffer_.append(x.toString());
+    }
+
+    // read: empty; write: send2Client
+    cr->c_->read_.handler_ = std::function<int(Event *)>();
+    cr->c_->write_.handler_ = send2Client;
+
+    // call send2Client at client's loop
+    if (serverPtr->multiplexer_->modFd(cr->c_->fd_.get(), Events(IN | OUT | ET), cr->c_) != 1)
+    {
+        LOG_CRIT << "epoller modfd failed, error:" << strerror(errno);
+        finalizeRequest(upsr);
+        finalizeRequestLater(cr);
+        return ERROR;
+    }
+
+    finalizeRequest(upsr);
+
+    serverPtr->timer_.add(cr->c_->fd_.get(), "Client writable timeout", getTickMs() + 5000, setEventTimeout,
+                          (void *)&cr->c_->write_);
+
+    return OK;
+}
+
+int send2Client(Event *ev)
+{
+    Connection *c = ev->c_;
+    std::shared_ptr<Request> r = c->request_;
+
+    if (ev->timeout_ == TimeoutStatus::TIMEOUT)
+    {
+        LOG_INFO << "Client writable timeout, fd:" << c->fd_.get();
+        finalizeRequest(r);
+        return -1;
+    }
+
+    serverPtr->timer_.remove(c->fd_.get());
+
+    int ret = 0;
+
+    for (; c->writeBuffer_.allRead() != 1;)
+    {
+        ret = c->writeBuffer_.bufferSend(c->fd_.get(), 0);
+
+        if (c->writeBuffer_.allRead())
+        {
+            break;
+        }
+
+        if (ret < 0)
+        {
+            if (errno == EAGAIN)
+            {
+                return AGAIN;
+            }
+            else
+            {
+                LOG_WARN << "Send error, errno: " << strerror(errno);
+                finalizeRequest(r);
+                return ERROR;
+            }
+        }
+        else if (ret == 0)
+        {
+            LOG_WARN << "Client close connection";
+            finalizeRequest(r);
+            return ERROR;
+        }
+        else
+        {
+            continue;
+        }
+    }
+
+    LOG_INFO << "Responsed";
+
+    if (r->contextIn_.connectionType_ == ConnectionType::KEEP_ALIVE)
+    {
+        keepAliveRequest(r);
+    }
+    else
+    {
+        finalizeRequest(r);
+    }
+    return OK;
+}
+
 int appendResponseLine(std::shared_ptr<Request> r)
 {
     auto &writebuffer = r->c_->writeBuffer_;
@@ -768,6 +837,7 @@ int appendResponseLine(std::shared_ptr<Request> r)
 
     return OK;
 }
+
 int appendResponseHeader(std::shared_ptr<Request> r)
 {
     auto &writebuffer = r->c_->writeBuffer_;
@@ -782,6 +852,7 @@ int appendResponseHeader(std::shared_ptr<Request> r)
     writebuffer.append("\r\n");
     return OK;
 }
+
 int appendResponseBody(std::shared_ptr<Request> r)
 {
     // auto &writebuffer = r->c->writeBuffer_;
@@ -817,75 +888,5 @@ int doResponse(std::shared_ptr<Request> r)
         }
     }
 
-    // auto &buffer = r->c->writeBuffer_;
-    // for (auto &x : buffer.nodes)
-    // {
-    //     if (x.len == 0)
-    //         break;
-    //     LOG_INFO << x.toString();
-    // }
-
     return writeResponse(&r->c_->write_);
-}
-
-int send2Client(Event *ev)
-{
-    Connection *c = ev->c_;
-    Connection *upc = c->upstream_->upstream_;
-    std::shared_ptr<Upstream> ups = c->upstream_;
-    std::shared_ptr<Request> cr = c->request_;
-    std::shared_ptr<Request> upsr = upc->request_;
-
-    int ret = 0;
-
-    LOG_INFO << "Write to client, FD:" << c->fd_.getFd();
-
-    for (; upc->writeBuffer_.allRead() != 1;)
-    {
-        ret = upc->writeBuffer_.bufferSend(c->fd_.getFd(), 0);
-
-        if (upc->writeBuffer_.allRead())
-        {
-            break;
-        }
-
-        if (ret < 0)
-        {
-            if (errno == EAGAIN)
-            {
-                return AGAIN;
-            }
-            else
-            {
-                LOG_WARN << "SEND ERR, FINALIZE CONNECTION";
-                finalizeRequestNow(upsr);
-                finalizeRequest(cr);
-                return ERROR;
-            }
-        }
-        else if (ret == 0)
-        {
-            LOG_WARN << "Client close connection, FINALIZE CONNECTION";
-            finalizeRequestNow(upsr);
-            finalizeRequest(cr);
-            return ERROR;
-        }
-        else
-        {
-            continue;
-        }
-    }
-
-    LOG_INFO << "PROXYPASS RESPONSED";
-
-    finalizeRequestNow(upsr);
-    if (cr->contextIn_.connectionType_ == ConnectionType::KEEP_ALIVE)
-    {
-        keepAliveRequest(cr);
-    }
-    else
-    {
-        finalizeRequest(cr);
-    }
-    return OK;
 }

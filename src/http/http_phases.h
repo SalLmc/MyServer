@@ -6,14 +6,14 @@
 class Request;
 class Event;
 
-class PhaseHandler
+class Phase
 {
   public:
-    PhaseHandler() = default;
-    PhaseHandler(std::function<int(std::shared_ptr<Request>, PhaseHandler *)> checker,
-                 std::vector<std::function<int(std::shared_ptr<Request>)>> &&handlers);
-    std::function<int(std::shared_ptr<Request>, PhaseHandler *)> checker;
-    std::vector<std::function<int(std::shared_ptr<Request>)>> handlers;
+    Phase() = default;
+    Phase(std::function<int(std::shared_ptr<Request>, Phase *)> phaseHandler,
+                 std::vector<std::function<int(std::shared_ptr<Request>)>> &&funcs);
+    std::function<int(std::shared_ptr<Request>, Phase *)> phaseHandler;
+    std::vector<std::function<int(std::shared_ptr<Request>)>> funcs;
 };
 
 #define PHASE_NEXT OK
@@ -21,17 +21,17 @@ class PhaseHandler
 #define PHASE_CONTINUE AGAIN
 #define PHASE_QUIT DONE
 
-int genericPhaseChecker(std::shared_ptr<Request> r, PhaseHandler *ph);
+int genericPhaseHandler(std::shared_ptr<Request> r, Phase *ph);
 
-int logPhaseHandler(std::shared_ptr<Request> r);
-int authAccessHandler(std::shared_ptr<Request> r);
-int contentAccessHandler(std::shared_ptr<Request> r);
-int proxyPassHandler(std::shared_ptr<Request> r);
-int staticContentHandler(std::shared_ptr<Request> r);
-int autoIndexHandler(std::shared_ptr<Request> r);
+int logPhaseFunc(std::shared_ptr<Request> r);
+int authAccessFunc(std::shared_ptr<Request> r);
+int contentAccessFunc(std::shared_ptr<Request> r);
+int proxyPassFunc(std::shared_ptr<Request> r);
+int staticContentFunc(std::shared_ptr<Request> r);
+int autoIndexFunc(std::shared_ptr<Request> r);
 
 int passPhaseHandler(std::shared_ptr<Request> r);
-int endPhaseHandler(std::shared_ptr<Request> r);
+int endPhaseFunc(std::shared_ptr<Request> r);
 
 int appendResponseLine(std::shared_ptr<Request> r);
 int appendResponseHeader(std::shared_ptr<Request> r);

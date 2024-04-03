@@ -128,30 +128,24 @@ Logger::Logger(const char *rootPath, const char *logName)
     : rootPath_(rootPath), logName_(logName), threshold_(1), state_(State::INIT),
       writeThread_(&Logger::write2File, this)
 {
-    std::string folder(rootPath);
-    if (folder.back() != '/')
+    std::string file(rootPath);
+    if (file.back() != '/')
     {
-        folder.append("/");
+        file.append("/");
     }
-    folder.append(logName);
+    file.append(logName);
 
-    if (access(folder.data(), W_OK | R_OK | X_OK | F_OK) != 0)
+    if (access(rootPath, W_OK | R_OK | X_OK | F_OK) != 0)
     {
-        recursiveMkdir(folder.data(), 0777);
+        recursiveMkdir(rootPath, 0777);
     }
 
-    char info[100] = {0};
-    sprintf(info, "%s/info.log", folder.c_str());
-    char warn[100] = {0};
-    sprintf(warn, "%s/warn.log", folder.c_str());
-    char error[100] = {0};
-    sprintf(error, "%s/error.log", folder.c_str());
+    char log[100] = {0};
+    sprintf(log, "%s.log", file.c_str());
 
-    info_ = open(info, O_RDWR | O_CREAT | O_TRUNC, 0666);
-    warn_ = open(warn, O_RDWR | O_CREAT | O_TRUNC, 0666);
-    error_ = open(error, O_RDWR | O_CREAT | O_TRUNC, 0666);
+    log_ = open(log, O_RDWR | O_CREAT | O_TRUNC, 0666);
 
-    if (info_ >= 0 && warn_ >= 0 && error_ >= 0)
+    if (log_ >= 0)
     {
         state_.store(State::ACTIVE);
     }
@@ -166,17 +160,9 @@ Logger::~Logger()
     }
 
     writeThread_.join();
-    if (info_ != -1)
+    if (log_ != -1)
     {
-        close(info_);
-    }
-    if (warn_ != -1)
-    {
-        close(warn_);
-    }
-    if (error_ != -1)
-    {
-        close(error_);
+        close(log_);
     }
 }
 void Logger::wakeup()
@@ -230,20 +216,7 @@ void Logger::write2FileInner()
         auto &line = ls_.front();
         line.buffer_[line.pos_++] = '\n';
 
-        switch (line.level_)
-        {
-        case Level::INFO:
-            write(info_, line.buffer_, line.pos_);
-            break;
-        case Level::WARN:
-            write(warn_, line.buffer_, line.pos_);
-            break;
-        case Level::CRIT:
-            write(error_, line.buffer_, line.pos_);
-            break;
-        default:
-            break;
-        }
+        write(log_, line.buffer_, line.pos_);
 
         ls_.pop_front();
     }

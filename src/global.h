@@ -3,7 +3,6 @@
 
 #define MAX_PROCESS_N 16
 
-// #define LOOP_ACCEPT
 // #define LOG_HEADER
 
 // config
@@ -11,6 +10,7 @@
 struct Config
 {
     bool loggerEnable;
+    int loggerLevel;
     unsigned long loggerThreshold;
     int loggerInterval;
 
@@ -27,7 +27,6 @@ extern Config serverConfig;
 
 // runtime
 
-extern int cores;
 extern bool isChild;
 extern bool quit;
 extern int slot;

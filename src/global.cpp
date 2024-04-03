@@ -4,6 +4,7 @@
 
 Config serverConfig = {
     .loggerEnable = 1,
+    .loggerLevel = 0,
     .loggerThreshold = 1,
     .loggerInterval = 3,
     .daemon = 0,
@@ -16,7 +17,6 @@ Config serverConfig = {
 
 // runtime
 
-int cores;
 bool isChild;
 bool quit = 0;
 int slot = 0;

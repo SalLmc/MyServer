@@ -58,7 +58,7 @@ void CtxOut::init()
     resCode_ = HTTP_OK;
     statusLine_.clear();
     strBody_.clear();
-    fileBody_.filefd_.closeFd();
+    fileBody_.filefd_.close();
     fileBody_.fileSize_ = 0;
     fileBody_.offset_ = 0;
     resType_ = ResponseType::EMPTY;
@@ -74,7 +74,7 @@ Request::~Request()
 
 void Request::init()
 {
-    nowProxyPass_ = 0;
+    needProxyPass_ = 0;
     quit_ = 0;
     c_ = NULL;
     httpVersion_ = 0;
@@ -95,7 +95,7 @@ void Request::init()
 
     protocol_.init();
     methodName_.init();
-    schema_.init();
+    scheme_.init();
     host_.init();
     requestLine_.init();
     args_.init();
@@ -119,7 +119,7 @@ void Request::init()
     uriStart_ = NULL;
     uriEnd_ = NULL;
 
-    uriExt_ = NULL;
+    uriExtStart_ = NULL;
 
     argsStart_ = NULL;
     requestStart_ = NULL;
@@ -128,8 +128,8 @@ void Request::init()
 
     methodEnd_ = NULL;
 
-    schemaStart_ = NULL;
-    schemaEnd_ = NULL;
+    schemeStart_ = NULL;
+    schemeEnd_ = NULL;
     
     hostStart_ = NULL;
     hostEnd_ = NULL;
@@ -138,20 +138,18 @@ void Request::init()
     httpMajor_ = 0;
 }
 
-ResponseStatus::ResponseStatus() : httpVersion_(0), code_(0), count_(0), start_(NULL), end_(NULL)
+UpsResInfo::UpsResInfo() : count_(0), start_(NULL), end_(NULL)
 {
 }
 
-void ResponseStatus::init()
+void UpsResInfo::init()
 {
-    httpVersion_ = 0;
-    code_ = 0;
     count_ = 0;
     start_ = NULL;
     end_ = NULL;
 }
 
-void UpstreamContext::init()
+void UpsContext::init()
 {
     status_.init();
 }
@@ -161,8 +159,4 @@ Upstream::Upstream()
     upstream_ = NULL;
     client_ = NULL;
     processHandler_ = NULL;
-}
-
-HttpCode::HttpCode(int code, std::string &&str) : code_(code), str_(str)
-{
 }

@@ -6,8 +6,9 @@
 #include "../src/utils/utils.h"
 
 class Server;
-bool enable_logger;
+bool enableLogger;
 Server *serverPtr;
+Level loggerLevel = Level::INFO;
 
 int main(int argc, char *argv[])
 {
