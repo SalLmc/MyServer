@@ -26,7 +26,7 @@ int setEventTimeout(void *ev)
         int fd = thisev->c_->fd_.get();
         serverPtr->multiplexer_->delFd(fd);
         serverPtr->pool_.recoverConnection(thisev->c_);
-        LOG_INFO << "Connection recover in timeout, FD:" << fd;
+        LOG_INFO << "Connection recover in timeout, fd:" << fd;
     }
 
     return 1;

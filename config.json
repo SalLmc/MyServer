@@ -39,6 +39,12 @@
             "root": "./log",
             "index": "sdfsdf",
             "auto_index": 1
+        },
+        {
+            "port": 8084,
+            "root": "/mnt/d/A_File/",
+            "index": "sdfsdf",
+            "auto_index": 1
         }
     ]
 }

@@ -67,7 +67,7 @@ int newConnection(Event *ev)
 
         if (fd.get() < 0)
         {
-            LOG_WARN << "Accept from FD:" << ev->c_->fd_.get() << " failed, errno: " << strerror(errno);
+            LOG_WARN << "Accept from fd:" << ev->c_->fd_.get() << " failed, errno: " << strerror(errno);
             return 1;
         }
 
@@ -86,13 +86,13 @@ int newConnection(Event *ev)
 
         if (serverPtr->multiplexer_->addFd(newc->fd_.get(), Events(IN | ET), newc) == 0)
         {
-            LOG_WARN << "Add client fd failed, FD:" << newc->fd_.get();
+            LOG_WARN << "Add client fd failed, fd:" << newc->fd_.get();
         }
 
         serverPtr->timer_.add(newc->fd_.get(), "Connection timeout", getTickMs() + 60000, setEventTimeout,
                               (void *)&newc->read_);
 
-        LOG_INFO << "NEW CONNECTION FROM FD:" << ev->c_->fd_.get() << ", WITH FD:" << newc->fd_.get();
+        LOG_INFO << "New connection from fd:" << ev->c_->fd_.get() << ", with fd:" << newc->fd_.get();
     }
 
     return 0;
@@ -102,7 +102,7 @@ int waitRequest(Event *ev)
 {
     if (ev->timeout_ == TimeoutStatus::TIMEOUT)
     {
-        LOG_INFO << "Client timeout, FD:" << ev->c_->fd_.get();
+        LOG_INFO << "Client timeout, fd:" << ev->c_->fd_.get();
         finalizeConnection(ev->c_);
         return -1;
     }
@@ -110,8 +110,6 @@ int waitRequest(Event *ev)
     serverPtr->timer_.remove(ev->c_->fd_.get());
 
     Connection *c = ev->c_;
-
-    LOG_INFO << "waitRequest recv from FD:" << c->fd_.get();
 
     int len = c->readBuffer_.bufferRecv(c->fd_.get(), 0);
 
@@ -149,7 +147,7 @@ int waitRequestAgain(Event *ev)
 {
     if (ev->timeout_ == TimeoutStatus::TIMEOUT)
     {
-        LOG_INFO << "Client timeout, FD:" << ev->c_->fd_.get();
+        LOG_INFO << "Client timeout, fd:" << ev->c_->fd_.get();
         finalizeRequest(ev->c_->request_);
         return -1;
     }
@@ -157,8 +155,6 @@ int waitRequestAgain(Event *ev)
     serverPtr->timer_.remove(ev->c_->fd_.get());
 
     Connection *c = ev->c_;
-
-    LOG_INFO << "keepAlive recv from FD:" << c->fd_.get();
 
     int len = c->readBuffer_.bufferRecv(c->fd_.get(), 0);
 
@@ -202,7 +198,6 @@ int processRequestLine(Event *ev)
             int rett = readRequest(r);
             if (rett == ERROR)
             {
-                LOG_WARN << "readRequestHeader ERROR";
                 break;
             }
         }
@@ -214,7 +209,7 @@ int processRequestLine(Event *ev)
             if (r->requestEnd_ < r->requestStart_ ||
                 r->requestEnd_ > r->requestStart_ + r->c_->readBuffer_.pivot_->getSize())
             {
-                LOG_WARN << "request line too long";
+                LOG_WARN << "Request line too long";
                 finalizeRequest(r);
                 break;
             }
@@ -222,7 +217,7 @@ int processRequestLine(Event *ev)
             r->requestLine_.len_ = r->requestEnd_ - r->requestStart_;
             r->requestLine_.data_ = r->requestStart_;
 
-            LOG_INFO << "request line:"
+            LOG_INFO << "Request line:"
                      << std::string(r->requestLine_.data_, r->requestLine_.data_ + r->requestLine_.len_);
 
             if (handleRequestUri(r) != OK)
@@ -316,8 +311,6 @@ int processRequestHeaders(Event *ev)
     c = ev->c_;
     r = c->request_;
 
-    LOG_INFO << "process request headers";
-
     rc = AGAIN;
 
     for (;;)
@@ -383,8 +376,6 @@ int processRequestHeaders(Event *ev)
 
             // all headers have been parsed successfully
 
-            LOG_INFO << "http header done";
-
             if (handleRequestHeader(r, 1) != OK)
             {
                 finalizeRequest(r);
@@ -402,16 +393,12 @@ int processRequestHeaders(Event *ev)
 
         if (rc == AGAIN)
         {
-
-            // a header line parsing is still not complete
-
             continue;
         }
 
         LOG_WARN << "Client sent invalid header line";
         finalizeRequest(r);
         return ERROR;
-        break;
     }
 
     return OK;
@@ -419,11 +406,10 @@ int processRequestHeaders(Event *ev)
 
 int readRequest(std::shared_ptr<Request> r)
 {
-    // LOG_INFO << "read request header";
     Connection *c = r->c_;
     if (c == NULL)
     {
-        LOG_WARN << "connection is NULL";
+        LOG_WARN << "Connection is NULL";
         finalizeRequest(r);
         return ERROR;
     }
@@ -431,7 +417,7 @@ int readRequest(std::shared_ptr<Request> r)
     int n;
     if (!c->readBuffer_.allRead())
     {
-        return 1;
+        return OK;
     }
 
     n = c->readBuffer_.bufferRecv(c->fd_.get(), 0);
@@ -455,7 +441,8 @@ int readRequest(std::shared_ptr<Request> r)
         finalizeRequest(r);
         return ERROR;
     }
-    return n;
+
+    return OK;
 }
 
 int handleRequestUri(std::shared_ptr<Request> r)
@@ -534,9 +521,9 @@ int handleRequestUri(std::shared_ptr<Request> r)
         r->args_.data_ = r->argsStart_;
     }
 
-    LOG_INFO << "http uri:" << std::string(r->uri_.data_, r->uri_.data_ + r->uri_.len_);
-    LOG_INFO << "http args:" << std::string(r->args_.data_, r->args_.data_ + r->args_.len_);
-    LOG_INFO << "http exten:" << std::string(r->exten_.data_, r->exten_.data_ + r->exten_.len_);
+    LOG_INFO << "Uri:" << std::string(r->uri_.data_, r->uri_.data_ + r->uri_.len_);
+    LOG_INFO << "Args:" << std::string(r->args_.data_, r->args_.data_ + r->args_.len_);
+    LOG_INFO << "Exten:" << std::string(r->exten_.data_, r->exten_.data_ + r->exten_.len_);
 
     return OK;
 }
@@ -976,7 +963,7 @@ int processUpsStatusLine(std::shared_ptr<Request> upsr)
         return ret;
     }
 
-    LOG_INFO << "processUpsStatusLine OK";
+    LOG_INFO << "OK";
     ups->processHandler_ = processUpsHeaders;
     return processUpsHeaders(upsr);
 }
@@ -1000,14 +987,14 @@ int processUpsHeaders(std::shared_ptr<Request> upsr)
             if (tryMoveBuffer(&upsr->c_->readBuffer_, (void **)&upsr->headerNameStart_,
                               (void **)&upsr->headerNameEnd_) == ERROR)
             {
-                LOG_WARN << "upstream send too long header name";
+                LOG_WARN << "Upstream send too long header name";
                 return ERROR;
             }
 
             if (tryMoveBuffer(&upsr->c_->readBuffer_, (void **)&upsr->headerValueStart_,
                               (void **)&upsr->headerValueEnd_) == ERROR)
             {
-                LOG_WARN << "upstream send too long header value";
+                LOG_WARN << "Upstream send too long header value";
                 return ERROR;
             }
 
@@ -1033,8 +1020,6 @@ int processUpsHeaders(std::shared_ptr<Request> upsr)
         }
         else if (ret == DONE)
         {
-            LOG_INFO << "Upstream header done";
-
             if (handleRequestHeader(upsr, 0) != OK)
             {
                 return ERROR;
@@ -1042,7 +1027,7 @@ int processUpsHeaders(std::shared_ptr<Request> upsr)
 
             upsr->requestBody_.left_ = -1;
 
-            LOG_INFO << "processUpsHeaders OK";
+            LOG_INFO << "OK";
             ups->processHandler_ = processUpsBody;
             return processUpsBody(upsr);
         }
@@ -1060,7 +1045,7 @@ int processUpsBody(std::shared_ptr<Request> upsr)
     // no content-length && not chunked
     if (upsr->contextIn_.contentLength_ == 0 && !upsr->contextIn_.isChunked_)
     {
-        LOG_INFO << "Upstream process body done";
+        LOG_INFO << "OK";
         return OK;
     }
 
@@ -1068,7 +1053,7 @@ int processUpsBody(std::shared_ptr<Request> upsr)
 
     if (ret == OK)
     {
-        LOG_INFO << "Upstream process body done";
+        LOG_INFO << "OK";
         return OK;
     }
     else
@@ -1079,8 +1064,6 @@ int processUpsBody(std::shared_ptr<Request> upsr)
 
 int runPhases(Event *ev)
 {
-    LOG_INFO << "Phase running";
-
     int ret = OK;
     std::shared_ptr<Request> r = ev->c_->request_;
 
@@ -1098,7 +1081,6 @@ int runPhases(Event *ev)
             break;
         }
     }
-    LOG_INFO << "runPhases return:" << ret;
     return ret;
 }
 
@@ -1139,7 +1121,7 @@ int writeResponse(Event *ev)
     }
     else // RES_EMPTY
     {
-        LOG_INFO << "RESPONSED";
+        LOG_INFO << "Responsed";
 
         if (r->contextIn_.connectionType_ == ConnectionType::KEEP_ALIVE)
         {
@@ -1305,7 +1287,6 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
         r->c_->read_.handler_ = std::function<int(Event *)>();
         if (postHandler)
         {
-            LOG_INFO << "To post_handler";
             postHandler(r);
         }
         return OK;
@@ -1320,7 +1301,6 @@ int readRequestBody(std::shared_ptr<Request> r, std::function<int(std::shared_pt
         r->c_->read_.handler_ = std::function<int(Event *)>();
         if (postHandler)
         {
-            LOG_INFO << "To post_handler";
             postHandler(r);
         }
         return OK;
@@ -1371,7 +1351,7 @@ int readRequestBodyInner(Event *ev)
             else
             {
                 finalizeRequest(r);
-                LOG_WARN << "Recv body error";
+                LOG_WARN << "Recv body error, errno: " << strerror(errno);
                 return ERROR;
             }
         }
@@ -1386,7 +1366,6 @@ int readRequestBodyInner(Event *ev)
             else if (ret == ERROR)
             {
                 finalizeRequest(r);
-                LOG_WARN << "error";
                 return ERROR;
             }
 
@@ -1438,7 +1417,7 @@ int sendfileEvent(Event *ev)
     r->c_->write_.handler_ = std::function<int(Event *)>();
     filebody.filefd_.close();
 
-    LOG_INFO << "SENDFILE RESPONSED";
+    LOG_INFO << "Sendfile responsed";
 
     if (r->contextIn_.connectionType_ == ConnectionType::KEEP_ALIVE)
     {
@@ -1487,7 +1466,7 @@ int sendStrEvent(Event *ev)
     serverPtr->multiplexer_->modFd(r->c_->fd_.get(), Events(IN | ET), r->c_);
     r->c_->write_.handler_ = std::function<int(Event *)>();
 
-    LOG_INFO << "SENDSTR RESPONSED";
+    LOG_INFO << "Responsed";
 
     if (r->contextIn_.connectionType_ == ConnectionType::KEEP_ALIVE)
     {
@@ -1503,8 +1482,6 @@ int sendStrEvent(Event *ev)
 
 int keepAliveRequest(std::shared_ptr<Request> r)
 {
-    int fd = r->c_->fd_.get();
-
     Connection *c = r->c_;
 
     r->init();
@@ -1519,8 +1496,6 @@ int keepAliveRequest(std::shared_ptr<Request> r)
 
     serverPtr->timer_.add(c->fd_.get(), "Connection timeout", getTickMs() + 60000, setEventTimeout, (void *)&c->read_);
 
-    LOG_INFO << "KEEPALIVE CONNECTION DONE, FD:" << fd;
-
     return 0;
 }
 
@@ -1533,7 +1508,7 @@ int timerRecoverConnection(void *arg)
         int fd = c->fd_.get();
         serverPtr->multiplexer_->delFd(fd);
         serverPtr->pool_.recoverConnection(c);
-        LOG_INFO << "Connection recover in timer, FD:" << fd;
+        LOG_INFO << "Connection recover in timer, fd:" << fd;
     }
 
     return 0;
@@ -1544,7 +1519,7 @@ int finalizeConnectionLater(Connection *c)
 {
     if (c == NULL)
     {
-        LOG_CRIT << "FINALIZE CONNECTION NULL";
+        LOG_CRIT << "Connection is NULL";
         return 0;
     }
     int fd = c->fd_.get();
@@ -1554,7 +1529,7 @@ int finalizeConnectionLater(Connection *c)
     // delete c at timer
     serverPtr->timer_.add(fd, "finalize conn", getTickMs(), timerRecoverConnection, (void *)c);
 
-    LOG_INFO << "set connection->quit, FD:" << fd;
+    LOG_INFO << "Set connection->quit, fd:" << fd;
     return 0;
 }
 
@@ -1571,7 +1546,7 @@ int finalizeConnection(Connection *c)
 {
     if (c == NULL)
     {
-        LOG_CRIT << "FINALIZE CONNECTION NULL";
+        LOG_CRIT << "Connection is NULL";
         return 0;
     }
     int fd = c->fd_.get();
@@ -1580,7 +1555,7 @@ int finalizeConnection(Connection *c)
 
     // delete c at the end of a eventloop
 
-    LOG_INFO << "set connection->quit, FD:" << fd;
+    LOG_INFO << "Set connection->quit, fd:" << fd;
     return 0;
 }
 

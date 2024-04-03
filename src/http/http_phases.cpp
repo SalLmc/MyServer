@@ -85,7 +85,6 @@ int endPhaseFunc(std::shared_ptr<Request> r)
 
 int logPhaseFunc(std::shared_ptr<Request> r)
 {
-    LOG_INFO << "Log handler, FD:" << r->c_->fd_.get();
     char ipString[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &r->c_->addr_.sin_addr, ipString, INET_ADDRSTRLEN);
     LOG_INFO << "ip: " << ipString;
@@ -100,7 +99,6 @@ int logPhaseFunc(std::shared_ptr<Request> r)
 
 int authAccessFunc(std::shared_ptr<Request> r)
 {
-    LOG_INFO << "Auth access handler, FD:" << r->c_->fd_.get();
     auto &server = serverPtr->servers_[r->c_->serverIdx_];
 
     bool need_auth = 0;
@@ -130,13 +128,6 @@ int authAccessFunc(std::shared_ptr<Request> r)
         auth.append(authc);
     }
 
-    // std::string args = std::string(r->args.data, r->args.data + r->args.len);
-
-    // if (args.find("code=" + auth) != std::string::npos)
-    // {
-    //     ok = 1;
-    // }
-
     if (!ok)
     {
         if (r->contextIn_.headerNameValueMap_.count("code"))
@@ -153,6 +144,7 @@ int authAccessFunc(std::shared_ptr<Request> r)
         return PHASE_CONTINUE;
     }
 
+    LOG_INFO << "Unauthorized";
     setErrorResponse(r, HTTP_UNAUTHORIZED);
 
     return doResponse(r);
@@ -160,8 +152,6 @@ int authAccessFunc(std::shared_ptr<Request> r)
 
 int contentAccessFunc(std::shared_ptr<Request> r)
 {
-    LOG_INFO << "Content access handler, FD:" << r->c_->fd_.get();
-
     auto &server = serverPtr->servers_[r->c_->serverIdx_];
     std::string uri = std::string(r->uri_.data_, r->uri_.data_ + r->uri_.len_);
     std::string path;
@@ -194,7 +184,7 @@ int contentAccessFunc(std::shared_ptr<Request> r)
         Fd tmp(open(server.root.c_str(), O_RDONLY));
         if (tmp.get() < 0)
         {
-            LOG_WARN << "can't open server root location";
+            LOG_WARN << "Can't open server root location";
             setErrorResponse(r, HTTP_INTERNAL_SERVER_ERROR);
             return doResponse(r);
         }
@@ -321,18 +311,14 @@ fileok:
 
 int proxyPassFunc(std::shared_ptr<Request> r)
 {
-    LOG_INFO << "Proxy pass handler, FD:" << r->c_->fd_.get();
-
     if (r->needProxyPass_ != 1)
     {
         return PHASE_NEXT;
     }
     r->needProxyPass_ = 0;
 
-    LOG_INFO << "Need proxy pass";
-
     int ret = readRequestBody(r, initUpstream);
-    LOG_INFO << "readRequestBody:" << ret;
+
     if (ret != OK)
     {
         LOG_WARN << "PHASE ERR";
@@ -344,10 +330,8 @@ int proxyPassFunc(std::shared_ptr<Request> r)
 
 int staticContentFunc(std::shared_ptr<Request> r)
 {
-    LOG_INFO << "Static content handler, FD:" << r->c_->fd_.get();
     if (r->contextOut_.resType_ == ResponseType::FILE)
     {
-        LOG_INFO << "RES_FILE";
         r->contextOut_.contentLength_ = r->contextOut_.fileBody_.fileSize_;
         std::string etag = getEtag(r->contextOut_.fileBody_.filefd_.get());
         if (etag != "")
@@ -357,17 +341,14 @@ int staticContentFunc(std::shared_ptr<Request> r)
     }
     else if (r->contextOut_.resType_ == ResponseType::STRING)
     {
-        LOG_INFO << "RES_STR";
         r->contextOut_.contentLength_ = r->contextOut_.strBody_.length();
     }
     else if (r->contextOut_.resType_ == ResponseType::EMPTY)
     {
-        LOG_INFO << "RES_EMTPY";
         r->contextOut_.contentLength_ = 0;
     }
     else if (r->contextOut_.resType_ == ResponseType::AUTO_INDEX)
     {
-        LOG_INFO << "RES_AUTO_INDEX";
         return PHASE_CONTINUE;
     }
 
@@ -382,7 +363,6 @@ int staticContentFunc(std::shared_ptr<Request> r)
 
 int autoIndexFunc(std::shared_ptr<Request> r)
 {
-    LOG_INFO << "Auto index handler, FD:" << r->c_->fd_.get();
     if (r->contextOut_.resType_ != ResponseType::AUTO_INDEX)
     {
         LOG_WARN << "Pass auto index handler";
@@ -412,6 +392,7 @@ int autoIndexFunc(std::shared_ptr<Request> r)
     // can't open dir
     if (directory.dir_ == NULL)
     {
+        LOG_WARN << "Can't open directory";
         setErrorResponse(r, HTTP_INTERNAL_SERVER_ERROR);
         return doResponse(r);
     }
@@ -456,8 +437,6 @@ int autoIndexFunc(std::shared_ptr<Request> r)
 
 int initUpstream(std::shared_ptr<Request> r)
 {
-    LOG_INFO << "Initing upstream";
-
     int val = 1;
     bool isDomain = 0;
 
@@ -495,14 +474,14 @@ int initUpstream(std::shared_ptr<Request> r)
     std::string fullUri = std::string(r->uriStart_, r->uriEnd_);
     std::string newUri = getLeftUri(addr) + fullUri.replace(0, server.from.length(), "");
 
-    LOG_INFO << "Upstream to " << addr << " -> " << ip << ":" << port << newUri;
+    LOG_INFO << "Upstream request: " << r->requestLine_.toString() << " to " << ip << ":" << port << newUri;
 
     // setup connection
     Connection *upc = serverPtr->pool_.getNewConnection();
 
     if (upc == NULL)
     {
-        LOG_WARN << "get connection failed";
+        LOG_WARN << "Get connection failed";
         finalizeRequest(r);
         return ERROR;
     }
@@ -511,7 +490,7 @@ int initUpstream(std::shared_ptr<Request> r)
 
     if (upc->fd_.get() < 0)
     {
-        LOG_WARN << "open fd failed";
+        LOG_WARN << "Open fd failed";
         serverPtr->pool_.recoverConnection(upc);
         finalizeRequest(r);
         return ERROR;
@@ -519,7 +498,7 @@ int initUpstream(std::shared_ptr<Request> r)
 
     if (setsockopt(upc->fd_.get(), SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) < 0)
     {
-        LOG_WARN << "set keepalived failed";
+        LOG_WARN << "Set keepalived failed";
         serverPtr->pool_.recoverConnection(upc);
         finalizeRequest(r);
         return ERROR;
@@ -531,7 +510,7 @@ int initUpstream(std::shared_ptr<Request> r)
 
     if (connect(upc->fd_.get(), (struct sockaddr *)&upc->addr_, sizeof(upc->addr_)) < 0)
     {
-        LOG_WARN << "CONNECT ERR, FINALIZE CONNECTION, errro: " << strerror(errno);
+        LOG_WARN << "Connect error, errno: " << strerror(errno);
         serverPtr->pool_.recoverConnection(upc);
         finalizeRequest(r);
         return ERROR;
@@ -539,7 +518,7 @@ int initUpstream(std::shared_ptr<Request> r)
 
     if (setnonblocking(upc->fd_.get()) < 0)
     {
-        LOG_WARN << "set nonblocking failed";
+        LOG_WARN << "Set nonblocking failed";
         serverPtr->pool_.recoverConnection(upc);
         finalizeRequest(r);
         return ERROR;
@@ -601,7 +580,7 @@ int initUpstream(std::shared_ptr<Request> r)
         return ERROR;
     }
 
-    LOG_INFO << "init upstream OK, client: " << r->c_->fd_.get() << ", upstream: " << upc->fd_.get();
+    LOG_INFO << "Connect to upstream OK, client: " << r->c_->fd_.get() << ", upstream: " << upc->fd_.get();
 
     // send && call send2Upstream at upc's loop
 
@@ -620,7 +599,7 @@ int send2Upstream(Event *upcEv)
 
     if (upcEv->timeout_ == TimeoutStatus::TIMEOUT)
     {
-        LOG_INFO << "Upstream writable timeout, FD:" << upcEv->c_->fd_.get();
+        LOG_INFO << "Upstream writable timeout, fd:" << upcEv->c_->fd_.get();
         finalizeRequest(upsr);
 
         // executed in timer already
@@ -652,7 +631,7 @@ int send2Upstream(Event *upcEv)
             }
             else
             {
-                LOG_WARN << "SEND ERR, FINALIZE CONNECTION";
+                LOG_WARN << "Send error, errno: " << strerror(errno);
                 finalizeRequest(upsr);
                 finalizeRequestLater(cr);
                 return ERROR;
@@ -660,7 +639,7 @@ int send2Upstream(Event *upcEv)
         }
         else if (ret == 0)
         {
-            LOG_WARN << "Upstream close connection, FINALIZE CONNECTION";
+            LOG_WARN << "Upstream close connection";
             finalizeRequest(upsr);
             finalizeRequestLater(cr);
             return ERROR;
@@ -705,7 +684,7 @@ int recvFromUpstream(Event *upcEv)
         n = upc->readBuffer_.bufferRecv(upc->fd_.get(), 0);
         if (n < 0 && errno == EAGAIN)
         {
-            LOG_INFO << "recv from upstream EAGAIN";
+            LOG_INFO << "Recv from upstream EAGAIN";
             return AGAIN;
         }
         else if (n < 0 && errno != EAGAIN)
@@ -743,7 +722,7 @@ int recvFromUpstream(Event *upcEv)
         }
     }
 
-    LOG_INFO << "Upstream recv done";
+    LOG_INFO << "Recv from upstream done";
 
     if (tryMoveBuffer(&upsr->c_->readBuffer_, (void **)&ups->ctx_.status_.start_, (void **)&ups->ctx_.status_.end_) ==
         ERROR)
@@ -793,7 +772,7 @@ int send2Client(Event *ev)
 
     if (ev->timeout_ == TimeoutStatus::TIMEOUT)
     {
-        LOG_INFO << "Client writable timeout, FD:" << c->fd_.get();
+        LOG_INFO << "Client writable timeout, fd:" << c->fd_.get();
         finalizeRequest(r);
         return -1;
     }
@@ -801,8 +780,6 @@ int send2Client(Event *ev)
     serverPtr->timer_.remove(c->fd_.get());
 
     int ret = 0;
-
-    LOG_INFO << "Write to client, FD:" << c->fd_.get();
 
     for (; c->writeBuffer_.allRead() != 1;)
     {
@@ -821,14 +798,14 @@ int send2Client(Event *ev)
             }
             else
             {
-                LOG_WARN << "SEND ERR, FINALIZE CONNECTION";
+                LOG_WARN << "Send error, errno: " << strerror(errno);
                 finalizeRequest(r);
                 return ERROR;
             }
         }
         else if (ret == 0)
         {
-            LOG_WARN << "Client close connection, FINALIZE CONNECTION";
+            LOG_WARN << "Client close connection";
             finalizeRequest(r);
             return ERROR;
         }
@@ -838,7 +815,7 @@ int send2Client(Event *ev)
         }
     }
 
-    LOG_INFO << "PROXYPASS RESPONSED";
+    LOG_INFO << "Responsed";
 
     if (r->contextIn_.connectionType_ == ConnectionType::KEEP_ALIVE)
     {

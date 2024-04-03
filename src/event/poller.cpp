@@ -133,7 +133,7 @@ int Poller::processEvents(FLAGS flags, int timeoutMs)
             int fd = c->fd_.get();
             delFd(fd);
             serverPtr->pool_.recoverConnection(c);
-            LOG_INFO << "Connection recover, FD:" << fd;
+            LOG_INFO << "Connection recover, fd:" << fd;
         }
     }
     return 0;
