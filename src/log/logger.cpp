@@ -108,13 +108,13 @@ LogLine &LogLine::operator<<(uint64_t arg)
 LogLine &LogLine::operator<<(std::string &arg)
 {
     strncpy(buffer_ + pos_, arg.c_str(), SIZE - pos_ - 1);
-    pos_ += arg.size();
+    pos_ += std::min(size_t(SIZE - pos_ - 1), arg.size());
     return *this;
 }
 LogLine &LogLine::operator<<(std::string &&arg)
 {
     strncpy(buffer_ + pos_, arg.c_str(), SIZE - pos_ - 1);
-    pos_ += arg.size();
+    pos_ += std::min(size_t(SIZE - pos_ - 1), arg.size());
     return *this;
 }
 LogLine &LogLine::operator<<(const char *arg)
