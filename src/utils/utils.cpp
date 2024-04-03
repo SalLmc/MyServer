@@ -56,9 +56,8 @@ int writePid2File()
     }
 
     pid_t pid = getpid();
-    char buffer[100];
-    memset(buffer, '\0', sizeof(buffer));
-    int len = sprintf(buffer, "%d", pid);
+    char buffer[100] = {0};
+    int len = snprintf(buffer, 100, "%d", pid);
     write(filefd.get(), buffer, len);
     return OK;
 }
@@ -374,9 +373,8 @@ std::string fd2Path(int fd)
 {
     if (fd < 0)
         return "";
-    char path[32];
-    memset(path, 0, sizeof(path));
-    sprintf(path, "/proc/self/fd/%d", fd);
+    char path[64] = {0};
+    snprintf(path, 63, "/proc/self/fd/%d", fd);
     char buf[100];
     memset(buf, 0, sizeof(buf));
     int ret = readlink(path, buf, sizeof(buf) - 1);

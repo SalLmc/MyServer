@@ -15,15 +15,15 @@ LogLine::LogLine(Level level, char const *file, char const *function, unsigned i
     switch (level)
     {
     case Level::CRIT:
-        sprintf(buffer_ + pos_, "[CRIT] ");
+        snprintf(buffer_ + pos_, SIZE - pos_ - 1, "[CRIT] ");
         pos_ += 7;
         break;
     case Level::INFO:
-        sprintf(buffer_ + pos_, "[INFO] ");
+        snprintf(buffer_ + pos_, SIZE - pos_ - 1, "[INFO] ");
         pos_ += 7;
         break;
     case Level::WARN:
-        sprintf(buffer_ + pos_, "[WARN] ");
+        snprintf(buffer_ + pos_, SIZE - pos_ - 1, "[WARN] ");
         pos_ += 7;
         break;
     }
@@ -33,93 +33,93 @@ LogLine::LogLine(Level level, char const *file, char const *function, unsigned i
     auto shortTime = timeStamp_ / 1000;
     std::time_t time_t = shortTime;
     auto lctime = std::localtime(&time_t);
-    strftime(buffer_ + pos_, 21, "[%Y-%m-%d %H:%M:%S", lctime);
+    strftime(buffer_ + pos_, 20, "[%Y-%m-%d %H:%M:%S", lctime);
     pos_ += 20;
-    sprintf(buffer_ + pos_, ".%03lld] ", timeStamp_ % 1000);
+    snprintf(buffer_ + pos_, SIZE - pos_ - 1, ".%03lld] ", timeStamp_ % 1000);
     pos_ += 6;
 
     // pid
-    sprintf(buffer_ + pos_, "<%d> ", getpid());
+    snprintf(buffer_ + pos_, SIZE - pos_ - 1, "<%d> ", getpid());
     pos_ += strlen(buffer_ + pos_);
 
     // file
-    strcpy(buffer_ + pos_, file);
+    strncpy(buffer_ + pos_, file, SIZE - pos_ - 1);
     pos_ += strlen(buffer_ + pos_);
     buffer_[pos_++] = ':';
 
     // line
-    sprintf(buffer_ + pos_, "%d ", line);
+    snprintf(buffer_ + pos_, SIZE - pos_ - 1, "%d ", line);
     pos_ += strlen(buffer_ + pos_);
 
     // function
-    sprintf(buffer_ + pos_, "{%s}", function);
+    snprintf(buffer_ + pos_, SIZE - pos_ - 1, "{%s}", function);
     pos_ += strlen(buffer_ + pos_);
     buffer_[pos_++] = ' ';
 }
 
 LogLine &LogLine::operator<<(int8_t arg)
 {
-    sprintf(buffer_ + pos_, "%d", arg);
+    snprintf(buffer_ + pos_, SIZE - pos_ - 1, "%d", arg);
     pos_ += strlen(buffer_ + pos_);
     return *this;
 }
 LogLine &LogLine::operator<<(uint8_t arg)
 {
-    sprintf(buffer_ + pos_, "%d", arg);
+    snprintf(buffer_ + pos_, SIZE - pos_ - 1, "%d", arg);
     pos_ += strlen(buffer_ + pos_);
     return *this;
 }
 LogLine &LogLine::operator<<(int16_t arg)
 {
-    sprintf(buffer_ + pos_, "%d", arg);
+    snprintf(buffer_ + pos_, SIZE - pos_ - 1, "%d", arg);
     pos_ += strlen(buffer_ + pos_);
     return *this;
 }
 LogLine &LogLine::operator<<(uint16_t arg)
 {
-    sprintf(buffer_ + pos_, "%d", arg);
+    snprintf(buffer_ + pos_, SIZE - pos_ - 1, "%d", arg);
     pos_ += strlen(buffer_ + pos_);
     return *this;
 }
 LogLine &LogLine::operator<<(int32_t arg)
 {
-    sprintf(buffer_ + pos_, "%d", arg);
+    snprintf(buffer_ + pos_, SIZE - pos_ - 1, "%d", arg);
     pos_ += strlen(buffer_ + pos_);
     return *this;
 }
 LogLine &LogLine::operator<<(uint32_t arg)
 {
-    sprintf(buffer_ + pos_, "%d", arg);
+    snprintf(buffer_ + pos_, SIZE - pos_ - 1, "%d", arg);
     pos_ += strlen(buffer_ + pos_);
     return *this;
 }
 LogLine &LogLine::operator<<(int64_t arg)
 {
-    sprintf(buffer_ + pos_, "%ld", arg);
+    snprintf(buffer_ + pos_, SIZE - pos_ - 1, "%ld", arg);
     pos_ += strlen(buffer_ + pos_);
     return *this;
 }
 LogLine &LogLine::operator<<(uint64_t arg)
 {
-    sprintf(buffer_ + pos_, "%ld", arg);
+    snprintf(buffer_ + pos_, SIZE - pos_ - 1, "%ld", arg);
     pos_ += strlen(buffer_ + pos_);
     return *this;
 }
 LogLine &LogLine::operator<<(std::string &arg)
 {
-    strcpy(buffer_ + pos_, arg.c_str());
+    strncpy(buffer_ + pos_, arg.c_str(), SIZE - pos_ - 1);
     pos_ += arg.size();
     return *this;
 }
 LogLine &LogLine::operator<<(std::string &&arg)
 {
-    strcpy(buffer_ + pos_, arg.c_str());
+    strncpy(buffer_ + pos_, arg.c_str(), SIZE - pos_ - 1);
     pos_ += arg.size();
     return *this;
 }
 LogLine &LogLine::operator<<(const char *arg)
 {
-    strcpy(buffer_ + pos_, arg);
+    strncpy(buffer_ + pos_, arg, SIZE - pos_ - 1);
     pos_ += strlen(buffer_ + pos_);
     return *this;
 }
@@ -141,7 +141,7 @@ Logger::Logger(const char *rootPath, const char *logName)
     }
 
     char log[100] = {0};
-    sprintf(log, "%s.log", file.c_str());
+    snprintf(log, 99, "%s.log", file.c_str());
 
     log_ = open(log, O_RDWR | O_CREAT | O_TRUNC, 0666);
 

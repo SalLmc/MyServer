@@ -31,7 +31,9 @@ class LogLine
     LogLine &operator<<(std::string &&arg);
     LogLine &operator<<(const char *arg);
 
-    char buffer_[1024];
+    const static int SIZE = 1024;
+
+    char buffer_[SIZE];
     int pos_ = 0;
 
     Level level_;
@@ -104,15 +106,15 @@ class Logger
 };
 
 #define LOG_INFO                                                                                                       \
-    if (enableLogger && loggerLevel <= Level::INFO)                                                                  \
+    if (enableLogger && loggerLevel <= Level::INFO)                                                                    \
     __LOG_INFO
 
 #define LOG_WARN                                                                                                       \
-    if (enableLogger && loggerLevel <= Level::WARN)                                                                  \
+    if (enableLogger && loggerLevel <= Level::WARN)                                                                    \
     __LOG_WARN
 
 #define LOG_CRIT                                                                                                       \
-    if (enableLogger && loggerLevel <= Level::CRIT)                                                                  \
+    if (enableLogger && loggerLevel <= Level::CRIT)                                                                    \
     __LOG_CRIT
 
 #define __LOG_INFO __LOG_INFO_INNER(*serverPtr->logger_)

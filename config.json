@@ -2,27 +2,27 @@
     "logger": {
         "enable": 1,
         "level": 0,
-        "threshold": 1,
+        "threshold": 100,
         "interval": 3
     },
     "process": {
-        "daemon": 0,
+        "daemon": 1,
         "only_worker": 0,
-        "processes": 1
+        "processes": 2
     },
     "event": {
         "use_epoll": 1,
         "connections": 1024,
-        "delay": 0
+        "delay": 1
     },
     "servers": [
         {
             "port": 8081,
-            "root": "/mnt/d/A_File/VSCode/platform-ts/dist",
+            "root": "/home/sallmc/dist",
             "index": "index.html",
             "from": "/api/",
             "to": [
-                "http://139.199.176.139:8080/"
+                "http://127.0.0.1:8080/"
             ],
             "try_files": [
                 "index.html"
@@ -37,12 +37,6 @@
         {
             "port": 8083,
             "root": "./log",
-            "index": "sdfsdf",
-            "auto_index": 1
-        },
-        {
-            "port": 8084,
-            "root": "/mnt/d/A_File/",
             "index": "sdfsdf",
             "auto_index": 1
         }

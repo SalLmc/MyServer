@@ -116,8 +116,8 @@ void signalWorkerProcesses(int sig)
 void worker(Server *server)
 {
     // log
-    char name[20];
-    sprintf(name, "worker_%d", slot);
+    char name[64] = {0};
+    snprintf(name, 63, "worker_%d", slot);
     server->logger_ = new Logger("log/", name);
     server->logger_->threshold_ = serverConfig.loggerThreshold;
 
