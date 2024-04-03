@@ -33,7 +33,7 @@ LogLine::LogLine(Level level, char const *file, char const *function, unsigned i
     auto shortTime = timeStamp_ / 1000;
     std::time_t time_t = shortTime;
     auto lctime = std::localtime(&time_t);
-    strftime(buffer_ + pos_, 20, "[%Y-%m-%d %H:%M:%S", lctime);
+    strftime(buffer_ + pos_, 21, "[%Y-%m-%d %H:%M:%S", lctime);
     pos_ += 20;
     snprintf(buffer_ + pos_, SIZE - pos_ - 1, ".%03lld] ", timeStamp_ % 1000);
     pos_ += 6;
