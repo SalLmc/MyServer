@@ -724,8 +724,7 @@ int recvFromUpstream(Event *upcEv)
 
     LOG_INFO << "Recv from upstream done";
 
-    if (tryMoveBuffer(&upsr->c_->readBuffer_, (void **)&ups->ctx_.status_.start_, (void **)&ups->ctx_.status_.end_) ==
-        ERROR)
+    if (!upsr->c_->readBuffer_.atSameNode(ups->ctx_.status_.start_, ups->ctx_.status_.end_))
     {
         LOG_WARN << "too long response line" << strerror(errno);
         finalizeRequest(upsr);

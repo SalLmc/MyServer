@@ -6,9 +6,9 @@
         "interval": 3
     },
     "process": {
-        "daemon": 1,
+        "daemon": 0,
         "only_worker": 0,
-        "processes": 2
+        "processes": 1
     },
     "event": {
         "use_epoll": 1,

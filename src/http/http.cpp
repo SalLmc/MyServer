@@ -206,8 +206,7 @@ int processRequestLine(Event *ev)
         if (ret == OK)
         {
             // the request line has been parsed successfully
-            if (r->requestEnd_ < r->requestStart_ ||
-                r->requestEnd_ > r->requestStart_ + r->c_->readBuffer_.pivot_->getSize())
+            if (!r->c_->readBuffer_.atSameNode(r->requestStart_, r->requestEnd_))
             {
                 LOG_WARN << "Request line too long";
                 finalizeRequest(r);
@@ -246,59 +245,6 @@ int processRequestLine(Event *ev)
             }
         }
     }
-    return OK;
-}
-
-int tryMoveBuffer(LinkedBuffer *buffer, void **leftAddr, void **rightAddr)
-{
-    u_char *left = *(u_char **)leftAddr;
-    u_char *right = *(u_char **)rightAddr;
-
-    if (right < left || right > left + LinkedBufferNode::NODE_SIZE)
-    {
-        LinkedBufferNode *a = buffer->getNodeByAddr((uint64_t)left);
-        LinkedBufferNode *b = buffer->getNodeByAddr((uint64_t)right);
-
-        auto iter = buffer->nodes_.begin();
-        size_t totalLen = 0;
-
-        // check length
-        {
-            totalLen += a->start_ + a->len_ - left;
-            totalLen += right - b->start_;
-            LinkedBufferNode *now = a->next_;
-            while (now != b)
-            {
-                totalLen += now->readableBytes();
-                now = now->next_;
-            }
-            if (totalLen > LinkedBufferNode::NODE_SIZE)
-            {
-                return ERROR;
-            }
-        }
-
-        while ((*iter) != (*b))
-        {
-            iter = std::next(iter);
-        }
-
-        // insert a new node
-        iter = buffer->insertNewNode(iter);
-        iter->append(left, a->start_ + a->len_ - left);
-        iter->append(b->start_, right - b->start_);
-
-        // modify node a and b
-        a->len_ = left - a->start_;
-        a->pos_ = a->len_;
-        b->pre_ = right - b->start_;
-
-        *(u_char **)leftAddr = iter->start_ + iter->pos_;
-        *(u_char **)rightAddr = iter->start_ + iter->len_;
-
-        iter->pos_ = iter->len_;
-    }
-
     return OK;
 }
 
@@ -343,15 +289,14 @@ int processRequestHeaders(Event *ev)
                 continue;
             }
 
-            if (tryMoveBuffer(&r->c_->readBuffer_, (void **)&r->headerNameStart_, (void **)&r->headerNameEnd_) == ERROR)
+            if (r->c_->readBuffer_.tryMoveBuffer((void **)&r->headerNameStart_, (void **)&r->headerNameEnd_) == -1)
             {
                 LOG_WARN << "Header name too long";
                 finalizeRequest(r);
                 break;
             }
 
-            if (tryMoveBuffer(&r->c_->readBuffer_, (void **)&r->headerValueStart_, (void **)&r->headerValueEnd_) ==
-                ERROR)
+            if (r->c_->readBuffer_.tryMoveBuffer((void **)&r->headerValueStart_, (void **)&r->headerValueEnd_) == -1)
             {
                 LOG_WARN << "Header value too long";
                 finalizeRequest(r);
@@ -984,15 +929,15 @@ int processUpsHeaders(std::shared_ptr<Request> upsr)
                 continue;
             }
 
-            if (tryMoveBuffer(&upsr->c_->readBuffer_, (void **)&upsr->headerNameStart_,
-                              (void **)&upsr->headerNameEnd_) == ERROR)
+            if (upsr->c_->readBuffer_.tryMoveBuffer((void **)&upsr->headerNameStart_, (void **)&upsr->headerNameEnd_) ==
+                -1)
             {
                 LOG_WARN << "Upstream send too long header name";
                 return ERROR;
             }
 
-            if (tryMoveBuffer(&upsr->c_->readBuffer_, (void **)&upsr->headerValueStart_,
-                              (void **)&upsr->headerValueEnd_) == ERROR)
+            if (upsr->c_->readBuffer_.tryMoveBuffer((void **)&upsr->headerValueStart_,
+                                                    (void **)&upsr->headerValueEnd_) == -1)
             {
                 LOG_WARN << "Upstream send too long header value";
                 return ERROR;

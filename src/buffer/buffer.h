@@ -62,6 +62,9 @@ class LinkedBuffer
     void append(const std::string &str);
     void retrieve(size_t len);
     void retrieveAll();
+
+    int tryMoveBuffer(void **leftAddr, void **rightAddr);
+    bool atSameNode(void *left, void *right);
 };
 
 #endif // BUFFER_H

@@ -345,3 +345,61 @@ void LinkedBuffer::retrieveAll()
     }
     return;
 }
+
+int LinkedBuffer::tryMoveBuffer(void **leftAddr, void **rightAddr)
+{
+    u_char *left = *(u_char **)leftAddr;
+    u_char *right = *(u_char **)rightAddr;
+
+    LinkedBufferNode *a = getNodeByAddr((uint64_t)left);
+    LinkedBufferNode *b = getNodeByAddr((uint64_t)right);
+
+    if (a != b)
+    {
+        auto iter = nodes_.begin();
+        size_t totalLen = 0;
+
+        // check length
+        {
+            totalLen += a->start_ + a->len_ - left;
+            totalLen += right - b->start_;
+            LinkedBufferNode *now = a->next_;
+            while (now != b)
+            {
+                totalLen += now->readableBytes();
+                now = now->next_;
+            }
+            if (totalLen > LinkedBufferNode::NODE_SIZE)
+            {
+                return -1;
+            }
+        }
+
+        while ((*iter) != (*b))
+        {
+            iter = std::next(iter);
+        }
+
+        // insert a new node
+        iter = insertNewNode(iter);
+        iter->append(left, a->start_ + a->len_ - left);
+        iter->append(b->start_, right - b->start_);
+
+        // modify node a and b
+        a->len_ = left - a->start_;
+        a->pos_ = a->len_;
+        b->pre_ = right - b->start_;
+
+        *(u_char **)leftAddr = iter->start_ + iter->pos_;
+        *(u_char **)rightAddr = iter->start_ + iter->len_;
+
+        iter->pos_ = iter->len_;
+    }
+
+    return 0;
+}
+
+bool LinkedBuffer::atSameNode(void *left, void *right)
+{
+    return getNodeByAddr((uint64_t)left) == getNodeByAddr((uint64_t)right);
+}
