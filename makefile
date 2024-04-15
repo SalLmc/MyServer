@@ -36,6 +36,7 @@ main: main.o $(CPP_OBJECTS)
 # 	$(BUILDEXEWITHLIB)
 
 tests:
+	$(MAKE)
 	$(MAKE) -C test
 
 -include $(INCLUDE_FILES)
